@@ -15,5 +15,8 @@ router.post('/trips/:orderId/accept', DeliveryController.acceptTrip);
 router.post('/location', DeliveryController.updateLocation);
 router.post('/trips/:orderId/pod', upload.single('podPhoto'), DeliveryController.verifyProofOfDelivery);
 router.get('/earnings', DeliveryController.getEarnings);
+// Must come before /:orderId routes
+router.get('/trips/active', DeliveryController.getActiveTrip);
+router.get('/trips/history', DeliveryController.getTripHistory);
 
 export default router;

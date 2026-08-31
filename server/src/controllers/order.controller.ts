@@ -292,6 +292,31 @@ export class OrderController {
   }
 
   /**
+   * Get Orders for the authenticated Farmer/Collector
+   */
+  static async getFarmerOrders(req: Request, res: Response, next: NextFunction) {
+    try {
+      const farmerId = req.user!.userId;
+      const { status } = req.query as { status?: string };
+
+      const filter: any = { 'items.farmerId': farmerId };
+      if (status) filter.status = status;
+
+      const orders = await Order.find(filter)
+        .populate('customerId', 'fullName email phone')
+        .populate('assignedDcId', 'name code district')
+        .sort({ createdAt: -1 });
+
+      res.status(200).json({
+        success: true,
+        data: { orders },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get Single Order
    */
   static async getOrderById(req: Request, res: Response, next: NextFunction) {

@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Badge } from '@/components/atoms/Badge';
+import { Spinner } from '@/components/atoms/Spinner';
+import { EmptyState } from '@/components/molecules/EmptyState';
 import { FileDropzone } from '@/components/molecules/FileDropzone';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { DeliveryService } from '@/services/delivery.service';
 import {
   Compass,
   Radar,
@@ -16,12 +19,12 @@ import {
   DollarSign,
   MapPin,
   Phone,
-  MessageSquare,
   QrCode,
   ShieldCheck,
   CheckCircle2,
   Navigation,
   Sparkles,
+  Package,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,7 +34,9 @@ export const ActiveTripPage: React.FC = () => {
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
 
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(2); // 1: Pickup at DC, 2: En Route, 3: Arrived & Handover
+  const [activeTrip, setActiveTrip] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(2);
   const [handoverOtp, setHandoverOtp] = useState('');
   const [isCodCollected, setIsCodCollected] = useState(false);
   const [podPhoto, setPodPhoto] = useState<File | null>(null);
@@ -45,25 +50,47 @@ export const ActiveTripPage: React.FC = () => {
     { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
   ];
 
+  useEffect(() => {
+    fetchActiveTrip();
+  }, []);
+
+  const fetchActiveTrip = async () => {
+    try {
+      setIsLoading(true);
+      const res: any = await DeliveryService.getActiveTrip();
+      if (res.success && res.data) {
+        setActiveTrip(res.data.activeTrip);
+      }
+    } catch (err: any) {
+      toast.error('Failed to load active trip');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCompleteTrip = async () => {
-    if (handoverOtp.length !== 4 && !podPhoto) {
-      toast.error('Please enter customer 4-digit OTP or upload Proof of Delivery photo');
+    if (!activeTrip) return;
+    if (!handoverOtp && !podPhoto) {
+      toast.error('Please enter the customer delivery OTP or upload a proof of delivery photo');
       return;
     }
 
     try {
       setIsCompleting(true);
       toast.loading('Verifying handover & releasing trip payout...', { id: 'pod' });
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      toast.success('Delivery Completed! LKR 1,250.00 credited to your Pola Wallet.', { id: 'pod' });
+      await DeliveryService.confirmHandoverDelivery(activeTrip._id, handoverOtp, podPhoto || undefined);
+      toast.success('Delivery completed! Payout credited to your Pola Wallet.', { id: 'pod' });
       navigate('/delivery/dashboard');
     } catch (err: any) {
-      toast.error('Failed to complete delivery', { id: 'pod' });
+      toast.error(err.response?.data?.message || 'Failed to complete delivery', { id: 'pod' });
     } finally {
       setIsCompleting(false);
     }
   };
+
+  const customer = activeTrip?.customerId;
+  const deliveryAddr = activeTrip?.deliveryAddress;
+  const isCod = activeTrip?.paymentMethod === 'cash_on_delivery';
 
   return (
     <DashboardLayout
@@ -83,155 +110,176 @@ export const ActiveTripPage: React.FC = () => {
       }}
     >
       <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold mb-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Active Doorstep Run In Progress
-            </div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              Trip #TRIP-84920 — Doorstep Drop-off
-            </h1>
-            <p className="text-xs text-slate-400">
-              Meegoda DC ──► Nugegoda, Colombo (7.2 km) • Payout: <strong>LKR 1,250.00</strong>
-            </p>
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <Spinner size="lg" />
           </div>
+        ) : !activeTrip ? (
+          <EmptyState
+            title="No active trip"
+            description="Accept a radar trip to start delivering"
+            icon={<Truck className="w-8 h-8" />}
+            action={{ label: 'Browse Available Trips', onClick: () => navigate('/delivery/available') }}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold mb-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Active Doorstep Run In Progress
+                </div>
+                <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">
+                  Order #{activeTrip.orderNumber}
+                </h1>
+                <p className="text-xs text-slate-400">
+                  {deliveryAddr?.city}, {deliveryAddr?.district} • Payout:{' '}
+                  <strong>LKR {(activeTrip.leg2DeliveryFee || 0).toLocaleString()}</strong>
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open('https://maps.google.com', '_blank')}
-              leftIcon={<Navigation className="w-4 h-4 text-sky-500" />}
-            >
-              Open Google Maps
-            </Button>
-          </div>
-        </div>
-
-        {/* Live Step Progress */}
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div
-            className={`p-3.5 rounded-2xl border text-xs font-bold transition-all ${
-              currentStep === 1
-                ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
-                : 'border-slate-200 dark:border-slate-800 text-slate-400'
-            }`}
-          >
-            1. Pickup at DC ✓
-          </div>
-          <div
-            className={`p-3.5 rounded-2xl border text-xs font-bold transition-all ${
-              currentStep === 2
-                ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
-                : 'border-slate-200 dark:border-slate-800 text-slate-400'
-            }`}
-          >
-            2. En Route to Buyer
-          </div>
-          <div
-            className={`p-3.5 rounded-2xl border text-xs font-bold transition-all ${
-              currentStep === 3
-                ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
-                : 'border-slate-200 dark:border-slate-800 text-slate-400'
-            }`}
-          >
-            3. Proof of Delivery (POD)
-          </div>
-        </div>
-
-        {/* Customer Contact & Address Card */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Customer Delivery Recipient
-              </span>
-              <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                Ruwan Perera (Household B2C)
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
-                <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>No. 45/2, Chapel Lane, Nugegoda (Near Supermarket)</span>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <a
-                href="tel:+94771234567"
-                className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const lat = deliveryAddr?.gps?.latitude;
+                  const lng = deliveryAddr?.gps?.longitude;
+                  const query = lat && lng ? `${lat},${lng}` : encodeURIComponent(`${deliveryAddr?.addressLine1}, ${deliveryAddr?.city}`);
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
+                }}
+                leftIcon={<Navigation className="w-4 h-4 text-sky-500" />}
               >
-                <Phone className="w-4 h-4" />
-                <span>Call Customer</span>
-              </a>
-            </div>
-          </div>
-
-          {/* Crate Packages Summary */}
-          <div className="space-y-2">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Assigned Packages (2 Crates • 35.0 kg):
-            </span>
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs flex items-center justify-between">
-              <span>CRATE-01: Nuwara Eliya Carrots (20 kg Grade A)</span>
-              <Badge variant="emerald" size="sm">Scanned & Loaded</Badge>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs flex items-center justify-between">
-              <span>CRATE-02: Leeks & Green Chillies (15 kg Grade A)</span>
-              <Badge variant="emerald" size="sm">Scanned & Loaded</Badge>
-            </div>
-          </div>
-
-          {/* Proof of Delivery / Handover Section */}
-          <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-4">
-            <div className="flex items-center gap-2 font-extrabold text-sm text-slate-900 dark:text-slate-100">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              <span>Proof of Delivery Verification</span>
+                Navigate
+              </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Customer 4-Digit Delivery Code (from Buyer App)"
-                placeholder="e.g. 7842"
-                maxLength={4}
-                value={handoverOtp}
-                onChange={(e) => setHandoverOtp(e.target.value)}
-              />
+            {/* Step progress */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {(['Pickup at DC', 'En Route to Buyer', 'Proof of Delivery'] as const).map((label, i) => (
+                <div
+                  key={label}
+                  className={`p-3.5 rounded-2xl border text-xs font-bold transition-all ${
+                    currentStep === i + 1
+                      ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
+                      : currentStep > i + 1
+                      ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600'
+                      : 'border-slate-200 dark:border-slate-800 text-slate-400'
+                  }`}
+                >
+                  {i + 1}. {label}
+                </div>
+              ))}
+            </div>
 
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 self-end">
-                <input
-                  type="checkbox"
-                  id="codCheck"
-                  checked={isCodCollected}
-                  onChange={(e) => setIsCodCollected(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600"
+            {/* Customer details */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Customer Delivery Recipient
+                  </span>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
+                    {customer?.fullName || 'Customer'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      {deliveryAddr?.addressLine1}
+                      {deliveryAddr?.city ? `, ${deliveryAddr.city}` : ''}
+                    </span>
+                  </p>
+                </div>
+
+                {customer?.phone && (
+                  <a
+                    href={`tel:${customer.phone}`}
+                    className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>Call Customer</span>
+                  </a>
+                )}
+              </div>
+
+              {/* Order items */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Assigned Packages ({activeTrip.items?.length || 0} items):
+                </span>
+                {(activeTrip.items || []).map((item: any, idx: number) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-slate-400" />
+                      {item.productName} — {item.quantityOrdered} {item.unit}
+                      {item.inspectedGrade && ` (Grade ${item.inspectedGrade.toUpperCase()})`}
+                    </span>
+                    <Badge variant="emerald" size="sm">Loaded</Badge>
+                  </div>
+                ))}
+              </div>
+
+              {/* COD notice */}
+              {isCod && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs">
+                  <div className="flex items-center gap-2 font-extrabold text-amber-800 dark:text-amber-200 mb-1">
+                    <QrCode className="w-4 h-4" />
+                    Cash on Delivery — Collect from Customer
+                  </div>
+                  <p className="text-amber-700 dark:text-amber-300">
+                    Amount: <strong>LKR {(activeTrip.grandTotal || 0).toLocaleString()}</strong>
+                  </p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <input
+                      type="checkbox"
+                      id="codCheck"
+                      checked={isCodCollected}
+                      onChange={(e) => setIsCodCollected(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-600"
+                    />
+                    <label htmlFor="codCheck" className="font-bold cursor-pointer text-amber-800 dark:text-amber-200">
+                      COD payment collected from customer
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* POD section */}
+              <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-4">
+                <div className="flex items-center gap-2 font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span>Proof of Delivery Verification</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Customer 6-Digit Delivery OTP"
+                    placeholder="e.g. 784219"
+                    maxLength={6}
+                    value={handoverOtp}
+                    onChange={(e) => setHandoverOtp(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+
+                <FileDropzone
+                  label="Or Upload Doorstep Delivery Photo (Optional Fallback)"
+                  onFileSelect={setPodPhoto}
+                  accept="image/*"
                 />
-                <label htmlFor="codCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
-                  COD Payment of LKR 8,450.00 Collected
-                </label>
+
+                <Button
+                  variant="primary"
+                  size="lg"
+                  isLoading={isCompleting}
+                  onClick={handleCompleteTrip}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  rightIcon={<Sparkles className="w-5 h-5" />}
+                >
+                  Complete Delivery &amp; Unlock Payout
+                </Button>
               </div>
             </div>
-
-            <div>
-              <FileDropzone
-                label="Or Upload Doorstep Delivery Photo (Optional Fallback)"
-                onFileSelect={setPodPhoto}
-                accept="image/*"
-              />
-            </div>
-
-            <Button
-              variant="primary"
-              size="lg"
-              isLoading={isCompleting}
-              onClick={handleCompleteTrip}
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-              rightIcon={<Sparkles className="w-5 h-5" />}
-            >
-              Complete Delivery & Unlock LKR 1,250 Payout
-            </Button>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

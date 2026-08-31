@@ -208,4 +208,68 @@ export class DeliveryController {
       next(error);
     }
   }
+
+  /**
+   * Get driver's current active out_for_delivery trip
+   */
+  static async getActiveTrip(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const activeTrip = await Order.findOne({
+        leg2DriverId: driverId,
+        status: OrderStatus.OUT_FOR_DELIVERY,
+      })
+        .populate('customerId', 'fullName phone addresses')
+        .populate('assignedDcId', 'name code district');
+
+      res.status(200).json({
+        success: true,
+        data: { activeTrip: activeTrip || null },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get driver's completed trip history
+   */
+  static async getTripHistory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const { page = 1, limit = 20 } = req.query as any;
+
+      const skip = (page - 1) * limit;
+      const [trips, total] = await Promise.all([
+        Order.find({
+          leg2DriverId: driverId,
+          status: { $in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] },
+        })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select('orderNumber status grandTotal leg2DeliveryFee deliveredAt createdAt deliveryAddress'),
+        Order.countDocuments({
+          leg2DriverId: driverId,
+          status: { $in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] },
+        }),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          trips,
+          meta: {
+            total,
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

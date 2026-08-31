@@ -5,15 +5,24 @@ export const WalletService = {
     return api.get('/wallet/me');
   },
 
-  getLedgerEntries: async (page: number = 1, limit: number = 20) => {
-    return api.get(`/wallet/ledger?page=${page}&limit=${limit}`);
+  getLedgerEntries: async (page: number = 1, limit: number = 20, type?: string) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (type) params.append('type', type);
+    return api.get(`/wallet/ledger?${params.toString()}`);
   },
 
-  requestBankWithdrawal: async (amountLkr: number, bankDetails: any) => {
-    return api.post('/wallet/withdraw', { amountLkr, bankDetails });
+  /** Request a bank withdrawal (calls /wallet/withdraw) */
+  requestBankWithdrawal: async (amountLkr: number) => {
+    return api.post('/wallet/withdraw', { amountLkr });
   },
 
-  topUpViaPayPal: async (amountUSD: number) => {
-    return api.post('/wallet/topup/paypal', { amountUSD });
+  /** Initiate PayPal top-up — returns approveUrl */
+  initiatePayPalTopUp: async (amountLkr: number) => {
+    return api.post('/wallet/topup', { amountLkr });
+  },
+
+  /** Capture and confirm PayPal top-up after user approves */
+  confirmPayPalTopUp: async (paypalOrderId: string, amountLkr: number) => {
+    return api.post('/wallet/topup/confirm', { paypalOrderId, amountLkr });
   },
 };

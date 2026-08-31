@@ -17,6 +17,12 @@ export const OrderService = {
     return api.get('/orders/my-orders');
   },
 
+  getFarmerOrders: async (filters?: { status?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    return api.get(`/orders/farmer-orders${params.toString() ? '?' + params.toString() : ''}`);
+  },
+
   getOrderById: async (id: string) => {
     return api.get(`/orders/${id}`);
   },

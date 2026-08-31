@@ -7,7 +7,7 @@ import { Select } from '@/components/atoms/Select';
 import { Badge } from '@/components/atoms/Badge';
 import { Spinner } from '@/components/atoms/Spinner';
 import { EmptyState } from '@/components/molecules/EmptyState';
-import { DeliveryService } from '@/services/delivery.service';
+import { VehicleService } from '@/services/vehicle.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
@@ -32,27 +32,8 @@ export const VehiclesPage: React.FC = () => {
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
 
-  const [vehicles, setVehicles] = useState<any[]>([
-    {
-      _id: 'veh_01',
-      vehicleType: VehicleType.MINI_TRUCK,
-      licensePlate: 'WP CAB-1234',
-      capacityKg: 1000,
-      hasColdStorage: false,
-      isVerified: true,
-      status: 'active',
-    },
-    {
-      _id: 'veh_02',
-      vehicleType: VehicleType.THREE_WHEELER,
-      licensePlate: 'CP AAQ-5829',
-      capacityKg: 250,
-      hasColdStorage: false,
-      isVerified: true,
-      status: 'active',
-    },
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Add Vehicle Modal
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -70,6 +51,24 @@ export const VehiclesPage: React.FC = () => {
     { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
   ];
 
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const fetchVehicles = async () => {
+    try {
+      setIsLoading(true);
+      const res: any = await VehicleService.getMyVehicles();
+      if (res.success && res.data) {
+        setVehicles(res.data.vehicles || []);
+      }
+    } catch (err: any) {
+      toast.error('Failed to load vehicles');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!licensePlate.trim()) {
@@ -79,21 +78,20 @@ export const VehiclesPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      const newVeh = {
-        _id: `veh_${Date.now()}`,
+      await VehicleService.registerVehicle({
         vehicleType,
         licensePlate,
         capacityKg: parseFloat(capacityKg) || 500,
         hasColdStorage,
-        isVerified: true,
-        status: 'active',
-      };
-      setVehicles([...vehicles, newVeh]);
-      toast.success('Vehicle registered and added to active fleet');
+      });
+      toast.success('Vehicle registered successfully — pending admin verification');
       setIsAddOpen(false);
       setLicensePlate('');
+      setCapacityKg('1000');
+      setHasColdStorage(false);
+      await fetchVehicles(); // Refresh from DB
     } catch (err: any) {
-      toast.error('Failed to add vehicle');
+      toast.error(err.message || 'Failed to register vehicle');
     } finally {
       setIsSubmitting(false);
     }
