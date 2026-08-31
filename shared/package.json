@@ -1,0 +1,26 @@
+{
+  "name": "@pola/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Shared types, enums, constants, and validators for Pola platform",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["pola", "shared", "types", "enums"],
+  "author": "Pola Team",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

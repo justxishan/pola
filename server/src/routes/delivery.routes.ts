@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import { DeliveryController } from '../controllers/delivery.controller.js';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
+import { upload } from '../middleware/upload.middleware.js';
+import { Role } from '@pola/shared';
+
+const router = Router();
+
+router.use(authenticate);
+router.use(requireRole(Role.DELIVERY_INDIVIDUAL, Role.DELIVERY_COMPANY));
+
+router.get('/radar', DeliveryController.getAvailableOrdersRadar);
+router.post('/trips/:orderId/accept', DeliveryController.acceptTrip);
+router.post('/location', DeliveryController.updateLocation);
+router.post('/trips/:orderId/pod', upload.single('podPhoto'), DeliveryController.verifyProofOfDelivery);
+router.get('/earnings', DeliveryController.getEarnings);
+
+export default router;

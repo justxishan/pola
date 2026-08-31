@@ -1,0 +1,34 @@
+{
+  "name": "pola-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pola (පොළ) - B2B/B2C Agricultural Marketplace for Sri Lanka",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build:shared": "npm run build --workspace=shared",
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "db:reset-users": "npm run db:reset-users --workspace=server",
+    "db:fresh": "npm run db:fresh --workspace=server",
+    "db:seed": "npm run seed --workspace=server",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
+  },
+  "keywords": [
+    "marketplace",
+    "agriculture",
+    "sri-lanka",
+    "mern",
+    "pola"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
