@@ -89,8 +89,32 @@ const ProductSchema = new Schema<IProduct>(
     averageRating: { type: Number, default: 5.0 },
     ratingCount: { type: Number, default: 0 },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
+
+// Virtual aliases for frontend compatibility
+ProductSchema.virtual('title').get(function () {
+  return this.productName;
+});
+ProductSchema.virtual('pricePerUnit').get(function () {
+  return this.basePricePerUnit;
+});
+ProductSchema.virtual('pricingTiers').get(function () {
+  return this.b2bPricingTiers;
+});
+ProductSchema.virtual('season').get(function () {
+  return this.seasonTag;
+});
+ProductSchema.virtual('qualityGrade').get(function () {
+  return this.selfDeclaredGrade;
+});
+ProductSchema.virtual('isActive').get(function () {
+  return this.status === 'active';
+});
 
 ProductSchema.index({ category: 1, status: 1, basePricePerUnit: 1 });
 

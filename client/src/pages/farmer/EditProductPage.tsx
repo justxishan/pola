@@ -77,17 +77,17 @@ export const EditProductPage: React.FC = () => {
 
       if (productRes && productRes.success && productRes.data) {
         const p = productRes.data.product;
-        setTitle(p.title || '');
+        setTitle(p.productName || p.title || '');
         setCategory(p.category || 'vegetables');
         setFarmId(p.farmId?._id || p.farmId || '');
         setUnit(p.unit || 'kg');
-        setPricePerUnit(p.pricePerUnit?.toString() || '250');
-        setMinOrderQuantity(p.minOrderQuantity?.toString() || '1');
-        setAvailableQuantity(p.availableQuantity?.toString() || '100');
+        setPricePerUnit((p.basePricePerUnit ?? p.pricePerUnit ?? 250).toString());
+        setMinOrderQuantity((p.minOrderQuantity || 1).toString());
+        setAvailableQuantity((p.availableQuantity || 100).toString());
         setIsOrganic(!!p.isOrganic);
-        setSeason(p.season || 'year_round');
+        setSeason(p.seasonTag || p.season || 'year_round');
         setDescription(p.description || '');
-        setPricingTiers(p.pricingTiers || []);
+        setPricingTiers(p.b2bPricingTiers || p.pricingTiers || []);
       }
     } catch (err: any) {
       toast.error('Failed to load crop listing details');
@@ -114,23 +114,27 @@ export const EditProductPage: React.FC = () => {
     try {
       setIsSaving(true);
       await ProductService.updateProduct(id, {
-        title,
+        productName: title.trim(),
+        title: title.trim(),
         category: category as any,
         farmId: farmId || undefined,
         unit: unit as any,
+        basePricePerUnit: parseFloat(pricePerUnit),
         pricePerUnit: parseFloat(pricePerUnit),
         minOrderQuantity: parseInt(minOrderQuantity) || 1,
         availableQuantity: parseFloat(availableQuantity) || 0,
         isOrganic,
+        seasonTag: season as any,
         season: season as any,
         description,
+        b2bPricingTiers: pricingTiers,
         pricingTiers,
       });
 
       toast.success('Crop harvest listing updated!');
       navigate('/farmer/products');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update listing');
+      toast.error(err.response?.data?.message || err.message || 'Failed to update listing');
     } finally {
       setIsSaving(false);
     }

@@ -62,7 +62,25 @@ const FarmSchema = new Schema<IFarm>(
     notes: { type: String },
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
+
+// Virtual aliases for frontend compatibility
+FarmSchema.virtual('name').get(function () {
+  return this.farmName;
+});
+FarmSchema.virtual('totalAreaAcres').get(function () {
+  return this.extentValue;
+});
+FarmSchema.virtual('landExtentAcres').get(function () {
+  return this.extentValue;
+});
+FarmSchema.virtual('irrigationSource').get(function () {
+  return this.irrigationType;
+});
 
 export const Farm = mongoose.model<IFarm>('Farm', FarmSchema);

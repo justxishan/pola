@@ -110,7 +110,7 @@ export const WalletPage: React.FC = () => {
         fetchWalletData();
       }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to request withdrawal');
+      toast.error(err.response?.data?.message || err.message || 'Failed to request withdrawal');
     } finally {
       setIsProcessingWithdrawal(false);
     }

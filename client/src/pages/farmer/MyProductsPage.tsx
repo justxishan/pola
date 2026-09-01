@@ -60,8 +60,12 @@ export const MyProductsPage: React.FC = () => {
 
   const handleToggleActive = async (product: any) => {
     try {
-      const nextStatus = !product.isActive;
-      await ProductService.updateProduct(product._id, { isActive: nextStatus });
+      const isCurrentlyActive = product.status === 'active' || product.isActive;
+      const nextStatus = !isCurrentlyActive;
+      await ProductService.updateProduct(product._id, {
+        status: nextStatus ? 'active' : 'delisted',
+        isActive: nextStatus,
+      });
       toast.success(`Listing ${nextStatus ? 'activated' : 'paused'}`);
       fetchProducts();
     } catch (err: any) {
@@ -145,57 +149,63 @@ export const MyProductsPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => (
-              <div
-                key={product._id}
-                className="glass-terminal p-5 rounded-3xl border border-white/10 hover:border-lime-400/40 shadow-2xl transition-all flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-3">
-                  <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black/40">
-                    <img
-                      src={product.images?.[0] || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80'}
-                      alt={product.title}
-                      className="w-full h-full object-cover brightness-90"
-                    />
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                      <span className="px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-lime-300 border border-lime-400/30 text-[10px] font-bold font-mono uppercase">
-                        {product.category}
-                      </span>
+            {products.map((product) => {
+              const isActiveListing = product.status === 'active' || product.isActive;
+              const displayTitle = product.productName || product.title;
+              const displayPrice = product.basePricePerUnit ?? product.pricePerUnit;
+              const farmDisplayName = product.farmId?.farmName || product.farmId?.name || 'Verified Farm';
+
+              return (
+                <div
+                  key={product._id}
+                  className="glass-terminal p-5 rounded-3xl border border-white/10 hover:border-lime-400/40 shadow-2xl transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black/40">
+                      <img
+                        src={product.images?.[0] || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80'}
+                        alt={displayTitle}
+                        className="w-full h-full object-cover brightness-90"
+                      />
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                        <span className="px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-lime-300 border border-lime-400/30 text-[10px] font-bold font-mono uppercase">
+                          {product.category}
+                        </span>
+                      </div>
+
+                      <div className="absolute top-2.5 right-2.5">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                            isActiveListing
+                              ? 'bg-lime-400 text-slate-950 shadow-md'
+                              : 'bg-white/20 text-slate-300'
+                          }`}
+                        >
+                          {isActiveListing ? 'Active' : 'Paused'}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="absolute top-2.5 right-2.5">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                          product.isActive
-                            ? 'bg-lime-400 text-slate-950 shadow-md'
-                            : 'bg-white/20 text-slate-300'
-                        }`}
-                      >
-                        {product.isActive ? 'Active' : 'Paused'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-extrabold text-white text-base truncate">{product.title}</h3>
-                    <p className="text-xs text-slate-400">{product.farmId?.name || 'Verified Farm'}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs">
                     <div>
-                      <span className="text-slate-400 block text-[10px] font-mono uppercase">Unit Price</span>
-                      <span className="font-black text-lime-400 font-mono text-sm">
-                        LKR {product.pricePerUnit} / {product.unit}
-                      </span>
+                      <h3 className="font-extrabold text-white text-base truncate">{displayTitle}</h3>
+                      <p className="text-xs text-slate-400">{farmDisplayName}</p>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] font-mono uppercase">Available Stock</span>
-                      <span className="font-bold text-white font-mono">
-                        {product.availableQuantity} {product.unit}
-                      </span>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-mono uppercase">Unit Price</span>
+                        <span className="font-black text-lime-400 font-mono text-sm">
+                          LKR {displayPrice} / {product.unit}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-mono uppercase">Available Stock</span>
+                        <span className="font-bold text-white font-mono">
+                          {product.availableQuantity} {product.unit}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
                   <button
@@ -224,7 +234,8 @@ export const MyProductsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>

@@ -38,6 +38,7 @@ export const VehiclesPage: React.FC = () => {
   // Add Vehicle Modal
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [vehicleType, setVehicleType] = useState<VehicleType>(VehicleType.MINI_TRUCK);
+  const [makeModel, setMakeModel] = useState('Tata Ace / Dimo Batta');
   const [licensePlate, setLicensePlate] = useState('');
   const [capacityKg, setCapacityKg] = useState('1000');
   const [hasColdStorage, setHasColdStorage] = useState(false);
@@ -80,18 +81,20 @@ export const VehiclesPage: React.FC = () => {
       setIsSubmitting(true);
       await VehicleService.registerVehicle({
         vehicleType,
-        licensePlate,
-        capacityKg: parseFloat(capacityKg) || 500,
-        hasColdStorage,
+        registrationPlate: licensePlate.trim().toUpperCase(),
+        makeModel: makeModel.trim() || 'Standard Commercial',
+        maxPayloadKg: parseFloat(capacityKg) || 500,
+        hasColdChain: hasColdStorage,
       });
       toast.success('Vehicle registered successfully — pending admin verification');
       setIsAddOpen(false);
       setLicensePlate('');
+      setMakeModel('Tata Ace / Dimo Batta');
       setCapacityKg('1000');
       setHasColdStorage(false);
       await fetchVehicles(); // Refresh from DB
     } catch (err: any) {
-      toast.error(err.message || 'Failed to register vehicle');
+      toast.error(err.response?.data?.message || err.message || 'Failed to register vehicle');
     } finally {
       setIsSubmitting(false);
     }
@@ -213,6 +216,14 @@ export const VehiclesPage: React.FC = () => {
                     { value: VehicleType.LARGE_LORRY, label: 'Large Lorry (16-20ft) — Up to 5,000 kg' },
                     { value: VehicleType.REFRIGERATED_TRUCK, label: 'Refrigerated Cold-Chain Truck' },
                   ]}
+                />
+
+                <Input
+                  label="Make & Model"
+                  placeholder="e.g. Tata Ace, Dimo Batta, Mahindra Bolero"
+                  value={makeModel}
+                  onChange={(e) => setMakeModel(e.target.value)}
+                  required
                 />
 
                 <div className="grid grid-cols-2 gap-4">

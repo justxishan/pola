@@ -194,7 +194,18 @@ export class ProductController {
       const product = await Product.findOne({ _id: req.params.id, farmerId });
       if (!product) throw new AppError('Product not found or unauthorized', 404);
 
-      Object.assign(product, req.body);
+      const updates = { ...req.body };
+      if (updates.title && !updates.productName) updates.productName = updates.title;
+      if (updates.pricePerUnit !== undefined && updates.basePricePerUnit === undefined) {
+        updates.basePricePerUnit = updates.pricePerUnit;
+      }
+      if (updates.season && !updates.seasonTag) updates.seasonTag = updates.season;
+      if (updates.pricingTiers && !updates.b2bPricingTiers) updates.b2bPricingTiers = updates.pricingTiers;
+      if (updates.isActive !== undefined && !updates.status) {
+        updates.status = updates.isActive ? 'active' : 'delisted';
+      }
+
+      Object.assign(product, updates);
       await product.save();
 
       res.status(200).json({

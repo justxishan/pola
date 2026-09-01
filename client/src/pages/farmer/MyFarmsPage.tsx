@@ -126,15 +126,15 @@ export const MyFarmsPage: React.FC = () => {
               <FarmCard
                 key={farm._id}
                 id={farm._id}
-                farmName={farm.name}
+                farmName={farm.farmName || farm.name || 'Unnamed Farm'}
                 province={farm.location?.province || farm.province || 'Central'}
-                district={farm.location?.district || farm.district || 'Nuwara Eliya'}
-                nearestVillage={farm.location?.city || farm.city}
-                landExtentAcres={farm.totalAreaAcres || farm.landExtentAcres || 2.5}
-                ownershipType={farm.ownershipType || 'freehold'}
-                irrigationSource={farm.irrigationSource || 'rainfed'}
+                district={farm.location?.district || farm.district || 'Matale'}
+                nearestVillage={farm.city || farm.location?.city || farm.addressLine || 'Village Hub Zone'}
+                landExtentAcres={farm.extentValue ?? farm.totalAreaAcres ?? farm.landExtentAcres ?? 2.5}
+                ownershipType={farm.ownershipType || 'owned'}
+                irrigationSource={farm.irrigationType || farm.irrigationSource || 'well'}
                 isOrganicCertified={farm.isOrganicCertified}
-                isActive={farm.isActive}
+                isActive={farm.isActive ?? true}
                 onToggleActive={() => handleToggleActive(farm)}
                 onViewListings={() => navigate('/farmer/products')}
               />

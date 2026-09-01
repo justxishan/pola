@@ -214,17 +214,21 @@ export const FarmerOnboardingPage: React.FC = () => {
       let createdFarmId: string | undefined;
       if (hasFarmSection && farmName.trim()) {
         try {
-          const farmRes: any = await FarmService.createFarm({
-            name: farmName.trim(),
+          const farmRes: any = await FarmService.createFarmJson({
+            farmName: farmName.trim(),
             province,
             district,
             city: district,
-            streetAddress: district,
-            totalAreaAcres: landAcres,
+            addressLine: `${district} Main Road`,
+            latitude: 7.8731, // Sri Lanka centroid
+            longitude: 80.6517,
+            extentValue: landAcres || 1,
+            extentUnit: 'acres',
+            ownershipType: 'owned',
+            irrigationType: 'well',
             isOrganicCertified: isOrganic,
-            isActive: true,
           });
-          if (farmRes.success && farmRes.data) {
+          if (farmRes.success && farmRes.data?.farm) {
             createdFarmId = farmRes.data.farm._id;
           }
         } catch (e) {
@@ -235,16 +239,16 @@ export const FarmerOnboardingPage: React.FC = () => {
       // 2. Create Initial Product listing only if farm created and produce not skipped
       if (createdFarmId && hasProduceSection && produceName.trim() && pricePerKg > 0) {
         try {
-          await ProductService.createProduct({
+          await ProductService.createProductJson({
             farmId: createdFarmId,
-            title: produceName.trim(),
+            productName: produceName.trim(),
             category: currentCropObj.category,
-            pricePerUnit: pricePerKg,
+            basePricePerUnit: pricePerKg,
             unit: currentCropObj.unit,
-            availableQuantity: harvestKg,
+            availableQuantity: harvestKg || 100,
             minOrderQuantity: 5,
             isOrganic,
-            qualityGrade: 'Grade A',
+            seasonTag: 'year_round',
             images: ['https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=800&q=80'],
           });
         } catch (e) {

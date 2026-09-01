@@ -168,10 +168,10 @@ export const KycQueuePage: React.FC = () => {
                   nicNumber: selectedRecord.nicNumber,
                   bankDetails: selectedRecord.bankDetails,
                   kycDocuments: {
-                    nicFrontUrl: selectedRecord.kycDocuments?.nicFrontUrl,
-                    nicBackUrl: selectedRecord.kycDocuments?.nicBackUrl,
-                    selfieUrl: selectedRecord.kycDocuments?.selfieUrl,
-                    businessRegUrl: selectedRecord.kycDocuments?.businessRegUrl,
+                    nicFrontUrl: selectedRecord.nicFrontImage || selectedRecord.kycDocuments?.nicFrontUrl,
+                    nicBackUrl: selectedRecord.nicBackImage || selectedRecord.kycDocuments?.nicBackUrl,
+                    selfieUrl: selectedRecord.selfieImage || selectedRecord.kycDocuments?.selfieUrl,
+                    businessRegUrl: selectedRecord.businessRegDoc || selectedRecord.kycDocuments?.businessRegUrl,
                   },
                   submittedAt: selectedRecord.updatedAt || selectedRecord.createdAt,
                 }}

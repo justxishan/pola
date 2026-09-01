@@ -30,10 +30,28 @@ export const ProductService = {
     return api.get(`/products/${id}`);
   },
 
+  /** Create product with image file uploads via multipart/form-data */
   createProduct: async (formData: FormData) => {
     return api.post('/products', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+  },
+
+  /** Create product without direct file upload via JSON */
+  createProductJson: async (data: {
+    farmId: string;
+    productName: string;
+    category: string;
+    unit?: string;
+    basePricePerUnit: number;
+    availableQuantity: number;
+    minOrderQuantity?: number;
+    isOrganic?: boolean;
+    seasonTag?: string;
+    images?: string[];
+    description?: string;
+  }) => {
+    return api.post('/products', data);
   },
 
   getMyProducts: async () => {

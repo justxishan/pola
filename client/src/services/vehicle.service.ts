@@ -7,11 +7,24 @@ export const VehicleService = {
 
   registerVehicle: async (data: {
     vehicleType: string;
-    licensePlate: string;
-    capacityKg: number;
-    hasColdStorage: boolean;
+    registrationPlate?: string;
+    licensePlate?: string;
+    makeModel?: string;
+    maxPayloadKg?: number;
+    capacityKg?: number;
+    hasColdChain?: boolean;
+    hasColdStorage?: boolean;
+    yearOfManufacture?: number;
   }) => {
-    return api.post('/vehicles', data);
+    const payload = {
+      vehicleType: data.vehicleType,
+      registrationPlate: data.registrationPlate || data.licensePlate,
+      makeModel: data.makeModel || 'Standard Commercial',
+      maxPayloadKg: data.maxPayloadKg ?? data.capacityKg ?? 500,
+      hasColdChain: data.hasColdChain ?? data.hasColdStorage ?? false,
+      yearOfManufacture: data.yearOfManufacture,
+    };
+    return api.post('/vehicles', payload);
   },
 
   uploadVehicleDocs: async (vehicleId: string, formData: FormData) => {

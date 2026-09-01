@@ -11,9 +11,19 @@ export const WalletService = {
     return api.get(`/wallet/ledger?${params.toString()}`);
   },
 
+  /** Alias for getLedgerEntries */
+  getLedger: async (page: number = 1, limit: number = 20, type?: string) => {
+    return WalletService.getLedgerEntries(page, limit, type);
+  },
+
   /** Request a bank withdrawal (calls /wallet/withdraw) */
   requestBankWithdrawal: async (amountLkr: number) => {
     return api.post('/wallet/withdraw', { amountLkr });
+  },
+
+  /** Alias for requestBankWithdrawal */
+  requestWithdrawal: async (amountLkr: number) => {
+    return WalletService.requestBankWithdrawal(amountLkr);
   },
 
   /** Initiate PayPal top-up — returns approveUrl */

@@ -137,15 +137,17 @@ export const CheckoutPage: React.FC = () => {
           unitPrice: item.pricePerUnit,
         })),
         deliveryAddress: {
-          recipientName: recipientName.trim() || user?.fullName || 'Valued Buyer',
-          contactPhone: contactPhone.trim() || user?.phone || '+94771234567',
+          label: addressLabel.trim() || 'Home',
           province,
           district,
           city: city.trim(),
           addressLine1: addressLine.trim(),
           postalCode: '00300',
+          contactPhone: contactPhone.trim() || user?.phone || '+94771234567',
         },
-        deliverySlot: 'morning_8_12',
+        recipientName: recipientName.trim() || user?.fullName || 'Valued Buyer',
+        recipientPhone: contactPhone.trim() || user?.phone || '+94771234567',
+        deliveryInstructions: 'morning_8_12',
         customerNotes: customerNotes.trim() || undefined,
         paymentMethod,
       };
@@ -161,7 +163,7 @@ export const CheckoutPage: React.FC = () => {
         throw new Error(res.message || 'Failed to place order');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Checkout failed. Please review your address details.');
+      toast.error(err.response?.data?.message || err.message || 'Checkout failed. Please review your address details.');
     } finally {
       setIsLoading(false);
     }
