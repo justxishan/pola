@@ -24,15 +24,10 @@ export class DeliveryController {
       const lat = Number(req.query.lat) || driver.currentLocation?.latitude;
       const lng = Number(req.query.lng) || driver.currentLocation?.longitude;
 
-      // Find all active orders awaiting courier acceptance/dispatch
+      // Find all active orders awaiting courier acceptance/dispatch (only DC-ready orders)
       const orders = await Order.find({
         status: {
           $in: [
-            OrderStatus.PLACED,
-            OrderStatus.PAYMENT_CONFIRMED,
-            OrderStatus.AWAITING_HUB_COLLECTION,
-            OrderStatus.COLLECTED_AT_HUB,
-            OrderStatus.IN_TRANSIT_TO_DC,
             OrderStatus.RECEIVED_AT_DC,
             OrderStatus.ASSIGNED_FOR_DELIVERY,
           ],
@@ -74,7 +69,7 @@ export class DeliveryController {
   }
 
   /**
-   * Accept an available delivery trip
+   * Accept an available delivery trip (assigns driver and sets status to ASSIGNED_FOR_DELIVERY)
    */
   static async acceptTrip(req: Request, res: Response, next: NextFunction) {
     try {
@@ -89,30 +84,37 @@ export class DeliveryController {
         throw new AppError('This order has already been assigned to another delivery partner', 400);
       }
 
+      const acceptableStatuses = [OrderStatus.RECEIVED_AT_DC, OrderStatus.ASSIGNED_FOR_DELIVERY];
+      if (!acceptableStatuses.includes(order.status)) {
+        throw new AppError(`Order is not ready for courier pickup (current status: ${order.status})`, 400);
+      }
+
       order.leg2DriverId = new Types.ObjectId(driverId);
       if (vehicleId) order.leg2VehicleId = new Types.ObjectId(vehicleId);
-      order.status = OrderStatus.OUT_FOR_DELIVERY;
+      order.status = OrderStatus.ASSIGNED_FOR_DELIVERY;
 
       order.timeline.push({
-        status: OrderStatus.OUT_FOR_DELIVERY,
+        status: OrderStatus.ASSIGNED_FOR_DELIVERY,
         timestamp: new Date(),
         updatedBy: new Types.ObjectId(driverId),
-        note: `Courier partner ${driver?.fullName || ''} accepted trip and is en route.`,
+        note: `Courier partner ${driver?.fullName || ''} accepted delivery run from Distribution Center.`,
       });
 
       await order.save();
 
-      // Notify customer
+      // Notify customer with portal and semantic destination
       await NotificationService.sendNotification({
         userId: order.customerId,
-        title: 'Delivery Partner Assigned',
-        message: `${driver?.fullName || 'A courier'} has accepted your delivery trip for Order #${order.orderNumber} and is on the way.`,
+        title: 'Delivery Courier Assigned',
+        message: `${driver?.fullName || 'A courier'} has accepted your delivery run for Order #${order.orderNumber}.`,
         type: 'delivery',
-        linkUrl: `/orders/${order._id}/track`,
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
         relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
       });
 
-      // Notify each unique farmer whose produce is in this order (Section 5.1)
+      // Notify farmers whose produce is in this order
       const uniqueFarmerIds = [...new Set(
         order.items
           .map((item: any) => item.farmerId?.toString())
@@ -121,17 +123,67 @@ export class DeliveryController {
       for (const farmerId of uniqueFarmerIds) {
         await NotificationService.sendNotification({
           userId: farmerId as any,
-          title: 'Courier Assigned to Your Order',
-          message: `A courier has been assigned to pick up Order #${order.orderNumber}. Please ensure your produce is ready at the designated hub for collection.`,
+          title: 'Courier Assigned for Order Dispatch',
+          message: `A courier has been assigned to dispatch Order #${order.orderNumber} to the customer.`,
           type: 'delivery',
-          linkUrl: `/farmer/orders`,
+          portal: 'farmer',
+          destinationKey: 'FARMER_ORDERS',
           relatedId: order._id.toString(),
+          linkUrl: `/farmer/orders`,
         });
       }
 
       res.status(200).json({
         success: true,
         message: 'Trip accepted successfully',
+        data: { order },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update Transit Status (e.g. Start Doorstep Run -> OUT_FOR_DELIVERY)
+   */
+  static async updateTransitStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const { orderId } = req.params;
+      const { status, note } = req.body;
+
+      const order = await Order.findOne({ _id: orderId, leg2DriverId: driverId });
+      if (!order) throw new AppError('Order not found or unauthorized for your account', 404);
+
+      if (status !== OrderStatus.OUT_FOR_DELIVERY) {
+        throw new AppError('Transit updates from this endpoint only support moving to OUT_FOR_DELIVERY. Use proof of delivery for final handover.', 400);
+      }
+
+      order.status = OrderStatus.OUT_FOR_DELIVERY;
+      order.timeline.push({
+        status: OrderStatus.OUT_FOR_DELIVERY,
+        timestamp: new Date(),
+        updatedBy: new Types.ObjectId(driverId),
+        note: note || `Courier started doorstep delivery run for Order #${order.orderNumber}`,
+      });
+
+      await order.save();
+
+      // Notify customer
+      await NotificationService.sendNotification({
+        userId: order.customerId,
+        title: 'Order Out for Delivery!',
+        message: `Your courier has picked up Order #${order.orderNumber} from the distribution center and is en route to your doorstep.`,
+        type: 'delivery',
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
+        relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Order transit status updated to OUT_FOR_DELIVERY',
         data: { order },
       });
     } catch (error) {
@@ -214,8 +266,10 @@ export class DeliveryController {
         title: 'Order Delivered Successfully!',
         message: `Your produce order #${order.orderNumber} has been delivered. Escrow released to farmer.`,
         type: 'order',
-        linkUrl: `/orders/${order._id}/track`,
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
         relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
       });
 
       await NotificationService.sendNotification({
@@ -223,8 +277,10 @@ export class DeliveryController {
         title: 'Delivery Completed - Earnings Credited',
         message: `Delivery for Order #${order.orderNumber} completed. Payout credited to your Pola Wallet.`,
         type: 'wallet',
-        linkUrl: '/delivery/earnings',
+        portal: 'delivery',
+        destinationKey: 'WALLET',
         relatedId: order._id.toString(),
+        linkUrl: '/delivery/earnings',
       });
 
       for (const item of order.items) {
@@ -234,8 +290,10 @@ export class DeliveryController {
             title: 'Produce Delivery Complete - Escrow Released',
             message: `Order #${order.orderNumber} has been handed over to the buyer. Payout released to your farm wallet.`,
             type: 'wallet',
-            linkUrl: '/farmer/orders',
+            portal: 'farmer',
+            destinationKey: 'WALLET',
             relatedId: order._id.toString(),
+            linkUrl: '/wallet',
           });
         }
       }

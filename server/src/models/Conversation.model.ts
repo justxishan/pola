@@ -9,6 +9,7 @@ export interface IConversation extends Document {
   _id: Types.ObjectId;
   orderId: Types.ObjectId;
   participants: IParticipant[];
+  buyerInitiated: boolean;
   lastMessageAt?: Date;
   lastMessagePreview?: string;
   unreadCounts: Map<string, number>;
@@ -28,6 +29,7 @@ const ConversationSchema = new Schema<IConversation>(
   {
     orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
     participants: [ParticipantSchema],
+    buyerInitiated: { type: Boolean, default: false },
     lastMessageAt: { type: Date, default: Date.now },
     lastMessagePreview: { type: String, default: '' },
     unreadCounts: {

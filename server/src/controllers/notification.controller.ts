@@ -8,11 +8,18 @@ export class NotificationController {
   static async getMyNotifications(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.userId;
-      const notifications = await Notification.find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(30);
+      const portal = req.query.portal as string | undefined;
 
-      const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+      const filter: Record<string, any> = { userId };
+      if (portal && ['customer', 'farmer', 'delivery', 'admin'].includes(portal)) {
+        filter.portal = portal;
+      }
+
+      const notifications = await Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(50);
+
+      const unreadCount = await Notification.countDocuments({ ...filter, isRead: false });
 
       res.status(200).json({
         success: true,

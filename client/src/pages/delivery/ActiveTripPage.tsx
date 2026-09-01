@@ -38,7 +38,7 @@ export const ActiveTripPage: React.FC = () => {
 
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(2);
+  const [isStartingRun, setIsStartingRun] = useState(false);
   const [handoverOtp, setHandoverOtp] = useState('');
   const [isCodCollected, setIsCodCollected] = useState(false);
   const [podPhoto, setPodPhoto] = useState<File | null>(null);
@@ -71,6 +71,20 @@ export const ActiveTripPage: React.FC = () => {
     }
   };
 
+  const handleStartDeliveryRun = async () => {
+    if (!activeTrip) return;
+    try {
+      setIsStartingRun(true);
+      await DeliveryService.updateTransitStatus(activeTrip._id, 'out_for_delivery', 'Driver started doorstep delivery run');
+      toast.success('Status updated: Order is now Out for Delivery!');
+      await fetchActiveTrip();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update status');
+    } finally {
+      setIsStartingRun(false);
+    }
+  };
+
   const handleCompleteTrip = async () => {
     if (!activeTrip) return;
     if (!handoverOtp && !podPhoto) {
@@ -96,6 +110,14 @@ export const ActiveTripPage: React.FC = () => {
   const recipientPhone = activeTrip?.recipientPhone || customer?.phone || activeTrip?.deliveryAddress?.contactPhone;
   const deliveryAddr = activeTrip?.deliveryAddress;
   const isCod = activeTrip?.paymentMethod === 'cash_on_delivery' || activeTrip?.paymentMethod === 'cod';
+
+  // Derive real current step from activeTrip.status
+  const currentStep: 1 | 2 | 3 =
+    activeTrip?.status === 'assigned_for_delivery'
+      ? 1
+      : activeTrip?.status === 'out_for_delivery'
+      ? 2
+      : 3;
 
   return (
     <DashboardLayout
@@ -132,7 +154,7 @@ export const ActiveTripPage: React.FC = () => {
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold mb-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Active Doorstep Run In Progress
+                  {currentStep === 1 ? 'Trip Assigned — Pick up at Hub' : currentStep === 2 ? 'En Route to Customer' : 'Delivered'}
                 </div>
                 <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">
                   Order #{activeTrip.orderNumber}
@@ -143,19 +165,33 @@ export const ActiveTripPage: React.FC = () => {
                 </p>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const lat = deliveryAddr?.gps?.latitude;
-                  const lng = deliveryAddr?.gps?.longitude;
-                  const query = lat && lng ? `${lat},${lng}` : encodeURIComponent(`${deliveryAddr?.addressLine1 || deliveryAddr?.streetAddress}, ${deliveryAddr?.city}`);
-                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
-                }}
-                leftIcon={<Navigation className="w-4 h-4 text-sky-500" />}
-              >
-                Navigate (Google Maps)
-              </Button>
+              <div className="flex items-center gap-2">
+                {currentStep === 1 && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    isLoading={isStartingRun}
+                    onClick={handleStartDeliveryRun}
+                    className="bg-emerald-600 hover:bg-emerald-500 font-bold"
+                    leftIcon={<Truck className="w-4 h-4" />}
+                  >
+                    Start Doorstep Run
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const lat = deliveryAddr?.gps?.latitude;
+                    const lng = deliveryAddr?.gps?.longitude;
+                    const query = lat && lng ? `${lat},${lng}` : encodeURIComponent(`${deliveryAddr?.addressLine1 || deliveryAddr?.streetAddress}, ${deliveryAddr?.city}`);
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
+                  }}
+                  leftIcon={<Navigation className="w-4 h-4 text-sky-500" />}
+                >
+                  Navigate (Google Maps)
+                </Button>
+              </div>
             </div>
 
             {/* Step progress */}

@@ -12,6 +12,11 @@ export const DeliveryService = {
     return api.post(`/delivery/trips/${orderId}/accept`, { vehicleId });
   },
 
+  /** Advance transit status (e.g. from assigned_for_delivery -> out_for_delivery) */
+  updateTransitStatus: async (orderId: string, status: string, note?: string) => {
+    return api.patch(`/delivery/trips/${orderId}/status`, { status, note });
+  },
+
   updateLiveLocation: async (lat: number, lng: number, isOnline?: boolean) => {
     return api.post('/delivery/location', { latitude: lat, longitude: lng, isOnline });
   },

@@ -2,8 +2,11 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CartDrawer } from './components/organisms/CartDrawer';
 import { useCartStore } from './store/cartStore';
+import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
-import { Toaster } from 'react-hot-toast';
+import { ChatService } from './services/chat.service';
+import { resolveNotificationPath } from './lib/routeResolver';
+import toast, { Toaster } from 'react-hot-toast';
 
 /**
  * RootLayout wraps the entire app inside the RouterProvider, which means
@@ -16,6 +19,7 @@ import { Toaster } from 'react-hot-toast';
  */
 export const RootLayout: React.FC = () => {
   const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal, hydrateCartFromDb } = useCartStore();
+  const { isAuthenticated, token, user } = useAuthStore();
   const { isDark } = useThemeStore();
   const navigate = useNavigate();
 
@@ -30,6 +34,51 @@ export const RootLayout: React.FC = () => {
   useEffect(() => {
     hydrateCartFromDb();
   }, []);
+
+  // Global persistent WebSocket connection & real-time notification push
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      const socket = ChatService.connectSocket(token);
+
+      const handleLiveNotification = (data: { notification: any }) => {
+        const notif = data?.notification;
+        if (!notif) return;
+
+        toast(
+          (t) => (
+            <div
+              className="cursor-pointer flex flex-col gap-0.5"
+              onClick={() => {
+                toast.dismiss(t.id);
+                const path = resolveNotificationPath(notif, user?.role);
+                if (path) navigate(path);
+              }}
+            >
+              <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-500 dark:text-emerald-400">
+                <span>🔔</span>
+                <span>{notif.title}</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{notif.message}</p>
+            </div>
+          ),
+          { duration: 5000 }
+        );
+
+        // Notify bells & dashboards to increment count immediately
+        window.dispatchEvent(new CustomEvent('pola:notification:new', { detail: notif }));
+      };
+
+      ChatService.onNotificationReceived(handleLiveNotification);
+
+      return () => {
+        if (socket) {
+          socket.off('notification:new', handleLiveNotification);
+        }
+      };
+    } else {
+      ChatService.disconnect();
+    }
+  }, [isAuthenticated, token, user?.role]);
 
   const handleCheckout = () => {
     closeCart();

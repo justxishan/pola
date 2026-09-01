@@ -12,6 +12,7 @@ router.use(requireRole(Role.DELIVERY_INDIVIDUAL, Role.DELIVERY_COMPANY));
 
 router.get('/radar', DeliveryController.getAvailableOrdersRadar);
 router.post('/trips/:orderId/accept', DeliveryController.acceptTrip);
+router.patch('/trips/:orderId/status', DeliveryController.updateTransitStatus);
 router.post('/location', DeliveryController.updateLocation);
 router.post('/trips/:orderId/pod', upload.single('podPhoto'), DeliveryController.verifyProofOfDelivery);
 router.get('/earnings', DeliveryController.getEarnings);

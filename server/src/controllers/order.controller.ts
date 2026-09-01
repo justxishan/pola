@@ -10,6 +10,8 @@ import { PdfService } from '../services/pdf.service.js';
 import { NotificationService } from '../services/notification.service.js';
 import { createPayPalOrder, capturePayPalOrder } from '../config/paypal.config.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { assertOrderStakeholder, sanitizeOrderForRole, getOrderStakeholderInfo } from '../utils/orderAuth.util.js';
+import { validateOrderStatusTransition } from '../config/orderTransitions.config.js';
 import {
   OrderStatus,
   PaymentStatus,
@@ -39,8 +41,10 @@ export class OrderController {
         title: 'Order Placed & Escrow Locked',
         message: `Order #${order.orderNumber} placed for LKR ${order.grandTotal.toLocaleString()}. 6-Digit Handover OTP is ${order.handoverOtp}.`,
         type: 'order',
-        linkUrl: `/orders/${order._id}/track`,
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
         relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
       });
 
       // 2. Notifications to Farmers whose crops were ordered
@@ -59,25 +63,10 @@ export class OrderController {
           title: 'New Harvest Order Received!',
           message: `Order #${order.orderNumber}: Buyer ordered ${itemSummary}. Please prepare your crates for collection.`,
           type: 'order',
+          portal: 'farmer',
+          destinationKey: 'FARMER_ORDERS',
+          relatedId: order._id.toString(),
           linkUrl: '/farmer/orders',
-          relatedId: order._id.toString(),
-        });
-      }
-
-      // 3. Notifications to active Delivery fleet partners
-      const deliveryDrivers = await User.find({
-        role: { $in: [Role.DELIVERY_INDIVIDUAL, Role.DELIVERY_COMPANY] },
-        isActive: true,
-      }).limit(20);
-
-      for (const driver of deliveryDrivers) {
-        await NotificationService.sendNotification({
-          userId: driver._id,
-          title: 'New Delivery Trip Available',
-          message: `Order #${order.orderNumber} is available for courier pickup in ${order.deliveryAddress.district} District (${order.deliveryAddress.city}).`,
-          type: 'delivery',
-          linkUrl: '/delivery/available',
-          relatedId: order._id.toString(),
         });
       }
     } catch (err: any) {
@@ -383,10 +372,13 @@ export class OrderController {
   }
 
   /**
-   * Get Single Order
+   * Get Single Order (Stakeholder Protected & Sanitized)
    */
   static async getOrderById(req: Request, res: Response, next: NextFunction) {
     try {
+      const userId = req.user!.userId;
+      const userRole = req.user!.role;
+
       const order = await Order.findById(req.params.id)
         .populate('assignedDcId')
         .populate('items.productId')
@@ -395,9 +387,15 @@ export class OrderController {
 
       if (!order) throw new AppError('Order not found', 404);
 
+      // Verify caller is an authorized stakeholder (buyer, farmer, assigned driver, or admin)
+      assertOrderStakeholder(order, userId, userRole);
+
+      // Strip sensitive handoverOtp if caller is not the buyer or an admin
+      const sanitizedOrder = sanitizeOrderForRole(order, userId, userRole);
+
       res.status(200).json({
         success: true,
-        data: { order },
+        data: { order: sanitizedOrder },
       });
     } catch (error) {
       next(error);
@@ -405,15 +403,21 @@ export class OrderController {
   }
 
   /**
-   * Download PDF Invoice
+   * Download PDF Invoice (Stakeholder Protected)
    */
   static async downloadInvoice(req: Request, res: Response, next: NextFunction) {
     try {
+      const userId = req.user!.userId;
+      const userRole = req.user!.role;
+
       const order = await Order.findById(req.params.id)
         .populate('customerId')
         .populate('assignedDcId');
 
       if (!order) throw new AppError('Order not found', 404);
+
+      // Verify caller is an authorized stakeholder
+      assertOrderStakeholder(order, userId, userRole);
 
       const pdfBuffer = await PdfService.generateInvoicePdf(order);
 
@@ -426,27 +430,24 @@ export class OrderController {
   }
 
   /**
-   * Update Order Status (Farmer, DC Admin, or Driver)
+   * Update Order Status (Enforced via State Machine & Stakeholder Role Validation)
    */
   static async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.userId;
       const userRole = req.user!.role;
-      const isAdmin = userRole?.startsWith('admin');
 
       const { status, note, handoverOtp } = req.body;
       const order = await Order.findById(req.params.id);
       if (!order) throw new AppError('Order not found', 404);
 
-      // Verify caller is a stakeholder: customer, farmer in items, assigned driver, or admin
-      const isFarmer = order.items.some((item) => item.farmerId?.toString() === userId);
-      const isDriver = order.leg2DriverId?.toString() === userId || order.leg1DriverId?.toString() === userId;
-      const isCustomer = order.customerId.toString() === userId;
+      // 1. Verify caller is a stakeholder
+      const stakeholder = assertOrderStakeholder(order, userId, userRole);
 
-      if (!isAdmin && !isFarmer && !isDriver && !isCustomer) {
-        throw new AppError('Unauthorized: You are not a registered participant on this order', 403);
-      }
+      // 2. Validate state machine transition & role permissions
+      validateOrderStatusTransition(order.status as OrderStatus, status as OrderStatus, stakeholder);
 
+      // 3. If transitioning to DELIVERED, verify 6-digit OTP
       if (status === OrderStatus.DELIVERED) {
         if (!handoverOtp || handoverOtp !== order.handoverOtp) {
           throw new AppError('Invalid 6-digit handover OTP code provided by buyer', 400);
@@ -469,20 +470,45 @@ export class OrderController {
 
       await order.save();
 
-      // Dispatch status update notification to customer
+      // Dispatch status update notification to customer with portal and semantic destination
       await NotificationService.sendNotification({
         userId: order.customerId,
         title: `Order Status: ${status.replace(/_/g, ' ').toUpperCase()}`,
         message: note || `Your order #${order.orderNumber} status is now ${status.replace(/_/g, ' ')}.`,
         type: 'order',
-        linkUrl: `/orders/${order._id}/track`,
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
         relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
       });
+
+      // If order arrived at distribution center (RECEIVED_AT_DC), notify delivery fleet that trips are ready for pickup
+      if (status === OrderStatus.RECEIVED_AT_DC) {
+        const deliveryDrivers = await User.find({
+          role: { $in: [Role.DELIVERY_INDIVIDUAL, Role.DELIVERY_COMPANY] },
+          isActive: true,
+        }).limit(20);
+
+        for (const driver of deliveryDrivers) {
+          await NotificationService.sendNotification({
+            userId: driver._id,
+            title: 'New Delivery Trip Available at DC',
+            message: `Order #${order.orderNumber} is ready for doorstep dispatch in ${order.deliveryAddress?.district || ''} (${order.deliveryAddress?.city || ''}).`,
+            type: 'delivery',
+            portal: 'delivery',
+            destinationKey: 'AVAILABLE_TRIPS',
+            relatedId: order._id.toString(),
+            linkUrl: '/delivery/available',
+          });
+        }
+      }
+
+      const sanitizedOrder = sanitizeOrderForRole(order, userId, userRole);
 
       res.status(200).json({
         success: true,
         message: `Order status updated to ${status}`,
-        data: { order },
+        data: { order: sanitizedOrder },
       });
     } catch (error) {
       next(error);
@@ -490,31 +516,24 @@ export class OrderController {
   }
 
   /**
-   * Cancel Order (Customer or Admin)
+   * Cancel Order (Customer or Admin with State Machine Validation)
    */
   static async cancelOrder(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.userId;
       const userRole = req.user!.role;
-      const isAdmin = userRole?.startsWith('admin');
 
       const order = await Order.findById(req.params.id);
       if (!order) throw new AppError('Order not found', 404);
 
-      // Verify ownership: must be the customer who placed the order, or an admin
-      if (!isAdmin && order.customerId.toString() !== userId) {
-        throw new AppError('Unauthorized: You can only cancel your own orders', 403);
+      // Verify ownership: customer who placed order or admin
+      const stakeholder = assertOrderStakeholder(order, userId, userRole);
+      if (!stakeholder.isCustomer && !stakeholder.isAdmin) {
+        throw new AppError('Unauthorized: Only the buyer who placed the order or an admin can cancel this order', 403);
       }
 
-      const cancelableStatuses = [
-        OrderStatus.PLACED,
-        OrderStatus.PAYMENT_CONFIRMED,
-        OrderStatus.AWAITING_HUB_COLLECTION,
-      ];
-
-      if (!isAdmin && !cancelableStatuses.includes(order.status)) {
-        throw new AppError('Only orders that have not yet been dispatched to logistics can be cancelled', 400);
-      }
+      // Validate status transition
+      validateOrderStatusTransition(order.status as OrderStatus, OrderStatus.CANCELLED, stakeholder);
 
       order.status = OrderStatus.CANCELLED;
       order.timeline.push({
@@ -544,32 +563,35 @@ export class OrderController {
 
       await order.save();
 
-      // Notifications
+      // Notifications with portal tags
       await NotificationService.sendNotification({
         userId: order.customerId,
         title: 'Order Cancelled',
-        message: `Order #${order.orderNumber} has been cancelled successfully.`,
+        message: `Order #${order.orderNumber} has been cancelled. Reserved inventory was released and escrow refunded.`,
         type: 'order',
-        linkUrl: `/orders/${order._id}/track`,
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
         relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
       });
 
-      for (const item of order.items) {
-        if (item.farmerId) {
-          await NotificationService.sendNotification({
-            userId: item.farmerId,
-            title: 'Order Item Cancelled',
-            message: `Buyer cancelled Order #${order.orderNumber} (${item.quantityOrdered} ${item.unit} ${item.productName}). Reserved quantity was restored.`,
-            type: 'order',
-            linkUrl: '/farmer/orders',
-            relatedId: order._id.toString(),
-          });
-        }
+      const uniqueFarmerIds = [...new Set(order.items.map((i: any) => i.farmerId?.toString()).filter(Boolean))];
+      for (const fId of uniqueFarmerIds) {
+        await NotificationService.sendNotification({
+          userId: fId as any,
+          title: 'Order Cancelled by Buyer',
+          message: `Order #${order.orderNumber} was cancelled. Produce quantities have been restored to your available harvest listing.`,
+          type: 'order',
+          portal: 'farmer',
+          destinationKey: 'FARMER_ORDERS',
+          relatedId: order._id.toString(),
+          linkUrl: '/farmer/orders',
+        });
       }
 
       res.status(200).json({
         success: true,
-        message: 'Order cancelled successfully and inventory restored',
+        message: 'Order successfully cancelled',
         data: { order },
       });
     } catch (error) {

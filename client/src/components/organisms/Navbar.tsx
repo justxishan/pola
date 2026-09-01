@@ -108,8 +108,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     fetchUnreadCount();
     pollIntervalRef.current = setInterval(fetchUnreadCount, 30_000);
 
+    const handleInstantAlert = () => {
+      fetchUnreadCount();
+    };
+    window.addEventListener('pola:notification:new', handleInstantAlert);
+
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      window.removeEventListener('pola:notification:new', handleInstantAlert);
     };
   }, [isLoggedIn]);
 

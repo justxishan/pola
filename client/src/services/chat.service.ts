@@ -134,6 +134,21 @@ class ChatServiceClass {
   }
 
   /**
+   * Subscribe to real-time notification alerts
+   */
+  onNotificationReceived(handler: (data: { notification: any }) => void) {
+    if (!this.socket) return;
+    this.socket.on('notification:new', handler);
+  }
+
+  /**
+   * Return socket instance
+   */
+  getSocket(): Socket | null {
+    return this.socket;
+  }
+
+  /**
    * Clean up listeners
    */
   removeListeners() {

@@ -138,7 +138,20 @@ export class ChatController {
         conversation = await Conversation.create({
           orderId: new Types.ObjectId(orderId),
           participants: [{ userId: new Types.ObjectId(userId), role: (req.user!.role as any) || 'customer' }],
+          buyerInitiated: false,
         });
+      }
+
+      const senderRole = req.user!.role || '';
+      const isCustomer = order.customerId.toString() === userId;
+
+      // Policy check: Farmers can only send messages if the buyer has initiated the conversation
+      if (senderRole.startsWith('farmer') && !conversation.buyerInitiated) {
+        throw new AppError('Farmers can only reply after the buyer sends the first message on this order', 403);
+      }
+
+      if (isCustomer) {
+        conversation.buyerInitiated = true;
       }
 
       const message = await Message.create({
@@ -173,19 +186,39 @@ export class ChatController {
         message: populatedMessage,
       });
 
-      // Dispatch offline notification
+      // Dispatch role-specific notification per participant
       const senderUser = await User.findById(userId);
       const senderName = senderUser?.fullName || 'A participant';
 
       conversation.participants.forEach(async (p) => {
         if (p.userId.toString() !== userId) {
+          let targetPortal: 'customer' | 'farmer' | 'delivery' | 'admin' = 'customer';
+          let targetDestKey: any = 'ORDER_DETAIL';
+          let targetUrl = `/orders/${order._id}/track`;
+
+          if (p.role === 'farmer') {
+            targetPortal = 'farmer';
+            targetDestKey = 'FARMER_ORDERS';
+            targetUrl = '/farmer/orders';
+          } else if (p.role === 'driver') {
+            targetPortal = 'delivery';
+            targetDestKey = 'ACTIVE_TRIP';
+            targetUrl = '/delivery/active-trip';
+          } else if (p.role === 'admin') {
+            targetPortal = 'admin';
+            targetDestKey = 'ORDER_DETAIL';
+            targetUrl = '/admin/orders';
+          }
+
           await NotificationService.sendNotification({
             userId: p.userId,
             title: `New message on Order #${order.orderNumber}`,
             message: `${senderName}: "${sanitizedText.substring(0, 60)}"`,
             type: 'message',
-            linkUrl: `/orders/${order._id}/track`,
+            portal: targetPortal,
+            destinationKey: targetDestKey,
             relatedId: order._id.toString(),
+            linkUrl: targetUrl,
           });
         }
       });

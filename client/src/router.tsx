@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { Role, ADMIN_ROLES, DELIVERY_ROLES, FARMER_ROLES, CUSTOMER_ROLES } from '@pola/shared';
 import { RootLayout } from './RootLayout';
 import { ProtectedRoute } from './components/templates/ProtectedRoute';
 
@@ -82,7 +83,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/dashboard',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <FarmerDashboard />
           </ProtectedRoute>
         ),
@@ -90,7 +91,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/farms',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <MyFarmsPage />
           </ProtectedRoute>
         ),
@@ -98,7 +99,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/farms/new',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <AddFarmPage />
           </ProtectedRoute>
         ),
@@ -106,7 +107,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/products',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <MyProductsPage />
           </ProtectedRoute>
         ),
@@ -114,7 +115,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/products/new',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <AddProductPage />
           </ProtectedRoute>
         ),
@@ -122,7 +123,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/products/:id/edit',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <EditProductPage />
           </ProtectedRoute>
         ),
@@ -130,7 +131,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/orders',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <FarmerOrdersPage />
           </ProtectedRoute>
         ),
@@ -138,7 +139,7 @@ export const router = createBrowserRouter([
       {
         path: '/farmer/hubs',
         element: (
-          <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
             <HubDropoffPage />
           </ProtectedRoute>
         ),
@@ -207,7 +208,7 @@ export const router = createBrowserRouter([
       {
         path: '/delivery/dashboard',
         element: (
-          <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <DeliveryDashboard />
           </ProtectedRoute>
         ),
@@ -215,7 +216,7 @@ export const router = createBrowserRouter([
       {
         path: '/delivery/available',
         element: (
-          <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <AvailableTripsPage />
           </ProtectedRoute>
         ),
@@ -223,7 +224,7 @@ export const router = createBrowserRouter([
       {
         path: '/delivery/hub-schedule',
         element: (
-          <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <HubIntakePage />
           </ProtectedRoute>
         ),
@@ -231,7 +232,7 @@ export const router = createBrowserRouter([
       {
         path: '/delivery/active-trip',
         element: (
-          <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <ActiveTripPage />
           </ProtectedRoute>
         ),
@@ -239,7 +240,7 @@ export const router = createBrowserRouter([
       {
         path: '/delivery/vehicles',
         element: (
-          <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <VehiclesPage />
           </ProtectedRoute>
         ),
@@ -247,7 +248,7 @@ export const router = createBrowserRouter([
       {
         path: '/delivery/earnings',
         element: (
-          <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <EarningsPage />
           </ProtectedRoute>
         ),
@@ -258,7 +259,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/dashboard',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={ADMIN_ROLES} redirectPath="/admin/login">
             <AdminDashboard />
           </ProtectedRoute>
         ),
@@ -266,7 +267,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/kyc',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={ADMIN_ROLES} redirectPath="/admin/login">
             <KycQueuePage />
           </ProtectedRoute>
         ),
@@ -274,7 +275,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/payouts',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_finance']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_FINANCE]} redirectPath="/admin/login">
             <PayoutQueuePage />
           </ProtectedRoute>
         ),
@@ -282,7 +283,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/orders',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={ADMIN_ROLES} redirectPath="/admin/login">
             <OrderManagementPage />
           </ProtectedRoute>
         ),
@@ -290,7 +291,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/disputes',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_support']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS, Role.ADMIN_SUPPORT]} redirectPath="/admin/login">
             <DisputeAdjudicationPage />
           </ProtectedRoute>
         ),
@@ -298,7 +299,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/hubs',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS]} redirectPath="/admin/login">
             <LogisticsPage />
           </ProtectedRoute>
         ),
@@ -306,7 +307,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/audit',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS, Role.ADMIN_FINANCE]} redirectPath="/admin/login">
             <AuditLogPage />
           </ProtectedRoute>
         ),
@@ -314,7 +315,7 @@ export const router = createBrowserRouter([
       {
         path: '/admin/reports',
         element: (
-          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']} redirectPath="/admin/login">
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS, Role.ADMIN_FINANCE]} redirectPath="/admin/login">
             <ReportsPage />
           </ProtectedRoute>
         ),

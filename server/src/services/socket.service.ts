@@ -174,7 +174,20 @@ export class SocketService {
             conversation = await Conversation.create({
               orderId: new Types.ObjectId(orderId),
               participants: [{ userId: new Types.ObjectId(userId), role: (role as any) || 'customer' }],
+              buyerInitiated: false,
             });
+          }
+
+          const isCustomer = order.customerId.toString() === userId;
+
+          // Policy check: Farmers can only send messages if the buyer has initiated the conversation
+          if (role?.startsWith('farmer') && !conversation.buyerInitiated) {
+            if (callback) callback({ error: 'Farmers can only reply after the buyer sends the first message on this order' });
+            return;
+          }
+
+          if (isCustomer) {
+            conversation.buyerInitiated = true;
           }
 
           // Create message record
@@ -213,7 +226,7 @@ export class SocketService {
             message: populatedMessage,
           });
 
-          // Offline notification check: notify counterpart if not currently connected
+          // Offline notification check: notify counterpart with role-specific paths
           const senderUser = await User.findById(userId);
           const senderName = senderUser?.fullName || 'A participant';
 
@@ -221,13 +234,33 @@ export class SocketService {
           conversation.participants.forEach(async (p) => {
             const pid = p.userId.toString();
             if (pid !== userId) {
+              let targetPortal: 'customer' | 'farmer' | 'delivery' | 'admin' = 'customer';
+              let targetDestKey: any = 'ORDER_DETAIL';
+              let targetUrl = `/orders/${order._id}/track`;
+
+              if (p.role === 'farmer') {
+                targetPortal = 'farmer';
+                targetDestKey = 'FARMER_ORDERS';
+                targetUrl = '/farmer/orders';
+              } else if (p.role === 'driver') {
+                targetPortal = 'delivery';
+                targetDestKey = 'ACTIVE_TRIP';
+                targetUrl = '/delivery/active-trip';
+              } else if (p.role === 'admin') {
+                targetPortal = 'admin';
+                targetDestKey = 'ORDER_DETAIL';
+                targetUrl = '/admin/orders';
+              }
+
               await NotificationService.sendNotification({
                 userId: p.userId,
                 title: `New message on Order #${order.orderNumber}`,
                 message: `${senderName}: "${sanitizedText.substring(0, 60)}"`,
                 type: 'message',
-                linkUrl: `/orders/${order._id}/track`,
+                portal: targetPortal,
+                destinationKey: targetDestKey,
                 relatedId: order._id.toString(),
+                linkUrl: targetUrl,
               });
             }
           });

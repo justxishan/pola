@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/lib/i18n';
+import { useAuthStore } from '@/store/authStore';
+import { resolveNotificationPath } from '@/lib/routeResolver';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
 import { NotificationService } from '@/services/notification.service';
@@ -16,6 +18,7 @@ import {
   Wallet,
   Truck,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 
 export interface NotificationItem {
@@ -24,6 +27,9 @@ export interface NotificationItem {
   title: string;
   message: string;
   type: 'order' | 'payout' | 'wallet' | 'grading' | 'delivery' | 'dispute' | 'system' | 'kyc';
+  portal?: 'customer' | 'farmer' | 'delivery' | 'admin';
+  destinationKey?: string;
+  relatedId?: string;
   isRead: boolean;
   linkUrl?: string;
   createdAt: string;
@@ -88,9 +94,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         if (onRefreshCount) onRefreshCount();
       } catch (err) {}
     }
-    if (item.linkUrl) {
+    const resolvedPath = resolveNotificationPath(item, user?.role);
+    if (resolvedPath) {
       onClose();
-      navigate(item.linkUrl);
+      navigate(resolvedPath);
     }
   };
 
@@ -163,16 +170,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             </div>
           </div>
 
-          {/* Filter Pills */}
-          <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex gap-2 overflow-x-auto no-scrollbar">
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-1.5 px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 overflow-x-auto">
             {(['all', 'orders', 'wallet', 'delivery'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors capitalize shrink-0 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all shrink-0 cursor-pointer ${
                   activeTab === tab
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                 }`}
               >
                 {tab}
@@ -180,11 +187,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             ))}
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {/* List Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {isLoading ? (
-              <div className="py-12 text-center text-xs text-slate-400">
-                Loading notifications...
+              <div className="flex flex-col items-center justify-center py-16 space-y-2 text-slate-400">
+                <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                <span className="text-xs">Loading alerts...</span>
               </div>
             ) : filtered.length === 0 ? (
               <div className="py-16 text-center space-y-2">
@@ -217,9 +225,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                       </span>
                     </div>
 
-                    {!item.isRead && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {item.portal && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500">
+                          {item.portal}
+                        </span>
+                      )}
+                      {!item.isRead && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs leading-relaxed pl-8 text-slate-600 dark:text-slate-300">
@@ -231,11 +246,9 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                       <Clock className="w-3 h-3" />
                       {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(item.createdAt).toLocaleDateString()}
                     </span>
-                    {item.linkUrl && (
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
-                        View details →
-                      </span>
-                    )}
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                      View details →
+                    </span>
                   </div>
                 </div>
               ))

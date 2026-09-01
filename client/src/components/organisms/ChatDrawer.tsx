@@ -45,9 +45,13 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isCounterpartTyping, setIsCounterpartTyping] = useState(false);
+  const [isBuyerInitiated, setIsBuyerInitiated] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isFarmer = user?.role?.startsWith('farmer') || user?.role === 'collector';
+  const isFarmerBlocked = isFarmer && !isBuyerInitiated;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,6 +70,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         const res: any = await ChatService.getOrderConversation(orderId);
         if (res.success && res.data) {
           setMessages(res.data.messages || []);
+          setIsBuyerInitiated(!!res.data.conversation?.buyerInitiated);
           ChatService.markAsReadSocket(orderId);
         }
       } catch (err: any) {
@@ -87,6 +92,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           if (prev.some((m) => m._id === message._id)) return prev;
           return [...prev, message];
         });
+        setIsBuyerInitiated(true);
         ChatService.markAsReadSocket(orderId);
       }
     });
@@ -121,7 +127,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || !orderId || isSending) return;
+    if (!inputText.trim() || !orderId || isSending || isFarmerBlocked) return;
 
     const textToSend = inputText.trim();
     setInputText('');
@@ -130,15 +136,20 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
     try {
       setIsSending(true);
       await ChatService.sendMessageSocket(orderId, textToSend, (res: any) => {
+        if (res?.error) {
+          toast.error(res.error);
+          return;
+        }
         if (res?.success && res?.data?.message) {
           setMessages((prev) => {
             if (prev.some((m) => m._id === res.data.message._id)) return prev;
             return [...prev, res.data.message];
           });
+          setIsBuyerInitiated(true);
         }
       });
     } catch (err: any) {
-      toast.error('Failed to send message');
+      toast.error(err.message || 'Failed to send message');
     } finally {
       setIsSending(false);
     }
@@ -262,6 +273,14 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Farmer Gating Banner if buyer hasn't messaged yet */}
+          {isFarmerBlocked && (
+            <div className="p-3 bg-amber-500/10 dark:bg-amber-950/30 border-t border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] flex items-center gap-2 px-4">
+              <span className="shrink-0">ℹ️</span>
+              <span>The buyer must send the first message on this order before farmers can reply.</span>
+            </div>
+          )}
+
           {/* Input Footer */}
           <form
             onSubmit={handleSendMessage}
@@ -269,16 +288,17 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           >
             <input
               type="text"
-              placeholder="Type your message..."
+              placeholder={isFarmerBlocked ? 'Waiting for buyer to start conversation...' : 'Type your message...'}
               value={inputText}
               onChange={handleInputChange}
-              className="flex-1 px-4 py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
+              disabled={isFarmerBlocked}
+              className="flex-1 px-4 py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             />
             <button
               type="submit"
-              disabled={!inputText.trim() || isSending}
+              disabled={!inputText.trim() || isSending || isFarmerBlocked}
               className="p-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-md shadow-emerald-600/20 transition-all cursor-pointer shrink-0"
-              title="Send Message"
+              title={isFarmerBlocked ? 'Waiting for buyer to initiate' : 'Send Message'}
             >
               <Send className="w-4 h-4" />
             </button>

@@ -261,20 +261,39 @@ export const OrderTrackingPage: React.FC = () => {
                 const qty = item.quantityOrdered || item.quantity || 1;
                 const unit = item.unit || 'kg';
                 const price = item.unitPrice || item.pricePerUnit || 0;
+                const farmerName = item.farmerId?.fullName || 'Harvest Farmer';
 
                 return (
-                  <div key={idx} className="pt-3 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">
+                  <div key={idx} className="pt-3 flex justify-between items-center gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                         {title}
                       </p>
-                      <p className="text-slate-400 font-mono">
-                        {qty} {unit} × LKR {price}
+                      <p className="text-slate-400 font-mono text-[11px]">
+                        {qty} {unit} × LKR {price} • <span className="text-emerald-600 dark:text-emerald-400 font-medium">Farmer: {farmerName}</span>
                       </p>
                     </div>
-                    <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                      LKR {(qty * price).toLocaleString()}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                        LKR {(qty * price).toLocaleString()}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setChatCounterpart({
+                            name: farmerName,
+                            role: 'farmer',
+                            phone: item.farmerId?.phone,
+                          });
+                          setIsChatOpen(true);
+                        }}
+                        className="text-[11px] h-7 px-2.5 border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                        leftIcon={<MessageSquare className="w-3 h-3" />}
+                      >
+                        Message Farmer
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
