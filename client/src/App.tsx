@@ -7,7 +7,7 @@ import { useCartStore } from './store/cartStore';
 import { useThemeStore } from './store/themeStore';
 
 export const App: React.FC = () => {
-  const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal } = useCartStore();
+  const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal, hydrateCartFromDb } = useCartStore();
   const { isDark } = useThemeStore();
 
   useEffect(() => {
@@ -17,6 +17,10 @@ export const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  useEffect(() => {
+    hydrateCartFromDb();
+  }, []);
 
   return (
     <>

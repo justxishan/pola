@@ -3,37 +3,32 @@ import { cn } from '@/lib/cn';
 import { Button } from '@/components/atoms/Button';
 import { Textarea } from '@/components/atoms/Textarea';
 import { Star, X, Check } from 'lucide-react';
+import { RatingService } from '@/services/rating.service';
+import toast from 'react-hot-toast';
 
 export interface RatingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  orderNumber: string;
+  orderId: string;
   farmerName?: string;
   driverName?: string;
-  onSubmit: (data: {
-    produceRating: number;
-    produceComment: string;
-    deliveryRating: number;
-    deliveryComment: string;
-    feedbackTags: string[];
-  }) => void;
-  isLoading?: boolean;
+  onSubmitSuccess: () => void;
 }
 
 export const RatingModal: React.FC<RatingModalProps> = ({
   isOpen,
   onClose,
-  orderNumber,
-  farmerName = 'Farmer',
+  orderId,
+  farmerName = 'Farmer Partner',
   driverName = 'Delivery Partner',
-  onSubmit,
-  isLoading = false,
+  onSubmitSuccess,
 }) => {
   const [produceRating, setProduceRating] = useState(5);
   const [produceComment, setProduceComment] = useState('');
   const [deliveryRating, setDeliveryRating] = useState(5);
   const [deliveryComment, setDeliveryComment] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
 
@@ -54,15 +49,39 @@ export const RatingModal: React.FC<RatingModalProps> = ({
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      produceRating,
-      produceComment,
-      deliveryRating,
-      deliveryComment,
-      feedbackTags: selectedTags,
-    });
+    try {
+      setIsLoading(true);
+
+      // Submit Produce/Farmer Rating
+      await RatingService.submitRating({
+        orderId,
+        targetType: 'farmer',
+        targetUserId: null, // Depending on backend schema, might need actual IDs. For now assuming backend resolves if missing or handles orderId context
+        ratingScore: produceRating,
+        reviewText: produceComment,
+        tags: selectedTags,
+      });
+
+      // Submit Delivery Rating
+      await RatingService.submitRating({
+        orderId,
+        targetType: 'driver',
+        targetUserId: null,
+        ratingScore: deliveryRating,
+        reviewText: deliveryComment,
+        tags: selectedTags,
+      });
+
+      toast.success('Thank you for your feedback!');
+      onSubmitSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error('Failed to submit rating. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -79,7 +98,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             Rate Your Produce & Delivery
           </h3>
-          <p className="text-xs text-slate-400">Order #{orderNumber}</p>
+          <p className="text-xs text-slate-400 font-mono">Order ID: {orderId.slice(-8)}</p>
         </div>
 
         <form onSubmit={handleFormSubmit} className="space-y-5 text-sm">
@@ -87,7 +106,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
             <div className="flex justify-between items-center">
               <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                Produce Freshness & Quality ({farmerName})
+                Produce Quality ({farmerName})
               </span>
               <div className="flex gap-1 text-amber-400">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -119,7 +138,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
             <div className="flex justify-between items-center">
               <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                Delivery Service & Courier Care ({driverName})
+                Delivery Service ({driverName})
               </span>
               <div className="flex gap-1 text-amber-400">
                 {Array.from({ length: 5 }).map((_, i) => (

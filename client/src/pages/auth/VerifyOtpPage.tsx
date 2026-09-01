@@ -4,6 +4,7 @@ import { AgroviaAuthLayout } from '@/components/templates/AgroviaAuthLayout';
 import { OtpInput } from '@/components/molecules/OtpInput';
 import { AuthService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { ArrowLeft, RotateCcw, ShieldCheck, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,6 +59,7 @@ export const VerifyOtpPage: React.FC = () => {
 
       if (res.success && res.data) {
         setAuth(res.data.user, res.data.token);
+        useCartStore.getState().hydrateCartFromDb();
         toast.success(res.message || 'Authentication successful!');
 
         // If an explicit destination redirect URL was passed, navigate there

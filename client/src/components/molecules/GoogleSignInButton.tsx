@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AuthService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import toast from 'react-hot-toast';
 
 declare global {
@@ -73,6 +74,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       const res: any = await AuthService.googleLogin(response.credential, role);
       if (res.success && res.data) {
         setAuth(res.data.user, res.data.token);
+        useCartStore.getState().hydrateCartFromDb();
         toast.success('Google authentication successful!');
         onSuccess(res.data.user, res.data.isNewUser);
       }

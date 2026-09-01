@@ -6,7 +6,7 @@ import { Input } from '@/components/atoms/Input';
 import { Select } from '@/components/atoms/Select';
 import { Button } from '@/components/atoms/Button';
 import { PROVINCES_DISTRICTS } from '@pola/shared';
-import { MapPin, X, Plus, CheckCircle2, Trash2 } from 'lucide-react';
+import { MapPin, X, Plus, CheckCircle2, Trash2, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export interface AddressDrawerProps {
@@ -49,12 +49,13 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
     try {
       setIsLoading(true);
       const newAddress = {
-        label,
+        label: label.trim() || 'Home',
         province,
         district,
-        city,
-        streetAddress,
-        postalCode,
+        city: city.trim(),
+        addressLine1: streetAddress.trim(),
+        streetAddress: streetAddress.trim(),
+        postalCode: postalCode.trim() || '00300',
         isDefault: addresses.length === 0,
       };
 
@@ -65,16 +66,38 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
       toast.success('New delivery address added!');
       setIsAddingNew(false);
       setStreetAddress('');
+
+      if (onSelectAddress) {
+        onSelectAddress(newAddress);
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save address');
+      toast.error(err.response?.data?.message || err.message || 'Failed to save address');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSetDefault = async (index: number) => {
+    try {
+      const updated = addresses.map((addr, idx) => ({
+        ...addr,
+        isDefault: idx === index,
+      }));
+      await AuthService.updateProfile({ addresses: updated });
+      updateUser({ addresses: updated });
+      toast.success('Default address updated');
+    } catch (err: any) {
+      toast.error('Failed to update default address');
     }
   };
 
   const handleDeleteAddress = async (index: number) => {
     try {
       const updated = addresses.filter((_, idx) => idx !== index);
+      // If we removed the default address, make the first remaining address default
+      if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
+        updated[0].isDefault = true;
+      }
       await AuthService.updateProfile({ addresses: updated });
       updateUser({ addresses: updated });
       toast.success('Address removed');
@@ -86,7 +109,7 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in"
         onClick={onClose}
       />
 
@@ -125,51 +148,68 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
                       <p>No saved addresses yet.</p>
                     </div>
                   ) : (
-                    addresses.map((addr, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          if (onSelectAddress) {
-                            onSelectAddress(addr);
-                            onClose();
-                          }
-                        }}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 ${
-                          addr.isDefault
-                            ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
-                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                            {addr.label || 'Address'}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {addr.isDefault && (
-                              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
-                                Default
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAddress(idx);
-                              }}
-                              className="p-1 text-slate-400 hover:text-red-500 rounded-md"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                    addresses.map((addr, idx) => {
+                      const displayStreet = addr.addressLine1 || addr.streetAddress || '';
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (onSelectAddress) {
+                              onSelectAddress(addr);
+                              onClose();
+                            }
+                          }}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 ${
+                            addr.isDefault
+                              ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                              {addr.label || 'Address'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {addr.isDefault ? (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                                  Default
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetDefault(idx);
+                                  }}
+                                  className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="Set as Default"
+                                >
+                                  <Star className="w-3 h-3" />
+                                  <span>Make Default</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAddress(idx);
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-500 rounded-md cursor-pointer transition-colors"
+                                title="Delete address"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
+                          <p className="text-xs text-slate-700 dark:text-slate-300">
+                            {displayStreet}, {addr.city}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {addr.district}, {addr.province} Province • {addr.postalCode || '00300'}
+                          </p>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                          {addr.streetAddress}, {addr.city}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          {addr.district}, {addr.province} Province • {addr.postalCode}
-                        </p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -198,53 +238,52 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
                     value={province}
                     onChange={(e) => {
                       setProvince(e.target.value);
-                      const d =
-                        PROVINCES_DISTRICTS[
-                          e.target.value as keyof typeof PROVINCES_DISTRICTS
-                        ];
-                      if (d && d.length > 0) setDistrict(d[0]);
+                      const newDistricts = PROVINCES_DISTRICTS[e.target.value as keyof typeof PROVINCES_DISTRICTS] || [];
+                      setDistrict(newDistricts[0] || '');
                     }}
-                    options={Object.keys(PROVINCES_DISTRICTS).map((p) => ({
-                      value: p,
-                      label: p,
-                    }))}
-                  />
+                  >
+                    {Object.keys(PROVINCES_DISTRICTS).map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </Select>
 
                   <Select
                     label="District"
                     value={district}
                     onChange={(e) => setDistrict(e.target.value)}
-                    options={districtsList.map((d) => ({
-                      value: d,
-                      label: d,
-                    }))}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="City / Town"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    required
-                  />
-                  <Input
-                    label="Postal Code"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    required
-                  />
+                  >
+                    {districtsList.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
 
                 <Input
-                  label="Street Address / House Number"
-                  placeholder="e.g. No. 12/B, Flower Road"
+                  label="City / Town"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  required
+                />
+
+                <Input
+                  label="Street Address / Building"
+                  placeholder="e.g. 45/2 Galle Road"
                   value={streetAddress}
                   onChange={(e) => setStreetAddress(e.target.value)}
                   required
                 />
 
-                <div className="flex items-center gap-3 pt-3">
+                <Input
+                  label="Postal Code"
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value)}
+                />
+
+                <div className="flex gap-2 pt-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -259,7 +298,7 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
                     size="sm"
                     type="submit"
                     isLoading={isLoading}
-                    className="flex-1 bg-emerald-600"
+                    className="flex-1"
                   >
                     Save Address
                   </Button>

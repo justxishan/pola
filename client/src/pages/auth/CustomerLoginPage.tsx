@@ -32,8 +32,12 @@ export const CustomerLoginPage: React.FC = () => {
         toast(`[DEV MODE] Verification Code: ${res.devOtp}`, { icon: '🔑', duration: 7000 });
       }
 
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectParam = searchParams.get('redirect');
+      const redirectQuery = redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : '';
+
       navigate(
-        `/auth/verify?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${Role.CUSTOMER_B2C}`
+        `/auth/verify?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${Role.CUSTOMER_B2C}${redirectQuery}`
       );
     } catch (err: any) {
       setError(err.message || 'Failed to send security code');
@@ -121,7 +125,12 @@ export const CustomerLoginPage: React.FC = () => {
         <GoogleSignInButton
           role={Role.CUSTOMER_B2C}
           onSuccess={(user, isNewUser) => {
-            if (isNewUser && !user.onboardingCompleted) {
+            const searchParams = new URLSearchParams(window.location.search);
+            const redirectParam = searchParams.get('redirect');
+
+            if (redirectParam) {
+              navigate(redirectParam);
+            } else if (isNewUser && !user.onboardingCompleted) {
               navigate('/customer/onboarding');
             } else {
               navigate('/');

@@ -1,5 +1,18 @@
 import { create } from 'zustand';
-import { CartItem } from '@/components/organisms/CartDrawer';
+import { CartService } from '@/services/cart.service';
+import { useAuthStore } from './authStore';
+
+export interface CartItem {
+  productId: string;
+  title: string;
+  pricePerUnit: number;
+  unit: string;
+  quantity: number;
+  image?: string;
+  farmerName?: string;
+  minOrderQuantity?: number;
+  maxOrderQuantity?: number;
+}
 
 interface CartState {
   items: CartItem[];
@@ -13,12 +26,29 @@ interface CartState {
   clearCart: () => void;
   getSubtotal: () => number;
   getItemCount: () => number;
+  hydrateCartFromDb: () => Promise<void>;
+  syncCartToDb: () => Promise<void>;
 }
 
-const savedCart = localStorage.getItem('pola_cart');
+let syncTimeout: any = null;
+
+const triggerDbSync = (items: CartItem[]) => {
+  const { isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated) return;
+
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    try {
+      await CartService.saveCart(items);
+    } catch (err) {
+      console.warn('Background cart sync warning:', err);
+    }
+  }, 400);
+};
 
 export const useCartStore = create<CartState>((set, get) => ({
-  items: savedCart ? JSON.parse(savedCart) : [],
+  // Guest cart is strictly in-memory only (never written to localStorage)
+  items: [],
   isOpen: false,
 
   openCart: () => set({ isOpen: true }),
@@ -43,7 +73,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         ];
       }
 
-      localStorage.setItem('pola_cart', JSON.stringify(updatedItems));
+      triggerDbSync(updatedItems);
       return { items: updatedItems, isOpen: true };
     });
   },
@@ -54,7 +84,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         .map((item) => (item.productId === productId ? { ...item, quantity } : item))
         .filter((item) => item.quantity > 0);
 
-      localStorage.setItem('pola_cart', JSON.stringify(updatedItems));
+      triggerDbSync(updatedItems);
       return { items: updatedItems };
     });
   },
@@ -62,13 +92,16 @@ export const useCartStore = create<CartState>((set, get) => ({
   removeItem: (productId) => {
     set((state) => {
       const updatedItems = state.items.filter((item) => item.productId !== productId);
-      localStorage.setItem('pola_cart', JSON.stringify(updatedItems));
+      triggerDbSync(updatedItems);
       return { items: updatedItems };
     });
   },
 
   clearCart: () => {
-    localStorage.removeItem('pola_cart');
+    const { isAuthenticated } = useAuthStore.getState();
+    if (isAuthenticated) {
+      CartService.clearSavedCart().catch(() => {});
+    }
     set({ items: [] });
   },
 
@@ -78,5 +111,52 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   getItemCount: () => {
     return get().items.reduce((sum, item) => sum + item.quantity, 0);
+  },
+
+  hydrateCartFromDb: async () => {
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated) return;
+
+    try {
+      const res: any = await CartService.getSavedCart();
+      if (res.success && res.data?.items) {
+        const dbItems: CartItem[] = res.data.items.map((i: any) => ({
+          productId: i.productId?._id || i.productId,
+          title: i.title || i.productName,
+          pricePerUnit: i.pricePerUnit,
+          unit: i.unit || 'kg',
+          quantity: i.quantity,
+          image: i.image,
+          farmerName: i.farmerName,
+          minOrderQuantity: i.minOrderQuantity,
+        }));
+
+        set((state) => {
+          // Merge with any in-memory guest items
+          const merged = [...dbItems];
+          for (const localItem of state.items) {
+            const matchIndex = merged.findIndex((m) => m.productId === localItem.productId);
+            if (matchIndex > -1) {
+              merged[matchIndex].quantity = Math.max(merged[matchIndex].quantity, localItem.quantity);
+            } else {
+              merged.push(localItem);
+            }
+          }
+          // Push merged back to DB
+          triggerDbSync(merged);
+          return { items: merged };
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to hydrate cart from database:', err);
+    }
+  },
+
+  syncCartToDb: async () => {
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated) return;
+    try {
+      await CartService.saveCart(get().items);
+    } catch (err) {}
   },
 }));

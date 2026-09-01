@@ -66,7 +66,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/onboarding',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/farmer/login">
         <FarmerOnboardingPage />
       </ProtectedRoute>
     ),
@@ -74,7 +74,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/dashboard',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <FarmerDashboard />
       </ProtectedRoute>
     ),
@@ -82,7 +82,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/farms',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <MyFarmsPage />
       </ProtectedRoute>
     ),
@@ -90,7 +90,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/farms/new',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <AddFarmPage />
       </ProtectedRoute>
     ),
@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/products',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <MyProductsPage />
       </ProtectedRoute>
     ),
@@ -106,7 +106,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/products/new',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <AddProductPage />
       </ProtectedRoute>
     ),
@@ -114,7 +114,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/products/:id/edit',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <EditProductPage />
       </ProtectedRoute>
     ),
@@ -122,7 +122,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/orders',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <FarmerOrdersPage />
       </ProtectedRoute>
     ),
@@ -130,7 +130,7 @@ export const router = createBrowserRouter([
   {
     path: '/farmer/hubs',
     element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
         <HubDropoffPage />
       </ProtectedRoute>
     ),
@@ -139,30 +139,34 @@ export const router = createBrowserRouter([
   // 2. Customer & Buyer Marketplace Routes
   { path: '/', element: <HomePage /> },
   { path: '/customer/login', element: <CustomerLoginPage /> },
-  { path: '/login', element: <CustomerLoginPage /> },
-  { path: '/auth/login', element: <CustomerLoginPage /> },
+  { path: '/login', element: <Navigate to="/customer/login" replace /> },
+  { path: '/auth/login', element: <Navigate to="/customer/login" replace /> },
   { path: '/catalog', element: <CatalogPage /> },
   { path: '/product/:id', element: <ProductDetailPage /> },
   {
     path: '/customer/onboarding',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/customer/login">
         <CustomerOnboardingPage />
       </ProtectedRoute>
     ),
   },
   {
     path: '/checkout',
+    element: <CheckoutPage />,
+  },
+  {
+    path: '/orders/:id',
     element: (
-      <ProtectedRoute>
-        <CheckoutPage />
+      <ProtectedRoute redirectPath="/customer/login">
+        <OrderTrackingPage />
       </ProtectedRoute>
     ),
   },
   {
     path: '/orders/:id/track',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/customer/login">
         <OrderTrackingPage />
       </ProtectedRoute>
     ),
@@ -170,7 +174,7 @@ export const router = createBrowserRouter([
   {
     path: '/customer/orders',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/customer/login">
         <CustomerOrdersPage />
       </ProtectedRoute>
     ),
@@ -181,7 +185,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/onboarding',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/delivery/login">
         <DeliveryOnboardingPage />
       </ProtectedRoute>
     ),
@@ -189,7 +193,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/dashboard',
     element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
         <DeliveryDashboard />
       </ProtectedRoute>
     ),
@@ -197,7 +201,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/available',
     element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
         <AvailableTripsPage />
       </ProtectedRoute>
     ),
@@ -205,7 +209,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/hub-schedule',
     element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
         <HubIntakePage />
       </ProtectedRoute>
     ),
@@ -213,7 +217,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/active-trip',
     element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
         <ActiveTripPage />
       </ProtectedRoute>
     ),
@@ -221,7 +225,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/vehicles',
     element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
         <VehiclesPage />
       </ProtectedRoute>
     ),
@@ -229,7 +233,7 @@ export const router = createBrowserRouter([
   {
     path: '/delivery/earnings',
     element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
         <EarningsPage />
       </ProtectedRoute>
     ),
@@ -240,7 +244,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/dashboard',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
         <AdminDashboard />
       </ProtectedRoute>
     ),
@@ -248,7 +252,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/kyc',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
         <KycQueuePage />
       </ProtectedRoute>
     ),
@@ -256,7 +260,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/payouts',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_finance']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_finance']} redirectPath="/admin/login">
         <PayoutQueuePage />
       </ProtectedRoute>
     ),
@@ -264,7 +268,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/disputes',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_support']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_support']} redirectPath="/admin/login">
         <DisputeAdjudicationPage />
       </ProtectedRoute>
     ),
@@ -272,7 +276,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/hubs',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops']} redirectPath="/admin/login">
         <LogisticsPage />
       </ProtectedRoute>
     ),
@@ -280,7 +284,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/audit',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']} redirectPath="/admin/login">
         <AuditLogPage />
       </ProtectedRoute>
     ),
@@ -288,7 +292,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/reports',
     element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']}>
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']} redirectPath="/admin/login">
         <ReportsPage />
       </ProtectedRoute>
     ),
@@ -300,7 +304,7 @@ export const router = createBrowserRouter([
   {
     path: '/auth/kyc',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/customer/login">
         <KycUploadPage />
       </ProtectedRoute>
     ),
@@ -308,7 +312,7 @@ export const router = createBrowserRouter([
   {
     path: '/wallet',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute redirectPath="/customer/login">
         <WalletPage />
       </ProtectedRoute>
     ),

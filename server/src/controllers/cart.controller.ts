@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
 import { Product } from '../models/Product.model.js';
+import { Cart } from '../models/Cart.model.js';
 import { DistributionCenter } from '../models/DistributionCenter.model.js';
 import { AppError } from '../middleware/error.middleware.js';
 import {
@@ -12,6 +14,83 @@ import {
 } from '../utils/constants.js';
 
 export class CartController {
+  /**
+   * Get saved cart for authenticated user
+   */
+  static async getSavedCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      const cart = await Cart.findOne({ userId });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          items: cart ? cart.items : [],
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Save / sync user cart items in DB
+   */
+  static async saveCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      const { items } = req.body;
+
+      if (!Array.isArray(items)) {
+        throw new AppError('Items must be an array', 400);
+      }
+
+      const formattedItems = items.map((item: any) => ({
+        productId: new Types.ObjectId(item.productId),
+        title: item.title || item.productName || 'Fresh Produce',
+        pricePerUnit: item.pricePerUnit || item.basePricePerUnit || 0,
+        unit: item.unit || 'kg',
+        quantity: item.quantity || 1,
+        image: item.image || (item.images && item.images[0]) || '',
+        farmerName: item.farmerName || '',
+        minOrderQuantity: item.minOrderQuantity || 1,
+        maxOrderQuantity: item.maxOrderQuantity,
+      }));
+
+      const cart = await Cart.findOneAndUpdate(
+        { userId },
+        { userId, items: formattedItems, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Cart synchronized with database',
+        data: { items: cart.items },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Clear saved cart in DB
+   */
+  static async clearSavedCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      await Cart.findOneAndDelete({ userId });
+
+      res.status(200).json({
+        success: true,
+        message: 'Saved cart cleared',
+        data: { items: [] },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * Validate Cart Items, calculate subtotal with B2B tiers & delivery breakdown
    */

@@ -86,7 +86,7 @@ const ProductSchema = new Schema<IProduct>(
     },
     viewsCount: { type: Number, default: 0 },
     totalSoldQuantity: { type: Number, default: 0 },
-    averageRating: { type: Number, default: 5.0 },
+    averageRating: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },
   },
   {
