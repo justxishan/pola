@@ -10,6 +10,8 @@ import {
   Truck,
   Wallet,
   Radar,
+  Calendar,
+  DollarSign,
   Navigation,
   ArrowRight,
   Sparkles,
@@ -33,7 +35,10 @@ export const DeliveryDashboard: React.FC = () => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/delivery/dashboard' },
     { id: 'radar', label: 'Available Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
+    { id: 'active', label: 'Active Trip', icon: <Navigation className="w-5 h-5" />, path: '/delivery/active-trip' },
+    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
     { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
+    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
     { id: 'wallet', label: 'Earnings & Payouts', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
   ];
 

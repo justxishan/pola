@@ -35,6 +35,10 @@ export const AdminService = {
   },
 
   // ── Order Oversight ───────────────────────────────────────────────────────
+  getAllOrders: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    return api.get('/admin/orders', { params });
+  },
+
   forceReassignOrder: async (orderId: string, driverId: string, reason: string) => {
     return api.post(`/admin/orders/${orderId}/reassign`, { driverId, reason });
   },

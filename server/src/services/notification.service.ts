@@ -10,7 +10,7 @@ export class NotificationService {
     userId: Types.ObjectId | string;
     title: string;
     message: string;
-    type?: 'order' | 'kyc' | 'wallet' | 'grading' | 'delivery' | 'dispute' | 'system';
+    type?: 'order' | 'kyc' | 'wallet' | 'grading' | 'delivery' | 'dispute' | 'system' | 'message';
     linkUrl?: string;
     relatedId?: string;
   }) {

@@ -112,6 +112,23 @@ export class DeliveryController {
         relatedId: order._id.toString(),
       });
 
+      // Notify each unique farmer whose produce is in this order (Section 5.1)
+      const uniqueFarmerIds = [...new Set(
+        order.items
+          .map((item: any) => item.farmerId?.toString())
+          .filter(Boolean)
+      )];
+      for (const farmerId of uniqueFarmerIds) {
+        await NotificationService.sendNotification({
+          userId: farmerId as any,
+          title: 'Courier Assigned to Your Order',
+          message: `A courier has been assigned to pick up Order #${order.orderNumber}. Please ensure your produce is ready at the designated hub for collection.`,
+          type: 'delivery',
+          linkUrl: `/farmer/orders`,
+          relatedId: order._id.toString(),
+        });
+      }
+
       res.status(200).json({
         success: true,
         message: 'Trip accepted successfully',

@@ -5,7 +5,7 @@ export interface INotification extends Document {
   userId: Types.ObjectId;
   title: string;
   message: string;
-  type: 'order' | 'kyc' | 'wallet' | 'grading' | 'delivery' | 'dispute' | 'system';
+  type: 'order' | 'kyc' | 'wallet' | 'grading' | 'delivery' | 'dispute' | 'system' | 'message';
   linkUrl?: string;
   relatedId?: string;
   isRead: boolean;
@@ -20,7 +20,7 @@ const NotificationSchema = new Schema<INotification>(
     message: { type: String, required: true },
     type: {
       type: String,
-      enum: ['order', 'kyc', 'wallet', 'grading', 'delivery', 'dispute', 'system'],
+      enum: ['order', 'kyc', 'wallet', 'grading', 'delivery', 'dispute', 'system', 'message'],
       default: 'system',
     },
     linkUrl: { type: String },

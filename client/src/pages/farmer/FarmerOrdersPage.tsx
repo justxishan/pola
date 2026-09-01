@@ -10,6 +10,7 @@ import { OrderService } from '@/services/order.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { ChatDrawer } from '@/components/organisms/ChatDrawer';
 import {
   LayoutDashboard,
   Sprout,
@@ -24,6 +25,7 @@ import {
   Printer,
   CheckCircle2,
   Truck,
+  MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -39,6 +41,8 @@ export const FarmerOrdersPage: React.FC = () => {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatOrder, setChatOrder] = useState<any | null>(null);
 
   const navItems = [
     { id: 'dashboard', label: t.dashboard    || 'Dashboard',          icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
@@ -223,6 +227,18 @@ export const FarmerOrdersPage: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => {
+                          setChatOrder(order);
+                          setIsChatOpen(true);
+                        }}
+                        leftIcon={<MessageSquare className="w-3.5 h-3.5 text-emerald-600" />}
+                      >
+                        Message Buyer
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
                           setSelectedOrder(order);
                           setIsSlipModalOpen(true);
                         }}
@@ -313,6 +329,20 @@ export const FarmerOrdersPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Real-time Buyer Coordination Drawer */}
+        <ChatDrawer
+          isOpen={isChatOpen}
+          onClose={() => {
+            setIsChatOpen(false);
+            setChatOrder(null);
+          }}
+          orderId={chatOrder?._id}
+          orderNumber={chatOrder?.orderNumber}
+          counterpartName={chatOrder?.customerId?.fullName || 'Produce Buyer'}
+          counterpartRole="customer"
+          counterpartPhone={chatOrder?.customerId?.phone || chatOrder?.deliveryAddress?.contactPhone}
+        />
       </div>
     </DashboardLayout>
   );

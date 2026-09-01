@@ -9,7 +9,7 @@ import { Button } from '@/components/atoms/Button';
 import { DeliveryService } from '@/services/delivery.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
-import { LayoutDashboard, Truck, Wallet, Radar, ArrowRight, Navigation } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Radar, ArrowRight, Navigation, Calendar, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const AvailableTripsPage: React.FC = () => {
@@ -26,7 +26,9 @@ export const AvailableTripsPage: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/delivery/dashboard' },
     { id: 'radar', label: 'Available Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
     { id: 'active', label: 'Active Trip', icon: <Navigation className="w-5 h-5" />, path: '/delivery/active-trip' },
+    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
     { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
+    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
     { id: 'wallet', label: 'Earnings & Payouts', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
   ];
 

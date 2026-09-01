@@ -430,9 +430,22 @@ export class OrderController {
    */
   static async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
+      const userId = req.user!.userId;
+      const userRole = req.user!.role;
+      const isAdmin = userRole?.startsWith('admin');
+
       const { status, note, handoverOtp } = req.body;
       const order = await Order.findById(req.params.id);
       if (!order) throw new AppError('Order not found', 404);
+
+      // Verify caller is a stakeholder: customer, farmer in items, assigned driver, or admin
+      const isFarmer = order.items.some((item) => item.farmerId?.toString() === userId);
+      const isDriver = order.leg2DriverId?.toString() === userId || order.leg1DriverId?.toString() === userId;
+      const isCustomer = order.customerId.toString() === userId;
+
+      if (!isAdmin && !isFarmer && !isDriver && !isCustomer) {
+        throw new AppError('Unauthorized: You are not a registered participant on this order', 403);
+      }
 
       if (status === OrderStatus.DELIVERED) {
         if (!handoverOtp || handoverOtp !== order.handoverOtp) {
@@ -481,8 +494,17 @@ export class OrderController {
    */
   static async cancelOrder(req: Request, res: Response, next: NextFunction) {
     try {
+      const userId = req.user!.userId;
+      const userRole = req.user!.role;
+      const isAdmin = userRole?.startsWith('admin');
+
       const order = await Order.findById(req.params.id);
       if (!order) throw new AppError('Order not found', 404);
+
+      // Verify ownership: must be the customer who placed the order, or an admin
+      if (!isAdmin && order.customerId.toString() !== userId) {
+        throw new AppError('Unauthorized: You can only cancel your own orders', 403);
+      }
 
       const cancelableStatuses = [
         OrderStatus.PLACED,
@@ -490,7 +512,7 @@ export class OrderController {
         OrderStatus.AWAITING_HUB_COLLECTION,
       ];
 
-      if (!cancelableStatuses.includes(order.status)) {
+      if (!isAdmin && !cancelableStatuses.includes(order.status)) {
         throw new AppError('Only orders that have not yet been dispatched to logistics can be cancelled', 400);
       }
 

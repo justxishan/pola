@@ -1,21 +1,77 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { Navbar, NavbarProps } from '@/components/organisms/Navbar';
-import { Sprout, ShieldCheck } from 'lucide-react';
+import { MobileBottomNav } from '@/components/organisms/MobileBottomNav';
+import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
+import { Sprout, ShieldCheck, Home, Layers, ShoppingBag, Package, User } from 'lucide-react';
 import { usePortalThemeStore } from '@/store/portalThemeStore';
 
 export interface MarketplaceLayoutProps extends Omit<NavbarProps, 'className'> {
   children: React.ReactNode;
   className?: string;
+  onOpenCart?: () => void;
 }
 
 export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
   children,
   className,
+  onOpenCart,
   ...navbarProps
 }) => {
   const { themes } = usePortalThemeStore();
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
   const bgImage = themes.customer?.bgImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=2400&q=85';
+
+  // Cart item count from store for the mobile badge
+  const cartItemCount = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
+
+  const mobileNavItems = [
+    {
+      id: 'home',
+      label: 'Home',
+      icon: <Home className="w-5 h-5" />,
+      path: '/',
+    },
+    {
+      id: 'catalog',
+      label: 'Browse',
+      icon: <Layers className="w-5 h-5" />,
+      path: '/catalog',
+    },
+    {
+      id: 'cart',
+      label: 'Cart',
+      icon: <ShoppingBag className="w-5 h-5" />,
+      path: '__cart__',
+      badgeCount: cartItemCount,
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+      icon: <Package className="w-5 h-5" />,
+      path: user ? '/customer/orders' : '/customer/login',
+    },
+    {
+      id: 'account',
+      label: 'Account',
+      icon: <User className="w-5 h-5" />,
+      path: user ? '/wallet' : '/customer/login',
+    },
+  ];
+
+  const handleMobileNavigate = (path: string) => {
+    if (path === '__cart__') {
+      if (onOpenCart) onOpenCart();
+      // Also try the navbar's onOpenCart from navbarProps
+      else if (navbarProps.onOpenCart) navbarProps.onOpenCart();
+      return;
+    }
+    navigate(path);
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950 relative overflow-x-hidden transition-colors duration-300">
@@ -31,15 +87,15 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
       </div>
 
       {/* 2. Floating Frosted Glass Navbar Pill */}
-      <Navbar {...navbarProps} />
+      <Navbar {...navbarProps} onOpenCart={onOpenCart || navbarProps.onOpenCart} />
 
-      {/* 3. Main Page Content Container */}
-      <main className={cn('relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6', className)}>
+      {/* 3. Main Page Content Container — pb-16 on mobile to clear fixed bottom nav */}
+      <main className={cn('relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-20 sm:pb-6', className)}>
         {children}
       </main>
 
       {/* 4. Luxury Frosted Glass Footer */}
-      <footer className="relative z-10 border-t border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-black/60 backdrop-blur-2xl py-10 mt-16 transition-colors">
+      <footer className="relative z-10 border-t border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-black/60 backdrop-blur-2xl py-10 mt-16 mb-16 sm:mb-0 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-600 dark:text-slate-300">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-400 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/20">
@@ -72,6 +128,13 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* 5. Mobile Bottom Navigation */}
+      <MobileBottomNav
+        items={mobileNavItems}
+        activePath={location.pathname}
+        onNavigate={handleMobileNavigate}
+      />
     </div>
   );
 };

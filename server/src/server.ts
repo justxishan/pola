@@ -3,6 +3,7 @@ import { connectDB } from './config/db.config.js';
 import { env } from './config/env.config.js';
 import { verifyMailerConnection } from './config/mailer.config.js';
 import { logger } from './utils/logger.util.js';
+import { SocketService } from './services/socket.service.js';
 import http from 'http';
 import mongoose from 'mongoose';
 
@@ -19,6 +20,10 @@ const startServer = async () => {
     // 3. Create Express App & HTTP Server
     const app = createApp();
     const server = http.createServer(app);
+
+    // 4. Initialize Socket.IO Real-time Engine
+    SocketService.init(server);
+    logger.info('⚡ Real-time WebSocket Socket.IO engine initialized.');
 
     server.listen(env.PORT, () => {
       logger.info(`🚀 Pola Server listening on port ${env.PORT} in ${env.NODE_ENV} mode`);

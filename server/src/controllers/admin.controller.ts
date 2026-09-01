@@ -281,4 +281,53 @@ export class AdminController {
       next(error);
     }
   }
+
+  /**
+   * Admin Order Oversight — paginated order listing with filters
+   */
+  static async getAllOrders(req: Request, res: Response, next: NextFunction) {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+      const limit = Math.min(100, parseInt(req.query.limit as string, 10) || 25);
+      const status = req.query.status as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const filter: Record<string, any> = {};
+
+      if (status && status !== 'all') {
+        filter.status = status;
+      }
+
+      if (search) {
+        filter.orderNumber = { $regex: search, $options: 'i' };
+      }
+
+      const [orders, total] = await Promise.all([
+        Order.find(filter)
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .populate('customerId', 'fullName email phone')
+          .populate('assignedDcId', 'name code district')
+          .populate('leg2DriverId', 'fullName phone')
+          .lean(),
+        Order.countDocuments(filter),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          orders,
+          meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

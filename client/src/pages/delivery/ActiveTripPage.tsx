@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { DeliveryService } from '@/services/delivery.service';
+import { ChatDrawer } from '@/components/organisms/ChatDrawer';
 import {
   Compass,
   Radar,
@@ -25,6 +26,7 @@ import {
   Navigation,
   Sparkles,
   Package,
+  MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -41,6 +43,7 @@ export const ActiveTripPage: React.FC = () => {
   const [isCodCollected, setIsCodCollected] = useState(false);
   const [podPhoto, setPodPhoto] = useState<File | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const navItems = [
     { id: 'hud', label: 'Delivery HUD', icon: <Compass className="w-5 h-5" />, path: '/delivery/dashboard' },
@@ -198,15 +201,27 @@ export const ActiveTripPage: React.FC = () => {
                   )}
                 </div>
 
-                {recipientPhone && (
-                  <a
-                    href={`tel:${recipientPhone}`}
-                    className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsChatOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 font-bold"
+                    leftIcon={<MessageSquare className="w-4 h-4" />}
                   >
-                    <Phone className="w-4 h-4" />
-                    <span>Call ({recipientPhone})</span>
-                  </a>
-                )}
+                    Message Customer
+                  </Button>
+
+                  {recipientPhone && (
+                    <a
+                      href={`tel:${recipientPhone}`}
+                      className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>Call</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Order items */}
@@ -287,6 +302,17 @@ export const ActiveTripPage: React.FC = () => {
             </div>
           </>
         )}
+
+        {/* Real-time Customer Coordination Drawer */}
+        <ChatDrawer
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          orderId={activeTrip?._id}
+          orderNumber={activeTrip?.orderNumber}
+          counterpartName={recipientName}
+          counterpartRole="customer"
+          counterpartPhone={recipientPhone}
+        />
       </div>
     </DashboardLayout>
   );

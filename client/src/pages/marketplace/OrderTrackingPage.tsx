@@ -9,6 +9,7 @@ import { OrderService } from '@/services/order.service';
 import { useCartStore } from '@/store/cartStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
+import { ChatDrawer } from '@/components/organisms/ChatDrawer';
 import {
   FileText,
   Key,
@@ -21,6 +22,7 @@ import {
   XCircle,
   Phone,
   Clock,
+  MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -32,6 +34,12 @@ export const OrderTrackingPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatCounterpart, setChatCounterpart] = useState<{
+    name: string;
+    role: string;
+    phone?: string;
+  }>({ name: 'Logistics Partner', role: 'driver' });
 
   const { items, openCart } = useCartStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
@@ -193,7 +201,7 @@ export const OrderTrackingPage: React.FC = () => {
 
           {/* Driver Assigned Card */}
           {order.leg2DriverId && (
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-yellow-400 text-slate-950 flex items-center justify-center font-bold">
                   <Truck className="w-4 h-4" />
@@ -207,15 +215,33 @@ export const OrderTrackingPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-              {order.leg2DriverId.phone && (
-                <a
-                  href={`tel:${order.leg2DriverId.phone}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setChatCounterpart({
+                      name: order.leg2DriverId.fullName || 'Courier Partner',
+                      role: 'driver',
+                      phone: order.leg2DriverId.phone,
+                    });
+                    setIsChatOpen(true);
+                  }}
+                  className="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold"
+                  leftIcon={<MessageSquare className="w-3.5 h-3.5" />}
                 >
-                  <Phone className="w-3 h-3" />
-                  <span>{order.leg2DriverId.phone}</span>
-                </a>
-              )}
+                  Message Courier
+                </Button>
+                {order.leg2DriverId.phone && (
+                  <a
+                    href={`tel:${order.leg2DriverId.phone}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                  >
+                    <Phone className="w-3 h-3" />
+                    <span>Call</span>
+                  </a>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -379,6 +405,17 @@ export const OrderTrackingPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Real-time Order Chat Drawer */}
+        <ChatDrawer
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          orderId={order?._id}
+          orderNumber={order?.orderNumber}
+          counterpartName={chatCounterpart.name}
+          counterpartRole={chatCounterpart.role}
+          counterpartPhone={chatCounterpart.phone}
+        />
       </div>
     </MarketplaceLayout>
   );

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { useTranslation, LanguageCode } from '@/lib/i18n';
 import { useThemeStore } from '@/store/themeStore';
+import { useAuthStore } from '@/store/authStore';
 import { ProfileDropdown } from '@/components/organisms/ProfileDropdown';
 import { AddressDrawer } from '@/components/organisms/AddressDrawer';
+import { NotificationDrawer } from '@/components/organisms/NotificationDrawer';
+import { NotificationService } from '@/services/notification.service';
 import {
   ShoppingBag,
   Sprout,
@@ -17,6 +20,8 @@ import {
   ShieldCheck,
   Sun,
   Moon,
+  Bell,
+  Package,
 } from 'lucide-react';
 
 export interface NavbarProps {
@@ -55,15 +60,58 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const { isDark, toggleTheme } = useThemeStore();
+  const { user: storeUser } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAddressDrawerOpen, setIsAddressDrawerOpen] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentPath = location.pathname;
+
+  // Derive the effective logged-in user — prefer store user for auth-aware checks
+  const effectiveUser = storeUser || user;
+  const isLoggedIn = !!effectiveUser;
+
+  // Determine if user is a customer (not farmer/delivery/admin) — only customers see My Orders in navbar
+  const isCustomer =
+    isLoggedIn &&
+    !effectiveUser?.role?.startsWith('farmer') &&
+    effectiveUser?.role !== 'collector' &&
+    !effectiveUser?.role?.startsWith('delivery') &&
+    !effectiveUser?.role?.startsWith('admin');
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res: any = await NotificationService.getMyNotifications();
+      if (res?.data?.notifications) {
+        const count = res.data.notifications.filter((n: any) => !n.isRead).length;
+        setUnreadCount(count);
+      }
+    } catch {
+      // Silently fail — user may not be authenticated yet
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setUnreadCount(0);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      return;
+    }
+
+    fetchUnreadCount();
+    pollIntervalRef.current = setInterval(fetchUnreadCount, 30_000);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [isLoggedIn]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,6 +297,34 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
           </button>
 
+          {/* My Orders Button — customers only */}
+          {isCustomer && (
+            <button
+              onClick={() => navigate('/customer/orders')}
+              className="relative p-2 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/15 transition-all cursor-pointer"
+              title="My Orders"
+            >
+              <Package className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Notification Bell — logged-in users */}
+          {isLoggedIn && (
+            <button
+              onClick={() => setIsNotificationsOpen(true)}
+              className="relative p-2 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/15 transition-all cursor-pointer"
+              title="Notifications"
+              aria-label="Notifications"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center leading-none ring-1 ring-white dark:ring-slate-900">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Cart Basket Capsule */}
           {onOpenCart && (
             <button
@@ -265,17 +341,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           {/* All Portals / User Capsule Button */}
-          {user ? (
+          {user || storeUser ? (
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-full bg-slate-200/60 dark:bg-white/10 border border-slate-300/80 dark:border-white/15 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-white transition-all cursor-pointer"
               >
                 <div className="w-6 h-6 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center font-black text-xs">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  {(user?.name || storeUser?.fullName) ? (user?.name || storeUser?.fullName)!.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <span className="hidden sm:inline text-xs font-bold truncate max-w-[80px]">
-                  {user.name || user.email.split('@')[0]}
+                  {user?.name || storeUser?.fullName || user?.email?.split('@')[0] || storeUser?.email?.split('@')[0]}
                 </span>
                 <ChevronDown className="w-3 h-3 text-slate-400" />
               </button>
@@ -304,6 +380,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       <AddressDrawer
         isOpen={isAddressDrawerOpen}
         onClose={() => setIsAddressDrawerOpen(false)}
+      />
+
+      {/* Notification Drawer */}
+      <NotificationDrawer
+        isOpen={isNotificationsOpen}
+        onClose={() => {
+          setIsNotificationsOpen(false);
+          fetchUnreadCount(); // refresh badge after marking items read
+        }}
       />
     </header>
   );

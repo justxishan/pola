@@ -28,6 +28,7 @@ router.post(
 );
 
 router.post('/orders/:id/reassign', AdminController.forceReassignOrder);
+router.get('/orders', AdminController.getAllOrders);
 router.get('/audit-logs', AdminController.getAuditLogs);
 
 export default router;

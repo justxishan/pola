@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { useTranslation, LanguageCode } from '@/lib/i18n';
@@ -7,6 +7,7 @@ import { ProfileDropdown } from '@/components/organisms/ProfileDropdown';
 import { NotificationDrawer } from '@/components/organisms/NotificationDrawer';
 import { Avatar } from '@/components/atoms/Avatar';
 import { MobileBottomNav, MobileNavItem } from '@/components/organisms/MobileBottomNav';
+import { NotificationService } from '@/services/notification.service';
 import {
   Bell,
   Sun,
@@ -235,7 +236,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   navItems,
   mobileNavItems,
   onNavigate,
-  unreadNotificationsCount = 0,
+  unreadNotificationsCount,
   user,
   onLogout,
   children,
@@ -249,8 +250,36 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [liveUnreadCount, setLiveUnreadCount] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const theme = getPortalTheme(portalRole);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res: any = await NotificationService.getMyNotifications();
+      if (res?.data?.notifications) {
+        const count = res.data.notifications.filter((n: any) => !n.isRead).length;
+        setLiveUnreadCount(count);
+      }
+    } catch {
+      // silently fail
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    // Only self-manage if the parent didn't pass an explicit count
+    if (unreadNotificationsCount !== undefined) return;
+    fetchUnreadCount();
+    pollIntervalRef.current = setInterval(fetchUnreadCount, 30_000);
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [user, unreadNotificationsCount]);
+
+  // Use caller-supplied count when explicitly provided, else use our own live count
+  const displayedUnreadCount = unreadNotificationsCount ?? liveUnreadCount;
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex transition-colors duration-300 selection:bg-lime-400 selection:text-slate-950">
@@ -326,8 +355,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               aria-label="Notifications"
             >
               <Bell className="w-3.5 h-3.5" />
-              {unreadNotificationsCount > 0 && (
-                <span className={cn('absolute top-1 right-1 w-2 h-2 rounded-full', theme.dotColor)} />
+              {displayedUnreadCount > 0 && (
+                <span className={cn('absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full text-[9px] font-black text-white flex items-center justify-center leading-none ring-1 ring-white dark:ring-slate-950 bg-red-500')} >
+                  {displayedUnreadCount > 9 ? '9+' : displayedUnreadCount}
+                </span>
               )}
             </button>
 
@@ -365,7 +396,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Notifications Drawer */}
       <NotificationDrawer
         isOpen={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
+        onClose={() => {
+          setIsNotificationsOpen(false);
+          // Refresh badge count after user reads notifications
+          if (unreadNotificationsCount === undefined) fetchUnreadCount();
+        }}
       />
 
       {/* Mobile Bottom Navigation */}

@@ -48,6 +48,7 @@ import { EarningsPage } from './pages/delivery/EarningsPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { KycQueuePage } from './pages/admin/KycQueuePage';
 import { PayoutQueuePage } from './pages/admin/PayoutQueuePage';
+import { OrderManagementPage } from './pages/admin/OrderManagementPage';
 import { DisputeAdjudicationPage } from './pages/admin/DisputeAdjudicationPage';
 import { LogisticsPage } from './pages/admin/LogisticsPage';
 import { AuditLogPage } from './pages/admin/AuditLogPage';
@@ -275,6 +276,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['admin_super', 'admin_finance']} redirectPath="/admin/login">
             <PayoutQueuePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/orders',
+        element: (
+          <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
+            <OrderManagementPage />
           </ProtectedRoute>
         ),
       },
