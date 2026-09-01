@@ -22,6 +22,8 @@ import {
   Calendar,
   X,
   Printer,
+  CheckCircle2,
+  Truck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -34,6 +36,7 @@ export const FarmerOrdersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
 
@@ -58,16 +61,32 @@ export const FarmerOrdersPage: React.FC = () => {
         setOrders(res.data.orders || []);
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Failed to load farmer orders:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleUpdateStatus = async (orderId: string, nextStatus: string, note?: string) => {
+    try {
+      setUpdatingOrderId(orderId);
+      const res: any = await OrderService.updateOrderStatus(orderId, nextStatus, note);
+      if (res.success) {
+        toast.success(`Order updated to ${nextStatus.replace(/_/g, ' ')}`);
+        fetchOrders();
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update order');
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
   const tabs = [
     { id: 'all', label: 'All Orders' },
-    { id: 'awaiting_hub_collection', label: 'Awaiting Hub Drop-off' },
-    { id: 'collected_at_hub', label: 'Collected at Hub' },
+    { id: 'placed', label: 'New Orders' },
+    { id: 'awaiting_hub_collection', label: 'Packing / Ready for Hub' },
+    { id: 'collected_at_hub', label: 'Dropped at Hub' },
     { id: 'in_transit_to_dc', label: 'In Transit' },
     { id: 'completed', label: 'Completed' },
   ];
@@ -128,68 +147,119 @@ export const FarmerOrdersPage: React.FC = () => {
           />
         ) : (
           <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order._id}
-                className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">
-                      {order.orderNumber || `#POL-${order._id.substring(order._id.length - 6).toUpperCase()}`}
-                    </span>
-                    <Badge variant={order.buyerType === 'b2b' ? 'purple' : 'sky'} size="sm">
-                      {order.buyerType === 'b2b' ? 'B2B Wholesale' : 'B2C Consumer'}
-                    </Badge>
-                  </div>
+            {orders.map((order) => {
+              const myItems = order.items?.filter(
+                (item: any) =>
+                  !item.farmerId || item.farmerId === user?._id || item.farmerId?._id === user?._id
+              ) || order.items || [];
 
-                  <div className="flex items-center gap-3">
-                    <StatusPill status={order.status} size="sm" />
-                    <span className="text-xs text-slate-400">
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
+              const itemsTotalLkr = myItems.reduce(
+                (sum: number, i: any) => sum + (i.unitPrice || i.pricePerUnit || 0) * (i.quantityOrdered || i.quantity || 1),
+                0
+              );
 
-                {/* Line Items */}
-                <div className="space-y-2">
-                  {order.items?.map((item: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-200">
-                        <Package className="w-4 h-4 text-emerald-600" />
-                        <span>{item.title}</span>
-                        <span className="text-slate-400">× {item.quantity} {item.unit || 'kg'}</span>
-                      </div>
-                      <span className="font-bold text-slate-900 dark:text-slate-100">
-                        LKR {(item.pricePerUnit * item.quantity).toLocaleString()}
+              const isUpdating = updatingOrderId === order._id;
+
+              return (
+                <div
+                  key={order._id}
+                  className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all space-y-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">
+                        {order.orderNumber || `#POL-${order._id.substring(order._id.length - 6).toUpperCase()}`}
+                      </span>
+                      <Badge variant={order.customerType === 'b2b' ? 'purple' : 'sky'} size="sm">
+                        {order.customerType === 'b2b' ? 'B2B Wholesale' : 'B2C Consumer'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <StatusPill status={order.status} size="sm" />
+                      <span className="text-xs text-slate-400 font-mono">
+                        {new Date(order.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                  ))}
-                </div>
-
-                {/* Footer Controls */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Dropoff at: <strong>{order.assignedHub?.name || 'Dambulla Hub'}</strong></span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setIsSlipModalOpen(true);
-                      }}
-                      leftIcon={<QrCode className="w-3.5 h-3.5" />}
-                    >
-                      Print Crate Tag
-                    </Button>
+                  {/* Line Items */}
+                  <div className="space-y-2">
+                    {myItems.map((item: any, idx: number) => {
+                      const title = item.productName || item.title || 'Produce Harvest';
+                      const qty = item.quantityOrdered || item.quantity || 1;
+                      const unit = item.unit || 'kg';
+                      const price = item.unitPrice || item.pricePerUnit || 0;
+
+                      return (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-200">
+                            <Package className="w-4 h-4 text-emerald-600" />
+                            <span className="font-bold">{title}</span>
+                            <span className="text-slate-400 font-mono">
+                              × {qty} {unit} @ LKR {price}
+                            </span>
+                          </div>
+                          <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
+                            LKR {(price * qty).toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer Controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        Destination: <strong>{order.deliveryAddress?.city}, {order.deliveryAddress?.district}</strong>
+                        {order.assignedDcId && ` (via ${order.assignedDcId?.name})`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setIsSlipModalOpen(true);
+                        }}
+                        leftIcon={<QrCode className="w-3.5 h-3.5" />}
+                      >
+                        Crate Tag
+                      </Button>
+
+                      {/* State transitions for Farmer */}
+                      {order.status === 'placed' || order.status === 'payment_confirmed' ? (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          isLoading={isUpdating}
+                          onClick={() => handleUpdateStatus(order._id, 'awaiting_hub_collection', 'Farmer started packing harvest')}
+                          className="bg-emerald-600 hover:bg-emerald-500"
+                          leftIcon={<Package className="w-3.5 h-3.5" />}
+                        >
+                          Accept & Start Packing
+                        </Button>
+                      ) : order.status === 'awaiting_hub_collection' ? (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          isLoading={isUpdating}
+                          onClick={() => handleUpdateStatus(order._id, 'collected_at_hub', 'Farmer dropped crates at collection hub')}
+                          className="bg-sky-600 hover:bg-sky-500"
+                          leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                        >
+                          Mark Dropped at Hub
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -223,8 +293,9 @@ export const FarmerOrdersPage: React.FC = () => {
 
               <div className="text-left text-xs space-y-1.5 border-y border-slate-100 dark:border-slate-800 py-3">
                 <p><strong>Producer:</strong> {user?.fullName}</p>
-                <p><strong>Target Hub:</strong> {selectedOrder.assignedHub?.name || 'Keppetipola Hub #2'}</p>
+                <p><strong>Target Hub:</strong> {selectedOrder.assignedDcId?.name || 'Regional DC Hub'}</p>
                 <p><strong>Total Line-items:</strong> {selectedOrder.items?.length || 1} produce crates</p>
+                <p><strong>Buyer City:</strong> {selectedOrder.deliveryAddress?.city}, {selectedOrder.deliveryAddress?.district}</p>
               </div>
 
               <Button

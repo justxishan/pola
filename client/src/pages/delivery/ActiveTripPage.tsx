@@ -82,15 +82,17 @@ export const ActiveTripPage: React.FC = () => {
       toast.success('Delivery completed! Payout credited to your Pola Wallet.', { id: 'pod' });
       navigate('/delivery/dashboard');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to complete delivery', { id: 'pod' });
+      toast.error(err.response?.data?.message || err.message || 'Failed to complete delivery', { id: 'pod' });
     } finally {
       setIsCompleting(false);
     }
   };
 
   const customer = activeTrip?.customerId;
+  const recipientName = activeTrip?.recipientName || customer?.fullName || 'Customer';
+  const recipientPhone = activeTrip?.recipientPhone || customer?.phone || activeTrip?.deliveryAddress?.contactPhone;
   const deliveryAddr = activeTrip?.deliveryAddress;
-  const isCod = activeTrip?.paymentMethod === 'cash_on_delivery';
+  const isCod = activeTrip?.paymentMethod === 'cash_on_delivery' || activeTrip?.paymentMethod === 'cod';
 
   return (
     <DashboardLayout
@@ -134,7 +136,7 @@ export const ActiveTripPage: React.FC = () => {
                 </h1>
                 <p className="text-xs text-slate-400">
                   {deliveryAddr?.city}, {deliveryAddr?.district} • Payout:{' '}
-                  <strong>LKR {(activeTrip.leg2DeliveryFee || 0).toLocaleString()}</strong>
+                  <strong>LKR {(activeTrip.leg2DeliveryFee || activeTrip.totalDeliveryFee || 0).toLocaleString()}</strong>
                 </p>
               </div>
 
@@ -144,18 +146,18 @@ export const ActiveTripPage: React.FC = () => {
                 onClick={() => {
                   const lat = deliveryAddr?.gps?.latitude;
                   const lng = deliveryAddr?.gps?.longitude;
-                  const query = lat && lng ? `${lat},${lng}` : encodeURIComponent(`${deliveryAddr?.addressLine1}, ${deliveryAddr?.city}`);
+                  const query = lat && lng ? `${lat},${lng}` : encodeURIComponent(`${deliveryAddr?.addressLine1 || deliveryAddr?.streetAddress}, ${deliveryAddr?.city}`);
                   window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
                 }}
                 leftIcon={<Navigation className="w-4 h-4 text-sky-500" />}
               >
-                Navigate
+                Navigate (Google Maps)
               </Button>
             </div>
 
             {/* Step progress */}
             <div className="grid grid-cols-3 gap-3 text-center">
-              {(['Pickup at DC', 'En Route to Buyer', 'Proof of Delivery'] as const).map((label, i) => (
+              {(['Pickup at DC / Hub', 'En Route to Buyer', 'OTP Verification'] as const).map((label, i) => (
                 <div
                   key={label}
                   className={`p-3.5 rounded-2xl border text-xs font-bold transition-all ${
@@ -179,24 +181,30 @@ export const ActiveTripPage: React.FC = () => {
                     Customer Delivery Recipient
                   </span>
                   <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                    {customer?.fullName || 'Customer'}
+                    {recipientName}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
                     <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
-                      {deliveryAddr?.addressLine1}
+                      {deliveryAddr?.addressLine1 || deliveryAddr?.streetAddress}
                       {deliveryAddr?.city ? `, ${deliveryAddr.city}` : ''}
+                      {deliveryAddr?.district ? ` (${deliveryAddr.district} District)` : ''}
                     </span>
                   </p>
+                  {activeTrip.deliveryInstructions && (
+                    <p className="text-xs text-slate-500 italic mt-1">
+                      Note: "{activeTrip.deliveryInstructions}"
+                    </p>
+                  )}
                 </div>
 
-                {customer?.phone && (
+                {recipientPhone && (
                   <a
-                    href={`tel:${customer.phone}`}
+                    href={`tel:${recipientPhone}`}
                     className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
                   >
                     <Phone className="w-4 h-4" />
-                    <span>Call Customer</span>
+                    <span>Call ({recipientPhone})</span>
                   </a>
                 )}
               </div>
@@ -210,8 +218,7 @@ export const ActiveTripPage: React.FC = () => {
                   <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-slate-400" />
-                      {item.productName} — {item.quantityOrdered} {item.unit}
-                      {item.inspectedGrade && ` (Grade ${item.inspectedGrade.toUpperCase()})`}
+                      {item.productName || item.title} — {item.quantityOrdered || item.quantity} {item.unit || 'kg'}
                     </span>
                     <Badge variant="emerald" size="sm">Loaded</Badge>
                   </div>
@@ -226,7 +233,7 @@ export const ActiveTripPage: React.FC = () => {
                     Cash on Delivery — Collect from Customer
                   </div>
                   <p className="text-amber-700 dark:text-amber-300">
-                    Amount: <strong>LKR {(activeTrip.grandTotal || 0).toLocaleString()}</strong>
+                    Amount to collect: <strong>LKR {(activeTrip.grandTotal || 0).toLocaleString()}.00</strong>
                   </p>
                   <div className="flex items-center gap-2 mt-3">
                     <input
@@ -234,10 +241,10 @@ export const ActiveTripPage: React.FC = () => {
                       id="codCheck"
                       checked={isCodCollected}
                       onChange={(e) => setIsCodCollected(e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-600"
+                      className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
                     />
                     <label htmlFor="codCheck" className="font-bold cursor-pointer text-amber-800 dark:text-amber-200">
-                      COD payment collected from customer
+                      COD cash payment collected from customer
                     </label>
                   </div>
                 </div>

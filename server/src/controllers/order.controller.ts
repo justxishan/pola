@@ -7,6 +7,7 @@ import { Wallet } from '../models/Wallet.model.js';
 import { DistributionCenter } from '../models/DistributionCenter.model.js';
 import { EscrowService } from '../services/escrow.service.js';
 import { PdfService } from '../services/pdf.service.js';
+import { NotificationService } from '../services/notification.service.js';
 import { createPayPalOrder, capturePayPalOrder } from '../config/paypal.config.js';
 import { AppError } from '../middleware/error.middleware.js';
 import {
@@ -28,6 +29,63 @@ import {
 
 export class OrderController {
   /**
+   * Helper to dispatch multi-party notifications upon order placement
+   */
+  private static async dispatchOrderPlacementNotifications(order: any, customerId: string) {
+    try {
+      // 1. Notification to Customer
+      await NotificationService.sendNotification({
+        userId: customerId,
+        title: 'Order Placed & Escrow Locked',
+        message: `Order #${order.orderNumber} placed for LKR ${order.grandTotal.toLocaleString()}. 6-Digit Handover OTP is ${order.handoverOtp}.`,
+        type: 'order',
+        linkUrl: `/orders/${order._id}/track`,
+        relatedId: order._id.toString(),
+      });
+
+      // 2. Notifications to Farmers whose crops were ordered
+      const farmerIds = new Set<string>();
+      for (const item of order.items) {
+        if (item.farmerId) {
+          farmerIds.add(item.farmerId.toString());
+        }
+      }
+
+      for (const fId of farmerIds) {
+        const farmerItems = order.items.filter((i: any) => i.farmerId?.toString() === fId);
+        const itemSummary = farmerItems.map((i: any) => `${i.quantityOrdered} ${i.unit} ${i.productName}`).join(', ');
+        await NotificationService.sendNotification({
+          userId: fId,
+          title: 'New Harvest Order Received!',
+          message: `Order #${order.orderNumber}: Buyer ordered ${itemSummary}. Please prepare your crates for collection.`,
+          type: 'order',
+          linkUrl: '/farmer/orders',
+          relatedId: order._id.toString(),
+        });
+      }
+
+      // 3. Notifications to active Delivery fleet partners
+      const deliveryDrivers = await User.find({
+        role: { $in: [Role.DELIVERY_INDIVIDUAL, Role.DELIVERY_COMPANY] },
+        isActive: true,
+      }).limit(20);
+
+      for (const driver of deliveryDrivers) {
+        await NotificationService.sendNotification({
+          userId: driver._id,
+          title: 'New Delivery Trip Available',
+          message: `Order #${order.orderNumber} is available for courier pickup in ${order.deliveryAddress.district} District (${order.deliveryAddress.city}).`,
+          type: 'delivery',
+          linkUrl: '/delivery/available',
+          relatedId: order._id.toString(),
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to send order placement notifications:', err);
+    }
+  }
+
+  /**
    * Checkout & Place Order
    */
   static async checkout(req: Request, res: Response, next: NextFunction) {
@@ -42,7 +100,7 @@ export class OrderController {
         recipientPhone = deliveryAddress?.contactPhone || currentUser?.phone || '+94771234567',
         deliveryInstructions = '',
         customerNotes = '',
-        paymentMethod = PaymentMethod.PAYPAL,
+        paymentMethod = PaymentMethod.CASH_ON_DELIVERY,
       } = req.body;
 
       let itemsTotal = 0;
@@ -100,7 +158,7 @@ export class OrderController {
 
         orderItems.push({
           productId: product._id,
-          farmerId: farmer?._id,
+          farmerId: farmer?._id || product.farmerId,
           farmId: product.farmId,
           productName: product.title || product.productName || 'Fresh Harvest',
           category: product.category,
@@ -171,6 +229,9 @@ export class OrderController {
           },
         ],
       });
+
+      // Dispatch Notifications to Buyer, Farmer & Delivery Fleet
+      await OrderController.dispatchOrderPlacementNotifications(order, customerId);
 
       // 1. CASH ON DELIVERY (COD) Option
       if (
@@ -258,6 +319,7 @@ export class OrderController {
 
       const captureResult = await capturePayPalOrder(paypalOrderId || order.paypalOrderId!);
       order.paypalCaptureId = captureResult.id;
+      order.paymentStatus = PaymentStatus.HELD_IN_ESCROW;
       await order.save();
 
       await EscrowService.holdOrderInEscrow(order._id);
@@ -280,6 +342,8 @@ export class OrderController {
       const customerId = req.user!.userId;
       const orders = await Order.find({ customerId })
         .populate('assignedDcId')
+        .populate('items.productId')
+        .populate('items.farmerId', 'fullName email phone')
         .sort({ createdAt: -1 });
 
       res.status(200).json({
@@ -300,7 +364,9 @@ export class OrderController {
       const { status } = req.query as { status?: string };
 
       const filter: any = { 'items.farmerId': farmerId };
-      if (status) filter.status = status;
+      if (status && status !== 'all') {
+        filter.status = status;
+      }
 
       const orders = await Order.find(filter)
         .populate('customerId', 'fullName email phone')
@@ -324,7 +390,8 @@ export class OrderController {
       const order = await Order.findById(req.params.id)
         .populate('assignedDcId')
         .populate('items.productId')
-        .populate('items.farmerId');
+        .populate('items.farmerId', 'fullName email phone')
+        .populate('leg2DriverId', 'fullName phone vehicleType');
 
       if (!order) throw new AppError('Order not found', 404);
 
@@ -359,7 +426,7 @@ export class OrderController {
   }
 
   /**
-   * Update Order Status
+   * Update Order Status (Farmer, DC Admin, or Driver)
    */
   static async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
@@ -377,14 +444,27 @@ export class OrderController {
       order.timeline.push({
         status: status as OrderStatus,
         timestamp: new Date(),
-        note: note || `Status updated to ${status}`,
+        updatedBy: req.user!.userId as any,
+        note: note || `Status updated to ${status.replace(/_/g, ' ')}`,
       });
 
       if (status === OrderStatus.DELIVERED) {
         await EscrowService.releaseAndSplitEscrow(order._id);
+        order.status = OrderStatus.COMPLETED;
+        order.deliveredAt = new Date();
       }
 
       await order.save();
+
+      // Dispatch status update notification to customer
+      await NotificationService.sendNotification({
+        userId: order.customerId,
+        title: `Order Status: ${status.replace(/_/g, ' ').toUpperCase()}`,
+        message: note || `Your order #${order.orderNumber} status is now ${status.replace(/_/g, ' ')}.`,
+        type: 'order',
+        linkUrl: `/orders/${order._id}/track`,
+        relatedId: order._id.toString(),
+      });
 
       res.status(200).json({
         success: true,
@@ -397,29 +477,77 @@ export class OrderController {
   }
 
   /**
-   * Cancel Order
+   * Cancel Order (Customer or Admin)
    */
   static async cancelOrder(req: Request, res: Response, next: NextFunction) {
     try {
       const order = await Order.findById(req.params.id);
       if (!order) throw new AppError('Order not found', 404);
 
-      if (order.status !== OrderStatus.PLACED) {
-        throw new AppError('Only freshly placed orders can be cancelled', 400);
+      const cancelableStatuses = [
+        OrderStatus.PLACED,
+        OrderStatus.PAYMENT_CONFIRMED,
+        OrderStatus.AWAITING_HUB_COLLECTION,
+      ];
+
+      if (!cancelableStatuses.includes(order.status)) {
+        throw new AppError('Only orders that have not yet been dispatched to logistics can be cancelled', 400);
       }
 
       order.status = OrderStatus.CANCELLED;
       order.timeline.push({
         status: OrderStatus.CANCELLED,
         timestamp: new Date(),
-        note: 'Order cancelled by user',
+        updatedBy: req.user!.userId as any,
+        note: req.body?.reason || 'Order cancelled by customer',
       });
+
+      // Restore product stock
+      for (const item of order.items) {
+        if (item.productId) {
+          await Product.findByIdAndUpdate(item.productId, {
+            $inc: { availableQuantity: item.quantityOrdered },
+          });
+        }
+      }
+
+      // If paid via Pola Wallet, refund balance
+      if ((order.paymentMethod as any) === PaymentMethod.POLA_WALLET || (order.paymentMethod as any) === 'pola_wallet') {
+        const wallet = await Wallet.findOne({ userId: order.customerId });
+        if (wallet) {
+          wallet.availableBalanceLkr += order.grandTotal;
+          await wallet.save();
+        }
+      }
 
       await order.save();
 
+      // Notifications
+      await NotificationService.sendNotification({
+        userId: order.customerId,
+        title: 'Order Cancelled',
+        message: `Order #${order.orderNumber} has been cancelled successfully.`,
+        type: 'order',
+        linkUrl: `/orders/${order._id}/track`,
+        relatedId: order._id.toString(),
+      });
+
+      for (const item of order.items) {
+        if (item.farmerId) {
+          await NotificationService.sendNotification({
+            userId: item.farmerId,
+            title: 'Order Item Cancelled',
+            message: `Buyer cancelled Order #${order.orderNumber} (${item.quantityOrdered} ${item.unit} ${item.productName}). Reserved quantity was restored.`,
+            type: 'order',
+            linkUrl: '/farmer/orders',
+            relatedId: order._id.toString(),
+          });
+        }
+      }
+
       res.status(200).json({
         success: true,
-        message: 'Order cancelled successfully',
+        message: 'Order cancelled successfully and inventory restored',
         data: { order },
       });
     } catch (error) {

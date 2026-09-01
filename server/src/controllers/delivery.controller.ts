@@ -6,6 +6,7 @@ import { Wallet } from '../models/Wallet.model.js';
 import { RadiusService } from '../services/radius.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { EscrowService } from '../services/escrow.service.js';
+import { NotificationService } from '../services/notification.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { OrderStatus, Role } from '@pola/shared';
 
@@ -19,24 +20,33 @@ export class DeliveryController {
       const driver = await User.findById(driverId);
       if (!driver) throw new AppError('Driver not found', 404);
 
-      const radiusKm = Number(req.query.radiusKm) || driver.deliveryRadiusKm || 15;
+      const radiusKm = Number(req.query.radiusKm) || driver.deliveryRadiusKm || 35;
       const lat = Number(req.query.lat) || driver.currentLocation?.latitude;
       const lng = Number(req.query.lng) || driver.currentLocation?.longitude;
 
-      // Find orders received & sorted at DC awaiting Leg-2 assignment
+      // Find all active orders awaiting courier acceptance/dispatch
       const orders = await Order.find({
         status: {
-          $in: [OrderStatus.RECEIVED_AT_DC, OrderStatus.ASSIGNED_FOR_DELIVERY],
+          $in: [
+            OrderStatus.PLACED,
+            OrderStatus.PAYMENT_CONFIRMED,
+            OrderStatus.AWAITING_HUB_COLLECTION,
+            OrderStatus.COLLECTED_AT_HUB,
+            OrderStatus.IN_TRANSIT_TO_DC,
+            OrderStatus.RECEIVED_AT_DC,
+            OrderStatus.ASSIGNED_FOR_DELIVERY,
+          ],
         },
         leg2DriverId: { $exists: false },
       })
         .populate('assignedDcId', 'name code district gps')
+        .populate('customerId', 'fullName phone addresses')
         .sort({ createdAt: -1 });
 
       let filteredOrders = orders;
       if (lat && lng) {
         filteredOrders = orders.filter((order) => {
-          if (!order.deliveryAddress.gps?.latitude || !order.deliveryAddress.gps?.longitude) {
+          if (!order.deliveryAddress?.gps?.latitude || !order.deliveryAddress?.gps?.longitude) {
             return true; // Include if GPS not pinned
           }
           return RadiusService.isWithinRadius(
@@ -54,6 +64,7 @@ export class DeliveryController {
         success: true,
         data: {
           orders: filteredOrders,
+          availableOrders: filteredOrders,
           driverRadiusKm: radiusKm,
         },
       });
@@ -68,6 +79,7 @@ export class DeliveryController {
   static async acceptTrip(req: Request, res: Response, next: NextFunction) {
     try {
       const driverId = req.user!.userId;
+      const driver = await User.findById(driverId);
       const { vehicleId } = req.body;
 
       const order = await Order.findById(req.params.orderId);
@@ -85,10 +97,20 @@ export class DeliveryController {
         status: OrderStatus.OUT_FOR_DELIVERY,
         timestamp: new Date(),
         updatedBy: new Types.ObjectId(driverId),
-        note: 'Leg-2 Delivery partner accepted trip and is out for delivery',
+        note: `Courier partner ${driver?.fullName || ''} accepted trip and is en route.`,
       });
 
       await order.save();
+
+      // Notify customer
+      await NotificationService.sendNotification({
+        userId: order.customerId,
+        title: 'Delivery Partner Assigned',
+        message: `${driver?.fullName || 'A courier'} has accepted your delivery trip for Order #${order.orderNumber} and is on the way.`,
+        type: 'delivery',
+        linkUrl: `/orders/${order._id}/track`,
+        relatedId: order._id.toString(),
+      });
 
       res.status(200).json({
         success: true,
@@ -161,13 +183,45 @@ export class DeliveryController {
         status: OrderStatus.DELIVERED,
         timestamp: new Date(),
         updatedBy: new Types.ObjectId(driverId),
-        note: 'Handover verified with customer OTP',
+        note: 'Handover verified with customer 6-digit OTP code',
       });
 
       await order.save();
 
       // Automatically complete order and release escrow
       await EscrowService.releaseAndSplitEscrow(order._id);
+
+      // Send notifications to Customer, Driver and Farmers
+      await NotificationService.sendNotification({
+        userId: order.customerId,
+        title: 'Order Delivered Successfully!',
+        message: `Your produce order #${order.orderNumber} has been delivered. Escrow released to farmer.`,
+        type: 'order',
+        linkUrl: `/orders/${order._id}/track`,
+        relatedId: order._id.toString(),
+      });
+
+      await NotificationService.sendNotification({
+        userId: driverId,
+        title: 'Delivery Completed - Earnings Credited',
+        message: `Delivery for Order #${order.orderNumber} completed. Payout credited to your Pola Wallet.`,
+        type: 'wallet',
+        linkUrl: '/delivery/earnings',
+        relatedId: order._id.toString(),
+      });
+
+      for (const item of order.items) {
+        if (item.farmerId) {
+          await NotificationService.sendNotification({
+            userId: item.farmerId,
+            title: 'Produce Delivery Complete - Escrow Released',
+            message: `Order #${order.orderNumber} has been handed over to the buyer. Payout released to your farm wallet.`,
+            type: 'wallet',
+            linkUrl: '/farmer/orders',
+            relatedId: order._id.toString(),
+          });
+        }
+      }
 
       res.status(200).json({
         success: true,
@@ -247,8 +301,7 @@ export class DeliveryController {
         })
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(limit)
-          .select('orderNumber status grandTotal leg2DeliveryFee deliveredAt createdAt deliveryAddress'),
+          .limit(limit),
         Order.countDocuments({
           leg2DriverId: driverId,
           status: { $in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] },
@@ -259,10 +312,10 @@ export class DeliveryController {
         success: true,
         data: {
           trips,
-          meta: {
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
             total,
-            page: parseInt(page, 10),
-            limit: parseInt(limit, 10),
             totalPages: Math.ceil(total / limit),
           },
         },
@@ -272,4 +325,3 @@ export class DeliveryController {
     }
   }
 }
-

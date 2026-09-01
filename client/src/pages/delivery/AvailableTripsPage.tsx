@@ -5,10 +5,11 @@ import { DeliveryOpportunityCard } from '@/components/molecules/DeliveryOpportun
 import { RangeSlider } from '@/components/molecules/RangeSlider';
 import { EmptyState } from '@/components/molecules/EmptyState';
 import { Spinner } from '@/components/atoms/Spinner';
+import { Button } from '@/components/atoms/Button';
 import { DeliveryService } from '@/services/delivery.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
-import { LayoutDashboard, Truck, Wallet, Radar } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Radar, ArrowRight, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const AvailableTripsPage: React.FC = () => {
@@ -16,13 +17,15 @@ export const AvailableTripsPage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
 
-  const [radiusKm, setRadiusKm] = useState(25);
+  const [radiusKm, setRadiusKm] = useState(35);
   const [trips, setTrips] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/delivery/dashboard' },
     { id: 'radar', label: 'Available Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
+    { id: 'active', label: 'Active Trip', icon: <Navigation className="w-5 h-5" />, path: '/delivery/active-trip' },
     { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
     { id: 'wallet', label: 'Earnings & Payouts', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
   ];
@@ -36,10 +39,10 @@ export const AvailableTripsPage: React.FC = () => {
       setIsLoading(true);
       const res: any = await DeliveryService.getAvailableRadarTrips(7.8731, 80.6517, radiusKm);
       if (res.success && res.data) {
-        setTrips(res.data.availableOrders || []);
+        setTrips(res.data.orders || res.data.availableOrders || []);
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Failed to fetch radar trips:', err);
     } finally {
       setIsLoading(false);
     }
@@ -47,13 +50,16 @@ export const AvailableTripsPage: React.FC = () => {
 
   const handleAcceptTrip = async (orderId: string) => {
     try {
+      setAcceptingId(orderId);
       const res: any = await DeliveryService.acceptTrip(orderId);
       if (res.success) {
-        toast.success('Trip accepted! Proceed to Distribution Center for pickup.');
-        fetchRadarTrips();
+        toast.success('Trip accepted! Proceeding to active dispatch screen.');
+        navigate('/delivery/active-trip');
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to accept trip');
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -82,7 +88,7 @@ export const AvailableTripsPage: React.FC = () => {
               Delivery Radar Matches ({trips.length})
             </h1>
             <p className="text-xs text-slate-400">
-              Orders requiring courier pickup from nearest DC to customer destinations
+              New orders awaiting courier dispatch from Distribution Hubs to customer doorsteps
             </p>
           </div>
 
@@ -90,7 +96,7 @@ export const AvailableTripsPage: React.FC = () => {
             <RangeSlider
               label="Radar Radius"
               min={5}
-              max={50}
+              max={60}
               step={5}
               unit="km"
               value={radiusKm}
@@ -110,19 +116,27 @@ export const AvailableTripsPage: React.FC = () => {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trips.map((t) => (
-              <DeliveryOpportunityCard
-                key={t._id}
-                orderId={t._id}
-                orderNumber={t.orderNumber}
-                pickupLocation={t.assignedDcId?.name || 'Dambulla Regional DC'}
-                deliveryLocation={`${t.deliveryAddress?.city}, ${t.deliveryAddress?.district}`}
-                distanceKm={18}
-                payoutLkr={t.feeBreakdown?.deliveryFeeLeg2Lkr || 650}
-                itemCount={t.items?.length || 1}
-                onAccept={() => handleAcceptTrip(t._id)}
-              />
-            ))}
+            {trips.map((t) => {
+              const pickup = t.assignedDcId?.name || 'Regional Distribution Hub';
+              const deliveryLoc = `${t.deliveryAddress?.city || 'Colombo'}, ${t.deliveryAddress?.district || 'Western'}`;
+              const payout = t.leg2DeliveryFee || t.totalDeliveryFee || 650;
+              const itemCount = t.items?.length || 1;
+
+              return (
+                <DeliveryOpportunityCard
+                  key={t._id}
+                  orderId={t._id}
+                  orderNumber={t.orderNumber}
+                  pickupLocation={pickup}
+                  deliveryLocation={deliveryLoc}
+                  distanceKm={18}
+                  payoutLkr={payout}
+                  itemCount={itemCount}
+                  onAccept={() => handleAcceptTrip(t._id)}
+                  isLoading={acceptingId === t._id}
+                />
+              );
+            })}
           </div>
         )}
       </div>
