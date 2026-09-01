@@ -14,6 +14,7 @@ router.use(authenticate);
 router.post(
   '/',
   requireRole(Role.FARMER, Role.COLLECTOR),
+  upload.single('organicCertificate'), // parse multipart BEFORE validation
   validateRequest(CreateFarmSchema),
   FarmController.createFarm
 );

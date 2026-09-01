@@ -18,6 +18,7 @@ router.post(
   '/',
   authenticate,
   requireRole(Role.FARMER, Role.COLLECTOR),
+  upload.array('images', 5), // parse multipart BEFORE Zod validation
   validateRequest(CreateProductSchema),
   ProductController.createProduct
 );

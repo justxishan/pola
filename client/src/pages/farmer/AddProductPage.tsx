@@ -107,19 +107,18 @@ export const AddProductPage: React.FC = () => {
       setIsLoading(true);
       const formData = new FormData();
       formData.append('farmId', farmId);
-      formData.append('title', title.trim());
-      formData.append('titleSi', titleSi.trim());
+      formData.append('productName', title.trim());   // validator expects 'productName'
       formData.append('category', category);
       formData.append('unit', unit);
-      formData.append('pricePerUnit', String(pricePerUnit));
+      formData.append('basePricePerUnit', String(pricePerUnit));  // validator expects 'basePricePerUnit'
       formData.append('availableQuantity', String(availableQuantity));
       formData.append('minOrderQuantity', String(minOrderQuantity));
       formData.append('description', description);
-      formData.append('harvestSeason', harvestSeason);
+      formData.append('seasonTag', harvestSeason.toLowerCase());  // validator expects 'seasonTag'
       formData.append('isOrganic', String(isOrganic));
 
       if (pricingTiers.length > 0) {
-        formData.append('pricingTiers', JSON.stringify(pricingTiers));
+        formData.append('b2bPricingTiers', JSON.stringify(pricingTiers));  // validator expects 'b2bPricingTiers'
       }
 
       images.forEach((img) => formData.append('images', img));
@@ -130,7 +129,7 @@ export const AddProductPage: React.FC = () => {
         navigate('/farmer/products');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to publish crop listing');
+      toast.error(err.response?.data?.message || err.message || 'Failed to publish crop listing');
     } finally {
       setIsLoading(false);
     }

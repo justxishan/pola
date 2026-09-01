@@ -8,25 +8,41 @@ export const CreateProductSchema = z.object({
     category: z.nativeEnum(ProductCategory),
     variety: z.string().optional(),
     unit: z.nativeEnum(UnitOfSale).default(UnitOfSale.KG),
-    basePricePerUnit: z.number().min(1, 'Price must be greater than 0'),
-    availableQuantity: z.number().min(0.1, 'Available quantity must be greater than 0'),
-    minOrderQuantity: z.number().min(1).default(1),
-    b2bPricingTiers: z
-      .array(
+    // z.coerce handles FormData strings AND proper JSON numbers
+    basePricePerUnit: z.coerce.number().min(1, 'Price must be greater than 0'),
+    availableQuantity: z.coerce.number().min(0.1, 'Available quantity must be greater than 0'),
+    minOrderQuantity: z.coerce.number().min(1).default(1),
+    b2bPricingTiers: z.preprocess(
+      (val) => {
+        if (typeof val === 'string') {
+          try { return JSON.parse(val); } catch { return []; }
+        }
+        return val ?? [];
+      },
+      z.array(
         z.object({
-          minQuantity: z.number().min(1),
-          maxQuantity: z.number().optional(),
-          unitPrice: z.number().min(0.1),
+          minQuantity: z.coerce.number().min(1),
+          maxQuantity: z.coerce.number().optional(),
+          unitPrice: z.coerce.number().min(0.1),
         })
-      )
-      .default([]),
+      ).default([])
+    ),
     selfDeclaredGrade: z.nativeEnum(QualityGrade).default(QualityGrade.GRADE_A),
-    isOrganic: z.boolean().default(false),
-    requiresColdChain: z.boolean().default(false),
+    isOrganic: z.preprocess(
+      (val) => val === 'true' || val === true,
+      z.boolean().default(false)
+    ),
+    requiresColdChain: z.preprocess(
+      (val) => val === 'true' || val === true,
+      z.boolean().default(false)
+    ),
     seasonTag: z.enum(['maha', 'yala', 'year_round']).default('year_round'),
     harvestDate: z.string().optional(),
-    shelfLifeDays: z.number().optional(),
-    images: z.array(z.string()).default([]),
+    shelfLifeDays: z.coerce.number().optional(),
+    images: z.preprocess(
+      (val) => (typeof val === 'string' ? [val] : val ?? []),
+      z.array(z.string()).default([])
+    ),
     description: z.string().optional(),
   }),
 });

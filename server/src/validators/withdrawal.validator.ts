@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const RequestWithdrawalSchema = z.object({
   body: z.object({
-    amountLkr: z.number().min(500, 'Minimum withdrawal amount is LKR 500'),
+    amountLkr: z.coerce.number().min(500, 'Minimum withdrawal amount is LKR 500'),
   }),
 });
 

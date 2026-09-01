@@ -69,37 +69,59 @@ export const AddFarmPage: React.FC = () => {
       toast.error('Please enter your farm field name');
       return;
     }
+    if (!addressLine.trim() && !nearestVillage.trim()) {
+      toast.error('Please enter an address or nearest village');
+      return;
+    }
 
     try {
       setIsLoading(true);
-      const formData = new FormData();
-      formData.append('farmName', farmName.trim());
-      formData.append('province', province);
-      formData.append('district', district);
-      formData.append('nearestVillage', nearestVillage);
-      formData.append('addressLine', addressLine);
-      formData.append('latitude', String(latitude));
-      formData.append('longitude', String(longitude));
-      formData.append('landExtentAcres', String(landExtentAcres));
-      formData.append('ownershipType', ownershipType);
-      formData.append('irrigationSource', irrigationSource);
-      formData.append('isOrganicCertified', String(isOrganicCertified));
 
+      // If organic cert file needs uploading, use FormData; otherwise JSON
       if (certFiles[0]) {
+        const formData = new FormData();
+        formData.append('farmName', farmName.trim());
+        formData.append('province', province);
+        formData.append('district', district);
+        formData.append('addressLine', addressLine.trim() || nearestVillage.trim());
+        formData.append('city', nearestVillage.trim() || addressLine.trim());
+        // Send numbers as plain numbers — FormData coercion fix via multipart
+        formData.append('latitude', String(latitude));
+        formData.append('longitude', String(longitude));
+        formData.append('extentValue', String(landExtentAcres));
+        formData.append('extentUnit', 'acres');
+        formData.append('ownershipType', ownershipType);
+        formData.append('irrigationType', irrigationSource);
+        formData.append('isOrganicCertified', String(isOrganicCertified));
         formData.append('organicCertificate', certFiles[0]);
+        await FarmService.createFarm(formData);
+      } else {
+        // Send JSON so numbers arrive as numbers (Zod z.number() works correctly)
+        await FarmService.createFarmJson({
+          farmName: farmName.trim(),
+          province,
+          district,
+          addressLine: addressLine.trim() || nearestVillage.trim(),
+          city: nearestVillage.trim() || addressLine.trim(),
+          latitude,
+          longitude,
+          extentValue: landExtentAcres,
+          extentUnit: 'acres',
+          ownershipType,
+          irrigationType: irrigationSource,
+          isOrganicCertified,
+        });
       }
 
-      const res: any = await FarmService.createFarm(formData);
-      if (res.success) {
-        toast.success('Farm field registered successfully!');
-        navigate('/farmer/farms');
-      }
+      toast.success('Farm field registered successfully!');
+      navigate('/farmer/farms');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to register farm');
+      toast.error(err.response?.data?.message || err.message || 'Failed to register farm');
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const availableDistricts = PROVINCES_DISTRICTS[province] || [];
 
