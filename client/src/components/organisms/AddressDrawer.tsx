@@ -60,18 +60,24 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
       };
 
       const updatedAddresses = [...addresses, newAddress];
-      await AuthService.updateProfile({ addresses: updatedAddresses });
-      updateUser({ addresses: updatedAddresses });
+      const res: any = await AuthService.updateProfile({ addresses: updatedAddresses });
+
+      // Use the server's response (which includes Mongoose-assigned _id fields)
+      const savedAddresses = res?.data?.user?.addresses || updatedAddresses;
+      updateUser({ addresses: savedAddresses });
 
       toast.success('New delivery address added!');
       setIsAddingNew(false);
       setStreetAddress('');
+      setCity('Kollupitiya');
 
+      const savedNew = savedAddresses[savedAddresses.length - 1] || newAddress;
       if (onSelectAddress) {
-        onSelectAddress(newAddress);
+        onSelectAddress(savedNew);
+        onClose();
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to save address');
+      toast.error(err.message || 'Failed to save address');
     } finally {
       setIsLoading(false);
     }
@@ -83,8 +89,8 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
         ...addr,
         isDefault: idx === index,
       }));
-      await AuthService.updateProfile({ addresses: updated });
-      updateUser({ addresses: updated });
+      const res: any = await AuthService.updateProfile({ addresses: updated });
+      updateUser({ addresses: res?.data?.user?.addresses || updated });
       toast.success('Default address updated');
     } catch (err: any) {
       toast.error('Failed to update default address');
@@ -94,12 +100,11 @@ export const AddressDrawer: React.FC<AddressDrawerProps> = ({
   const handleDeleteAddress = async (index: number) => {
     try {
       const updated = addresses.filter((_, idx) => idx !== index);
-      // If we removed the default address, make the first remaining address default
       if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
         updated[0].isDefault = true;
       }
-      await AuthService.updateProfile({ addresses: updated });
-      updateUser({ addresses: updated });
+      const res: any = await AuthService.updateProfile({ addresses: updated });
+      updateUser({ addresses: res?.data?.user?.addresses || updated });
       toast.success('Address removed');
     } catch (err: any) {
       toast.error('Failed to remove address');

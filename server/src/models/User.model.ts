@@ -139,12 +139,14 @@ const UserSchema = new Schema<IUser>(
     addresses: [
       {
         label: { type: String, default: 'Primary' },
-        province: { type: String, required: true },
-        district: { type: String, required: true },
-        addressLine1: { type: String, required: true },
+        province: { type: String },
+        district: { type: String },
+        addressLine1: { type: String },
         addressLine2: { type: String },
-        city: { type: String, required: true },
+        streetAddress: { type: String },  // alias kept for compatibility
+        city: { type: String },
         postalCode: { type: String },
+        contactPhone: { type: String },
         isDefault: { type: Boolean, default: false },
         gps: {
           latitude: { type: Number },

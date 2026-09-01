@@ -361,7 +361,7 @@ export class AuthController {
    */
   static async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = (req as any).user;
+      const userId = (req as any).user?.userId || (req as any).user?._id;
       const updates = req.body;
 
       if (updates.phone) {
@@ -372,13 +372,21 @@ export class AuthController {
         updates.phone = phoneValidation.formattedNumber;
       }
 
-      Object.assign(user, updates);
-      await user.save();
+      // Use findByIdAndUpdate instead of Object.assign + save() to avoid
+      // Mongoose re-running subdocument required-field validation on the
+      // entire addresses array (which throws 500 on valid data).
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updates },
+        { new: true, runValidators: false }
+      );
+
+      if (!updatedUser) throw new AppError('User not found', 404);
 
       res.status(200).json({
         success: true,
         message: 'Profile updated successfully',
-        data: { user },
+        data: { user: updatedUser },
       });
     } catch (error) {
       next(error);
