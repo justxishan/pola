@@ -132,16 +132,30 @@ export const useCartStore = create<CartState>((set, get) => ({
         }));
 
         set((state) => {
-          // Merge with any in-memory guest items
-          const merged = [...dbItems];
+          // Merge strategy:
+          // - If an item exists in BOTH local memory and the DB, prefer the LOCAL quantity.
+          //   Local = the user actively changed it in this session (most recent intent).
+          //   Math.max was wrong: if the user deliberately lowered qty, it would snap back up.
+          // - Items only in the DB (from a previous/other session) are imported as-is.
+          // - Items only in local memory (added as guest before login) are kept.
+          const localMap = new Map(state.items.map((item) => [item.productId, item]));
+
+          const merged: CartItem[] = dbItems.map((dbItem) => {
+            const localItem = localMap.get(dbItem.productId);
+            if (localItem) {
+              // Local wins — user's current session intent takes priority
+              return { ...dbItem, quantity: localItem.quantity };
+            }
+            return dbItem;
+          });
+
+          // Append any guest items that weren't in the DB at all
           for (const localItem of state.items) {
-            const matchIndex = merged.findIndex((m) => m.productId === localItem.productId);
-            if (matchIndex > -1) {
-              merged[matchIndex].quantity = Math.max(merged[matchIndex].quantity, localItem.quantity);
-            } else {
+            if (!merged.find((m) => m.productId === localItem.productId)) {
               merged.push(localItem);
             }
           }
+
           // Push merged back to DB
           triggerDbSync(merged);
           return { items: merged };

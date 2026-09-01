@@ -21,6 +21,19 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+/**
+ * Infer which login page to redirect to based on the current URL pathname.
+ * This avoids the bug where a farmer/delivery/admin 401 always dumped the user
+ * onto the customer login page instead of their own portal login.
+ */
+const getPortalLoginPath = (): string => {
+  const path = window.location.pathname;
+  if (path.startsWith('/farmer')) return '/farmer/login';
+  if (path.startsWith('/delivery')) return '/delivery/login';
+  if (path.startsWith('/admin')) return '/admin/login';
+  return '/customer/login';
+};
+
 // Response Interceptor: Handle 401 Unauthorized
 api.interceptors.response.use(
   (response) => response.data,
@@ -28,8 +41,17 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('pola_token');
       localStorage.removeItem('pola_user');
-      if (window.location.pathname !== '/auth/login' && !window.location.pathname.startsWith('/catalog')) {
-        window.location.href = '/auth/login';
+
+      const publicPaths = ['/catalog', '/product/', '/auth/', '/portals', '/portal-select'];
+      const isPublicPath = publicPaths.some((p) => window.location.pathname.startsWith(p));
+      const isAlreadyOnLogin = window.location.pathname.includes('/login');
+
+      if (!isPublicPath && !isAlreadyOnLogin) {
+        // Use history.pushState for a soft redirect to avoid full page reload.
+        // A full reload (window.location.href) would wipe the in-memory Zustand cart.
+        const loginPath = getPortalLoginPath();
+        window.history.pushState({}, '', loginPath);
+        window.dispatchEvent(new PopStateEvent('popstate'));
       }
     }
     const message = error.response?.data?.message || error.message || 'Something went wrong';

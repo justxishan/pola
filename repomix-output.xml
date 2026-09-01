@@ -174,11 +174,13 @@ client/
       admin.service.ts
       api.ts
       auth.service.ts
+      cart.service.ts
       delivery.service.ts
       dispute.service.ts
       farm.service.ts
       order.service.ts
       product.service.ts
+      rating.service.ts
       vehicle.service.ts
       wallet.service.ts
     store/
@@ -249,6 +251,7 @@ server/
       validate.middleware.ts
     models/
       AuditLog.model.ts
+      Cart.model.ts
       ContentFlag.model.ts
       Dispute.model.ts
       DistributionCenter.model.ts
@@ -1802,98 +1805,6 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
 };
 </file>
 
-<file path="client/src/components/molecules/GoogleSignInButton.tsx">
-import React, { useEffect, useRef } from 'react';
-import { AuthService } from '@/services/auth.service';
-import { useAuthStore } from '@/store/authStore';
-import toast from 'react-hot-toast';
-
-declare global {
-  interface Window {
-    google?: any;
-  }
-}
-
-export interface GoogleSignInButtonProps {
-  role?: string;
-  onSuccess: (user: any, isNewUser?: boolean) => void;
-  className?: string;
-}
-
-const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  '1039609194458-s3mm2bkcq0i5gcg229g64npq48ntc7gh.apps.googleusercontent.com';
-
-export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
-  role,
-  onSuccess,
-  className,
-}) => {
-  const { setAuth } = useAuthStore();
-  const buttonRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Dynamically load Google GSI script if not present
-    if (!document.getElementById('google-gsi-script')) {
-      const script = document.createElement('script');
-      script.id = 'google-gsi-script';
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = initializeGoogle;
-      document.body.appendChild(script);
-    } else if (window.google) {
-      initializeGoogle();
-    }
-  }, []);
-
-  const initializeGoogle = () => {
-    if (!window.google?.accounts?.id) return;
-
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleCredentialResponse,
-      auto_select: false,
-    });
-
-    if (buttonRef.current) {
-      window.google.accounts.id.renderButton(buttonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        type: 'standard',
-        text: 'continue_with',
-        shape: 'rectangular',
-        width: '100%',
-      });
-    }
-  };
-
-  const handleCredentialResponse = async (response: any) => {
-    if (!response.credential) {
-      toast.error('Google authorization failed');
-      return;
-    }
-
-    try {
-      const res: any = await AuthService.googleLogin(response.credential, role);
-      if (res.success && res.data) {
-        setAuth(res.data.user, res.data.token);
-        toast.success('Google authentication successful!');
-        onSuccess(res.data.user, res.data.isNewUser);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Google sign-in error');
-    }
-  };
-
-  return (
-    <div className={className}>
-      <div ref={buttonRef} className="w-full flex justify-center min-h-[40px]" />
-    </div>
-  );
-};
-</file>
-
 <file path="client/src/components/molecules/index.ts">
 export * from './SearchBar';
 export * from './OtpInput';
@@ -2291,143 +2202,6 @@ export const PricingTierTable: React.FC<PricingTierTableProps> = ({
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-};
-</file>
-
-<file path="client/src/components/molecules/ProductCard.tsx">
-import React from 'react';
-import { cn } from '@/lib/cn';
-import { Sprout, MapPin, Star, ShoppingBag, ShieldCheck, Zap } from 'lucide-react';
-
-export interface ProductCardProps {
-  id: string;
-  title: string;
-  titleSi?: string;
-  pricePerUnit: number;
-  unit: string;
-  category: string;
-  images: string[];
-  district: string;
-  isOrganic?: boolean;
-  qualityGrade?: string;
-  minOrderQuantity?: number;
-  ratingAverage?: number;
-  farmerName?: string;
-  onAddToCart?: (e: React.MouseEvent) => void;
-  onClick?: () => void;
-  className?: string;
-}
-
-export const ProductCard: React.FC<ProductCardProps> = ({
-  id,
-  title,
-  titleSi,
-  pricePerUnit,
-  unit,
-  category,
-  images,
-  district,
-  isOrganic = false,
-  qualityGrade = 'Grade A',
-  minOrderQuantity = 1,
-  ratingAverage = 4.9,
-  farmerName,
-  onAddToCart,
-  onClick,
-  className,
-}) => {
-  const imageUrl =
-    images && images.length > 0
-      ? images[0]
-      : 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80';
-
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        'group glass-terminal rounded-3xl border border-white/10 hover:border-emerald-400/50 transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer shadow-2xl relative',
-        className
-      )}
-    >
-      {/* 1. Image Frame with Vignette & Floating Pill Badges */}
-      <div className="relative aspect-4/3 w-full overflow-hidden bg-black/40">
-        <img
-          src={imageUrl}
-          alt={title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-90 contrast-110"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a1214] via-transparent to-black/30" />
-
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-1.5 pointer-events-none">
-          {isOrganic ? (
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/80 backdrop-blur-md text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
-              <Sprout className="w-3 h-3 text-slate-950" />
-              Organic
-            </span>
-          ) : (
-            <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-slate-200 border border-white/15 font-bold text-[10px]">
-              {qualityGrade}
-            </span>
-          )}
-
-          <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-emerald-300 border border-emerald-400/30 font-bold text-[10px] flex items-center gap-1">
-            <MapPin className="w-3 h-3 text-emerald-400" />
-            {district}
-          </span>
-        </div>
-
-        {/* Bottom Rating Pill */}
-        <div className="absolute bottom-2.5 left-3">
-          <span className="px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-amber-400 font-bold text-[10px] flex items-center gap-1 border border-white/10">
-            <Star className="w-3 h-3 fill-amber-400" />
-            {(ratingAverage || 4.9).toFixed(1)}
-          </span>
-        </div>
-      </div>
-
-      {/* 2. Content & Pricing Details */}
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
-        <div className="space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono block">
-            {category} {farmerName ? `• ${farmerName}` : ''}
-          </span>
-          <h3 className="font-extrabold text-sm sm:text-base text-white group-hover:text-emerald-300 transition-colors line-clamp-1">
-            {title}
-          </h3>
-          {titleSi && (
-            <p className="text-[11px] font-semibold text-slate-400 line-clamp-1">
-              {titleSi}
-            </p>
-          )}
-        </div>
-
-        {/* Price & Add to Cart Pill Action */}
-        <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
-          <div className="leading-tight">
-            <span className="text-base sm:text-lg font-black text-emerald-400 tracking-tight block">
-              LKR {pricePerUnit?.toLocaleString()}
-            </span>
-            <span className="text-[10px] text-slate-400 font-medium">per {unit || 'kg'}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onAddToCart) onAddToCart(e);
-            }}
-            className="p-2.5 sm:px-4 sm:py-2 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-            title="Add to Basket"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Add</span>
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -3068,283 +2842,6 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ isDark, onToggle, clas
         <Moon className="w-5 h-5 text-slate-600 dark:text-slate-300 hover:-rotate-12 transition-transform duration-300" />
       )}
     </IconButton>
-  );
-};
-</file>
-
-<file path="client/src/components/organisms/AddressDrawer.tsx">
-import React, { useState } from 'react';
-import { useTranslation } from '@/lib/i18n';
-import { useAuthStore } from '@/store/authStore';
-import { AuthService } from '@/services/auth.service';
-import { Input } from '@/components/atoms/Input';
-import { Select } from '@/components/atoms/Select';
-import { Button } from '@/components/atoms/Button';
-import { PROVINCES_DISTRICTS } from '@pola/shared';
-import { MapPin, X, Plus, CheckCircle2, Trash2 } from 'lucide-react';
-import toast from 'react-hot-toast';
-
-export interface AddressDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelectAddress?: (address: any) => void;
-}
-
-export const AddressDrawer: React.FC<AddressDrawerProps> = ({
-  isOpen,
-  onClose,
-  onSelectAddress,
-}) => {
-  const { t } = useTranslation();
-  const { user, updateUser } = useAuthStore();
-
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const [label, setLabel] = useState('Home');
-  const [province, setProvince] = useState('Western');
-  const [district, setDistrict] = useState('Colombo');
-  const [city, setCity] = useState('Kollupitiya');
-  const [streetAddress, setStreetAddress] = useState('');
-  const [postalCode, setPostalCode] = useState('00300');
-
-  if (!isOpen) return null;
-
-  const addresses = user?.addresses || [];
-  const districtsList =
-    PROVINCES_DISTRICTS[province as keyof typeof PROVINCES_DISTRICTS] || [];
-
-  const handleSaveAddress = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!streetAddress.trim() || !city.trim()) {
-      toast.error('Please fill in street and city');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const newAddress = {
-        label,
-        province,
-        district,
-        city,
-        streetAddress,
-        postalCode,
-        isDefault: addresses.length === 0,
-      };
-
-      const updatedAddresses = [...addresses, newAddress];
-      await AuthService.updateProfile({ addresses: updatedAddresses });
-      updateUser({ addresses: updatedAddresses });
-
-      toast.success('New delivery address added!');
-      setIsAddingNew(false);
-      setStreetAddress('');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save address');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteAddress = async (index: number) => {
-    try {
-      const updated = addresses.filter((_, idx) => idx !== index);
-      await AuthService.updateProfile({ addresses: updated });
-      updateUser({ addresses: updated });
-      toast.success('Address removed');
-    } catch (err: any) {
-      toast.error('Failed to remove address');
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
-      <div
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in"
-        onClick={onClose}
-      />
-
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col">
-          {/* Header */}
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300">
-                <MapPin className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
-                  Delivery Addresses
-                </h3>
-                <p className="text-xs text-slate-400">Manage your shipping destinations</p>
-              </div>
-            </div>
-
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {!isAddingNew ? (
-              <>
-                <div className="space-y-3">
-                  {addresses.length === 0 ? (
-                    <div className="py-12 text-center text-xs text-slate-400 space-y-2">
-                      <MapPin className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
-                      <p>No saved addresses yet.</p>
-                    </div>
-                  ) : (
-                    addresses.map((addr, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          if (onSelectAddress) {
-                            onSelectAddress(addr);
-                            onClose();
-                          }
-                        }}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 ${
-                          addr.isDefault
-                            ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20'
-                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                            {addr.label || 'Address'}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {addr.isDefault && (
-                              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
-                                Default
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAddress(idx);
-                              }}
-                              className="p-1 text-slate-400 hover:text-red-500 rounded-md"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                          {addr.streetAddress}, {addr.city}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          {addr.district}, {addr.province} Province • {addr.postalCode}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsAddingNew(true)}
-                  className="w-full mt-4"
-                  leftIcon={<Plus className="w-4 h-4" />}
-                >
-                  Add New Delivery Address
-                </Button>
-              </>
-            ) : (
-              <form onSubmit={handleSaveAddress} className="space-y-4">
-                <Input
-                  label="Address Label (e.g. Home, Office, Kitchen)"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  required
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    label="Province"
-                    value={province}
-                    onChange={(e) => {
-                      setProvince(e.target.value);
-                      const d =
-                        PROVINCES_DISTRICTS[
-                          e.target.value as keyof typeof PROVINCES_DISTRICTS
-                        ];
-                      if (d && d.length > 0) setDistrict(d[0]);
-                    }}
-                    options={Object.keys(PROVINCES_DISTRICTS).map((p) => ({
-                      value: p,
-                      label: p,
-                    }))}
-                  />
-
-                  <Select
-                    label="District"
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    options={districtsList.map((d) => ({
-                      value: d,
-                      label: d,
-                    }))}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="City / Town"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    required
-                  />
-                  <Input
-                    label="Postal Code"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <Input
-                  label="Street Address / House Number"
-                  placeholder="e.g. No. 12/B, Flower Road"
-                  value={streetAddress}
-                  onChange={(e) => setStreetAddress(e.target.value)}
-                  required
-                />
-
-                <div className="flex items-center gap-3 pt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => setIsAddingNew(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    type="submit"
-                    isLoading={isLoading}
-                    className="flex-1 bg-emerald-600"
-                  >
-                    Save Address
-                  </Button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 };
 </file>
@@ -5904,199 +5401,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 };
 </file>
 
-<file path="client/src/components/organisms/RatingModal.tsx">
-import React, { useState } from 'react';
-import { cn } from '@/lib/cn';
-import { Button } from '@/components/atoms/Button';
-import { Textarea } from '@/components/atoms/Textarea';
-import { Star, X, Check } from 'lucide-react';
-
-export interface RatingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  orderNumber: string;
-  farmerName?: string;
-  driverName?: string;
-  onSubmit: (data: {
-    produceRating: number;
-    produceComment: string;
-    deliveryRating: number;
-    deliveryComment: string;
-    feedbackTags: string[];
-  }) => void;
-  isLoading?: boolean;
-}
-
-export const RatingModal: React.FC<RatingModalProps> = ({
-  isOpen,
-  onClose,
-  orderNumber,
-  farmerName = 'Farmer',
-  driverName = 'Delivery Partner',
-  onSubmit,
-  isLoading = false,
-}) => {
-  const [produceRating, setProduceRating] = useState(5);
-  const [produceComment, setProduceComment] = useState('');
-  const [deliveryRating, setDeliveryRating] = useState(5);
-  const [deliveryComment, setDeliveryComment] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-  if (!isOpen) return null;
-
-  const availableTags = [
-    'Super Fresh',
-    'Crisp & Clean',
-    'Accurate Weight',
-    'Punctual Delivery',
-    'Careful Handling',
-    'Friendly Service',
-  ];
-
-  const toggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter((t) => t !== tag));
-    } else {
-      setSelectedTags([...selectedTags, tag]);
-    }
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
-      produceRating,
-      produceComment,
-      deliveryRating,
-      deliveryComment,
-      feedbackTags: selectedTags,
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="space-y-1">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            Rate Your Produce & Delivery
-          </h3>
-          <p className="text-xs text-slate-400">Order #{orderNumber}</p>
-        </div>
-
-        <form onSubmit={handleFormSubmit} className="space-y-5 text-sm">
-          {/* Produce Rating */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                Produce Freshness & Quality ({farmerName})
-              </span>
-              <div className="flex gap-1 text-amber-400">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    onClick={() => setProduceRating(i + 1)}
-                    className="p-0.5 cursor-pointer"
-                  >
-                    <Star
-                      className={cn(
-                        'w-5 h-5 transition-transform hover:scale-110',
-                        i < produceRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'
-                      )}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Textarea
-              placeholder="Tell us about the vegetables/fruits received..."
-              value={produceComment}
-              onChange={(e) => setProduceComment(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          {/* Delivery Rating */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                Delivery Service & Courier Care ({driverName})
-              </span>
-              <div className="flex gap-1 text-amber-400">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    onClick={() => setDeliveryRating(i + 1)}
-                    className="p-0.5 cursor-pointer"
-                  >
-                    <Star
-                      className={cn(
-                        'w-5 h-5 transition-transform hover:scale-110',
-                        i < deliveryRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'
-                      )}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Textarea
-              placeholder="Feedback for the courier partner..."
-              value={deliveryComment}
-              onChange={(e) => setDeliveryComment(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          {/* Quick Tag Chips */}
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 block">
-              Highlight Tags
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {availableTags.map((tag) => {
-                const isSelected = selectedTags.includes(tag);
-                return (
-                  <button
-                    type="button"
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className={cn(
-                      'px-3 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1',
-                      isSelected
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-500 font-bold dark:bg-emerald-950/40 dark:text-emerald-300'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    )}
-                  >
-                    {isSelected && <Check className="w-3 h-3 text-emerald-600" />}
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button variant="outline" size="sm" onClick={onClose} type="button">
-              Cancel
-            </Button>
-            <Button variant="primary" size="sm" type="submit" isLoading={isLoading}>
-              Submit Review
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-</file>
-
 <file path="client/src/components/organisms/Sidebar.tsx">
 import React from 'react';
 import { cn } from '@/lib/cn';
@@ -8476,148 +7780,6 @@ export const AdminLoginPage: React.FC = () => {
 };
 </file>
 
-<file path="client/src/pages/auth/CustomerLoginPage.tsx">
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AgroviaAuthLayout } from '@/components/templates/AgroviaAuthLayout';
-import { Input } from '@/components/atoms/Input';
-import { Button } from '@/components/atoms/Button';
-import { GoogleSignInButton } from '@/components/molecules/GoogleSignInButton';
-import { AuthService } from '@/services/auth.service';
-import { Role } from '@pola/shared';
-import { ShoppingBag, Mail, ArrowRight, ShieldCheck, CheckCircle2, ArrowUpRight } from 'lucide-react';
-import toast from 'react-hot-toast';
-
-export const CustomerLoginPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !email.includes('@')) {
-      setError('Please enter a valid email address');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError('');
-      const res: any = await AuthService.requestOtp(email.trim().toLowerCase(), Role.CUSTOMER_B2C);
-      toast.success(res.message || '6-digit security code sent to your email!');
-
-      if (res.devOtp) {
-        toast(`[DEV MODE] Verification Code: ${res.devOtp}`, { icon: '🔑', duration: 7000 });
-      }
-
-      navigate(
-        `/auth/verify?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${Role.CUSTOMER_B2C}`
-      );
-    } catch (err: any) {
-      setError(err.message || 'Failed to send security code');
-      toast.error(err.message || 'Failed to send security code');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <AgroviaAuthLayout
-      portalId="customer"
-      title="Buyer & Consumer Sign In"
-      subtitle="Direct access to verified farmer harvests with 100% LankaPay escrow delivery guarantee."
-      badgeContent={
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border border-emerald-400/30 bg-emerald-500/20 text-emerald-300">
-          <ShoppingBag className="w-3.5 h-3.5" />
-          <span>Customer & B2B Portal</span>
-        </div>
-      }
-      footerContent={
-        <div className="space-y-2">
-          <p className="text-slate-300">
-            Need producer or courier tools?{' '}
-            <a href="/portals" className="underline font-bold text-emerald-300 hover:text-white transition-colors">
-              Browse 4 Portals
-            </a>
-          </p>
-          <p className="text-slate-400 text-[11px]">
-            By signing in, you agree to Pola Escrow Terms & Conditions.
-          </p>
-        </div>
-      }
-    >
-      <form onSubmit={handleRequestOtp} className="space-y-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-200 mb-1.5 tracking-wide">
-            Email Address
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Mail className="w-4 h-4" />
-            </div>
-            <input
-              type="email"
-              placeholder="e.g. buyer@gmail.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError('');
-              }}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:border-emerald-400 focus:bg-white/15 transition-all"
-              autoFocus
-              required
-            />
-          </div>
-          {error && <p className="text-xs text-rose-400 mt-1 font-medium">{error}</p>}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full py-3.5 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-300 active:scale-[0.99] text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer disabled:opacity-60"
-        >
-          {isLoading ? (
-            <span className="inline-block animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full" />
-          ) : (
-            <>
-              <span>Continue with Email OTP</span>
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
-      </form>
-
-      <div className="relative flex items-center justify-center my-4">
-        <div className="border-t border-white/15 w-full" />
-        <span className="px-3 text-[11px] text-slate-300 font-bold uppercase tracking-wider shrink-0">
-          Or instant SSO
-        </span>
-        <div className="border-t border-white/15 w-full" />
-      </div>
-
-      <div className="bg-white/95 rounded-2xl p-1.5 shadow-md">
-        <GoogleSignInButton
-          role={Role.CUSTOMER_B2C}
-          onSuccess={(user, isNewUser) => {
-            if (isNewUser && !user.onboardingCompleted) {
-              navigate('/customer/onboarding');
-            } else {
-              navigate('/');
-            }
-          }}
-        />
-      </div>
-
-      <div className="flex items-center justify-center gap-2 text-xs text-slate-300 pt-1">
-        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span>100% Escrow Protection • 6-Digit Delivery OTP</span>
-      </div>
-    </AgroviaAuthLayout>
-  );
-};
-</file>
-
 <file path="client/src/pages/auth/DeliveryLoginPage.tsx">
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9521,199 +8683,6 @@ export const RoleSelectPage: React.FC = () => {
         </Button>
       </div>
     </AuthLayout>
-  );
-};
-</file>
-
-<file path="client/src/pages/auth/VerifyOtpPage.tsx">
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { AgroviaAuthLayout } from '@/components/templates/AgroviaAuthLayout';
-import { OtpInput } from '@/components/molecules/OtpInput';
-import { AuthService } from '@/services/auth.service';
-import { useAuthStore } from '@/store/authStore';
-import { ArrowLeft, RotateCcw, ShieldCheck, Lock } from 'lucide-react';
-import toast from 'react-hot-toast';
-
-export const VerifyOtpPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
-  const email = searchParams.get('email') || '';
-  const role = searchParams.get('role') || '';
-  const redirectUrl = searchParams.get('redirect') || '';
-
-  const [otp, setOtp] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const [timer, setTimer] = useState(60);
-
-  const { setAuth } = useAuthStore();
-
-  const getPortalId = (): 'customer' | 'farmer' | 'delivery' | 'admin' => {
-    if (role.startsWith('farmer') || role === 'collector') return 'farmer';
-    if (role.startsWith('delivery')) return 'delivery';
-    if (role.startsWith('admin')) return 'admin';
-    return 'customer';
-  };
-
-  const portalId = getPortalId();
-
-  useEffect(() => {
-    if (!email) {
-      navigate('/portals');
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [email]);
-
-  const handleVerify = async (codeToVerify?: string) => {
-    const code = (codeToVerify || otp).trim();
-    if (code.length !== 6) {
-      toast.error('Please enter all 6 digits');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(false);
-      const res: any = await AuthService.verifyOtp(email, code, role || undefined);
-
-      if (res.success && res.data) {
-        setAuth(res.data.user, res.data.token);
-        toast.success(res.message || 'Authentication successful!');
-
-        // If an explicit destination redirect URL was passed, navigate there
-        if (redirectUrl && !redirectUrl.includes('onboarding')) {
-          navigate(redirectUrl);
-          return;
-        }
-
-        const isNewUser = res.data.isNewUser;
-        const onboardingCompleted = res.data.user?.onboardingCompleted;
-        const userRole = res.data.user.role || role;
-
-        // If newly registered user and onboarding not completed, start onboarding
-        if (isNewUser && !onboardingCompleted) {
-          if (userRole?.startsWith('farmer') || userRole === 'collector') {
-            navigate('/farmer/onboarding');
-          } else if (userRole?.startsWith('delivery')) {
-            navigate('/delivery/onboarding');
-          } else if (userRole?.startsWith('admin')) {
-            navigate('/admin/dashboard');
-          } else {
-            navigate('/customer/onboarding');
-          }
-        } else {
-          // Returning user signing in: Directly open active dashboard / marketplace
-          if (userRole?.startsWith('farmer') || userRole === 'collector') {
-            navigate('/farmer/dashboard');
-          } else if (userRole?.startsWith('delivery')) {
-            navigate('/delivery/dashboard');
-          } else if (userRole?.startsWith('admin')) {
-            navigate('/admin/dashboard');
-          } else {
-            navigate('/');
-          }
-        }
-      }
-    } catch (err: any) {
-      setError(true);
-      toast.error(err.message || 'Invalid or expired OTP code');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (timer > 0) return;
-    try {
-      const res: any = await AuthService.requestOtp(email, role || undefined);
-      setTimer(60);
-      setOtp('');
-      setError(false);
-      toast.success('New 6-digit code sent to your email!');
-      if (res.devOtp) {
-        toast(`[DEV MODE] Verification Code: ${res.devOtp}`, { icon: '🔑', duration: 7000 });
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to resend code');
-    }
-  };
-
-  return (
-    <AgroviaAuthLayout
-      portalId={portalId}
-      title="Verify 6-Digit Code"
-      subtitle={`Enter the one-time security code sent to ${email}`}
-      badgeContent={
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border border-white/20 bg-white/10 text-lime-300">
-          <Lock className="w-3.5 h-3.5" />
-          <span>Security Handshake</span>
-        </div>
-      }
-      footerContent={
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to email sign in</span>
-        </button>
-      }
-    >
-      <div className="space-y-6">
-        <div className="bg-black/30 p-4 rounded-2xl border border-white/10">
-          <OtpInput
-            length={6}
-            value={otp}
-            onChange={(newOtp) => {
-              setOtp(newOtp);
-              if (error) setError(false);
-              if (newOtp.length === 6) {
-                handleVerify(newOtp);
-              }
-            }}
-            error={error}
-            disabled={isLoading}
-          />
-        </div>
-
-        <button
-          type="button"
-          disabled={otp.length !== 6 || isLoading}
-          onClick={() => handleVerify()}
-          className="w-full py-3.5 px-6 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-[0.99] text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <span className="inline-block animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full" />
-          ) : (
-            <span>Verify & Enter Portal →</span>
-          )}
-        </button>
-
-        <div className="text-center pt-1">
-          {timer > 0 ? (
-            <p className="text-xs text-slate-300">
-              Resend code in <span className="font-bold text-lime-300">{timer}s</span>
-            </p>
-          ) : (
-            <button
-              onClick={handleResend}
-              className="text-xs font-bold text-lime-300 hover:text-lime-200 inline-flex items-center gap-1.5 cursor-pointer underline"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Resend Code Now
-            </button>
-          )}
-        </div>
-      </div>
-    </AgroviaAuthLayout>
   );
 };
 </file>
@@ -14102,6 +13071,40 @@ export const AuthService = {
 };
 </file>
 
+<file path="client/src/services/cart.service.ts">
+import { api } from './api';
+
+export interface CartItemPayload {
+  productId: string;
+  title: string;
+  pricePerUnit: number;
+  unit: string;
+  quantity: number;
+  image?: string;
+  farmerName?: string;
+  minOrderQuantity?: number;
+  maxOrderQuantity?: number;
+}
+
+export const CartService = {
+  getSavedCart: async () => {
+    return api.get('/cart');
+  },
+
+  saveCart: async (items: CartItemPayload[]) => {
+    return api.put('/cart', { items });
+  },
+
+  clearSavedCart: async () => {
+    return api.delete('/cart');
+  },
+
+  validateCart: async (items: { productId: string; quantity: number }[], deliveryDistrict?: string) => {
+    return api.post('/cart/validate', { items, deliveryDistrict });
+  },
+};
+</file>
+
 <file path="client/src/services/dispute.service.ts">
 import { api } from './api';
 
@@ -14148,6 +13151,23 @@ export const DisputeService = {
     refundAmount?: number
   ) => {
     return api.patch(`/disputes/${id}/adjudicate`, { decision, notes, refundAmount });
+  },
+};
+</file>
+
+<file path="client/src/services/rating.service.ts">
+import { api } from './api';
+
+export const RatingService = {
+  submitRating: async (data: any) => {
+    return api.post('/ratings', data);
+  },
+
+  getTargetRatings: async (targetUserId?: string, productId?: string) => {
+    const params = new URLSearchParams();
+    if (targetUserId) params.append('targetUserId', targetUserId);
+    if (productId) params.append('productId', productId);
+    return api.get(`/ratings?${params.toString()}`);
   },
 };
 </file>
@@ -14210,91 +13230,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   setLoading: (isLoading) => set({ isLoading }),
-}));
-</file>
-
-<file path="client/src/store/cartStore.ts">
-import { create } from 'zustand';
-import { CartItem } from '@/components/organisms/CartDrawer';
-
-interface CartState {
-  items: CartItem[];
-  isOpen: boolean;
-  openCart: () => void;
-  closeCart: () => void;
-  toggleCart: () => void;
-  addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  removeItem: (productId: string) => void;
-  clearCart: () => void;
-  getSubtotal: () => number;
-  getItemCount: () => number;
-}
-
-const savedCart = localStorage.getItem('pola_cart');
-
-export const useCartStore = create<CartState>((set, get) => ({
-  items: savedCart ? JSON.parse(savedCart) : [],
-  isOpen: false,
-
-  openCart: () => set({ isOpen: true }),
-  closeCart: () => set({ isOpen: false }),
-  toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
-
-  addItem: (item) => {
-    set((state) => {
-      const existingIndex = state.items.findIndex((i) => i.productId === item.productId);
-      let updatedItems: CartItem[];
-
-      if (existingIndex > -1) {
-        updatedItems = [...state.items];
-        updatedItems[existingIndex].quantity += item.quantity || 1;
-      } else {
-        updatedItems = [
-          ...state.items,
-          {
-            ...item,
-            quantity: item.quantity || item.minOrderQuantity || 1,
-          },
-        ];
-      }
-
-      localStorage.setItem('pola_cart', JSON.stringify(updatedItems));
-      return { items: updatedItems, isOpen: true };
-    });
-  },
-
-  updateQuantity: (productId, quantity) => {
-    set((state) => {
-      const updatedItems = state.items
-        .map((item) => (item.productId === productId ? { ...item, quantity } : item))
-        .filter((item) => item.quantity > 0);
-
-      localStorage.setItem('pola_cart', JSON.stringify(updatedItems));
-      return { items: updatedItems };
-    });
-  },
-
-  removeItem: (productId) => {
-    set((state) => {
-      const updatedItems = state.items.filter((item) => item.productId !== productId);
-      localStorage.setItem('pola_cart', JSON.stringify(updatedItems));
-      return { items: updatedItems };
-    });
-  },
-
-  clearCart: () => {
-    localStorage.removeItem('pola_cart');
-    set({ items: [] });
-  },
-
-  getSubtotal: () => {
-    return get().items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0);
-  },
-
-  getItemCount: () => {
-    return get().items.reduce((sum, item) => sum + item.quantity, 0);
-  },
 }));
 </file>
 
@@ -14868,68 +13803,6 @@ export const PORTAL_LABELS = {
 }
 </file>
 
-<file path="client/src/App.tsx">
-import React, { useEffect } from 'react';
-import { RouterProvider } from 'react-router-dom';
-import { router } from './router';
-import { Toaster } from 'react-hot-toast';
-import { CartDrawer } from './components/organisms/CartDrawer';
-import { useCartStore } from './store/cartStore';
-import { useThemeStore } from './store/themeStore';
-
-export const App: React.FC = () => {
-  const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal } = useCartStore();
-  const { isDark } = useThemeStore();
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDark]);
-
-  return (
-    <>
-      <RouterProvider router={router} />
-
-      {/* Global Slide-over Cart Drawer */}
-      <CartDrawer
-        isOpen={isOpen}
-        onClose={closeCart}
-        items={items}
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeItem}
-        onCheckout={() => {
-          closeCart();
-          window.location.href = '/checkout';
-        }}
-        subtotalLkr={getSubtotal()}
-      />
-
-      {/* Toast Notification Container */}
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            borderRadius: '16px',
-            background: isDark ? '#1E293B' : '#FFFFFF',
-            color: isDark ? '#F8FAFC' : '#0F172A',
-            fontSize: '13px',
-            fontWeight: 500,
-            border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-          },
-        }}
-      />
-    </>
-  );
-};
-
-export default App;
-</file>
-
 <file path="client/src/index.css">
 :root {
   --text: #6b6375;
@@ -15055,328 +13928,6 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>
 );
-</file>
-
-<file path="client/src/router.tsx">
-import React from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { ProtectedRoute } from './components/templates/ProtectedRoute';
-
-// Dedicated Auth & Portal Selection Pages
-import { PortalSelectPage } from './pages/auth/PortalSelectPage';
-import { FarmerLoginPage } from './pages/auth/FarmerLoginPage';
-import { CustomerLoginPage } from './pages/auth/CustomerLoginPage';
-import { DeliveryLoginPage } from './pages/auth/DeliveryLoginPage';
-import { AdminLoginPage } from './pages/auth/AdminLoginPage';
-import { VerifyOtpPage } from './pages/auth/VerifyOtpPage';
-import { RoleSelectPage } from './pages/auth/RoleSelectPage';
-import { KycUploadPage } from './pages/auth/KycUploadPage';
-
-// Onboarding Wizards
-import { FarmerOnboardingPage } from './pages/farmer/FarmerOnboardingPage';
-import { CustomerOnboardingPage } from './pages/marketplace/CustomerOnboardingPage';
-import { DeliveryOnboardingPage } from './pages/delivery/DeliveryOnboardingPage';
-
-// Marketplace Pages
-import { HomePage } from './pages/marketplace/HomePage';
-import { CatalogPage } from './pages/marketplace/CatalogPage';
-import { ProductDetailPage } from './pages/marketplace/ProductDetailPage';
-import { CheckoutPage } from './pages/marketplace/CheckoutPage';
-import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
-import { CustomerOrdersPage } from './pages/marketplace/CustomerOrdersPage';
-
-// Farmer Pages
-import { FarmerDashboard } from './pages/farmer/FarmerDashboard';
-import { MyFarmsPage } from './pages/farmer/MyFarmsPage';
-import { AddFarmPage } from './pages/farmer/AddFarmPage';
-import { MyProductsPage } from './pages/farmer/MyProductsPage';
-import { AddProductPage } from './pages/farmer/AddProductPage';
-import { EditProductPage } from './pages/farmer/EditProductPage';
-import { FarmerOrdersPage } from './pages/farmer/FarmerOrdersPage';
-import { HubDropoffPage } from './pages/farmer/HubDropoffPage';
-
-// Delivery Pages
-import { DeliveryDashboard } from './pages/delivery/DeliveryDashboard';
-import { AvailableTripsPage } from './pages/delivery/AvailableTripsPage';
-import { HubIntakePage } from './pages/delivery/HubIntakePage';
-import { ActiveTripPage } from './pages/delivery/ActiveTripPage';
-import { VehiclesPage } from './pages/delivery/VehiclesPage';
-import { EarningsPage } from './pages/delivery/EarningsPage';
-
-// Admin Pages
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { KycQueuePage } from './pages/admin/KycQueuePage';
-import { PayoutQueuePage } from './pages/admin/PayoutQueuePage';
-import { DisputeAdjudicationPage } from './pages/admin/DisputeAdjudicationPage';
-import { LogisticsPage } from './pages/admin/LogisticsPage';
-import { AuditLogPage } from './pages/admin/AuditLogPage';
-import { ReportsPage } from './pages/admin/ReportsPage';
-
-// Shared Pages
-import { WalletPage } from './pages/shared/WalletPage';
-import { NotFoundPage } from './pages/shared/NotFoundPage';
-
-export const router = createBrowserRouter([
-  // Universal Multi-Portal Hub
-  { path: '/portals', element: <PortalSelectPage /> },
-  { path: '/portal-select', element: <PortalSelectPage /> },
-
-  // 1. Farmer Portal Routes
-  { path: '/farmer/login', element: <FarmerLoginPage /> },
-  {
-    path: '/farmer/onboarding',
-    element: (
-      <ProtectedRoute>
-        <FarmerOnboardingPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/dashboard',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <FarmerDashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/farms',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <MyFarmsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/farms/new',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <AddFarmPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/products',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <MyProductsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/products/new',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <AddProductPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/products/:id/edit',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <EditProductPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/orders',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <FarmerOrdersPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/farmer/hubs',
-    element: (
-      <ProtectedRoute allowedRoles={['farmer', 'collector']}>
-        <HubDropoffPage />
-      </ProtectedRoute>
-    ),
-  },
-
-  // 2. Customer & Buyer Marketplace Routes
-  { path: '/', element: <HomePage /> },
-  { path: '/customer/login', element: <CustomerLoginPage /> },
-  { path: '/login', element: <CustomerLoginPage /> },
-  { path: '/auth/login', element: <CustomerLoginPage /> },
-  { path: '/catalog', element: <CatalogPage /> },
-  { path: '/product/:id', element: <ProductDetailPage /> },
-  {
-    path: '/customer/onboarding',
-    element: (
-      <ProtectedRoute>
-        <CustomerOnboardingPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/checkout',
-    element: (
-      <ProtectedRoute>
-        <CheckoutPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/orders/:id/track',
-    element: (
-      <ProtectedRoute>
-        <OrderTrackingPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/customer/orders',
-    element: (
-      <ProtectedRoute>
-        <CustomerOrdersPage />
-      </ProtectedRoute>
-    ),
-  },
-
-  // 3. Delivery Fleet & Courier Routes
-  { path: '/delivery/login', element: <DeliveryLoginPage /> },
-  {
-    path: '/delivery/onboarding',
-    element: (
-      <ProtectedRoute>
-        <DeliveryOnboardingPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/delivery/dashboard',
-    element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
-        <DeliveryDashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/delivery/available',
-    element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
-        <AvailableTripsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/delivery/hub-schedule',
-    element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
-        <HubIntakePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/delivery/active-trip',
-    element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
-        <ActiveTripPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/delivery/vehicles',
-    element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
-        <VehiclesPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/delivery/earnings',
-    element: (
-      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']}>
-        <EarningsPage />
-      </ProtectedRoute>
-    ),
-  },
-
-  // 4. Executive Admin Routes
-  { path: '/admin/login', element: <AdminLoginPage /> },
-  {
-    path: '/admin/dashboard',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']}>
-        <AdminDashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin/kyc',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']}>
-        <KycQueuePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin/payouts',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_finance']}>
-        <PayoutQueuePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin/disputes',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_support']}>
-        <DisputeAdjudicationPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin/hubs',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops']}>
-        <LogisticsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin/audit',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']}>
-        <AuditLogPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin/reports',
-    element: (
-      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']}>
-        <ReportsPage />
-      </ProtectedRoute>
-    ),
-  },
-
-  // Shared Auth & Verification
-  { path: '/auth/verify', element: <VerifyOtpPage /> },
-  { path: '/auth/select-role', element: <RoleSelectPage /> },
-  {
-    path: '/auth/kyc',
-    element: (
-      <ProtectedRoute>
-        <KycUploadPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/wallet',
-    element: (
-      <ProtectedRoute>
-        <WalletPage />
-      </ProtectedRoute>
-    ),
-  },
-
-  // 404 Catch-All
-  { path: '*', element: <NotFoundPage /> },
-]);
 </file>
 
 <file path="client/.gitignore">
@@ -19638,132 +18189,6 @@ export class AuthController {
 }
 </file>
 
-<file path="server/src/controllers/cart.controller.ts">
-import { Request, Response, NextFunction } from 'express';
-import { Product } from '../models/Product.model.js';
-import { DistributionCenter } from '../models/DistributionCenter.model.js';
-import { AppError } from '../middleware/error.middleware.js';
-import {
-  LEG1_FLAT_FEE_LKR,
-  LEG1_PER_KG_LKR,
-  LEG2_BASE_FEE_LKR,
-  LEG2_PER_KG_LKR,
-  DEFAULT_PLATFORM_COMMISSION_PERCENT,
-  DEFAULT_COLLECTOR_COMMISSION_PERCENT,
-} from '../utils/constants.js';
-
-export class CartController {
-  /**
-   * Validate Cart Items, calculate subtotal with B2B tiers & delivery breakdown
-   */
-  static async validateCart(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { items, deliveryDistrict } = req.body;
-
-      if (!items || items.length === 0) {
-        throw new AppError('Cart items are required', 400);
-      }
-
-      let itemsTotal = 0;
-      let totalWeightKg = 0;
-      const validatedItems = [];
-
-      for (const item of items) {
-        const product = await Product.findById(item.productId).populate('farmerId farmId');
-        if (!product || product.status !== 'active') {
-          throw new AppError(`Product "${item.productId}" is no longer available`, 400);
-        }
-
-        if (item.quantity > product.availableQuantity) {
-          throw new AppError(
-            `Insufficient stock for "${product.productName}". Available: ${product.availableQuantity} ${product.unit}`,
-            400
-          );
-        }
-
-        // Determine unit price based on B2B tier
-        let unitPrice = product.basePricePerUnit;
-        if (product.b2bPricingTiers && product.b2bPricingTiers.length > 0) {
-          for (const tier of product.b2bPricingTiers) {
-            if (
-              item.quantity >= tier.minQuantity &&
-              (!tier.maxQuantity || item.quantity <= tier.maxQuantity)
-            ) {
-              unitPrice = tier.unitPrice;
-              break;
-            }
-          }
-        }
-
-        const subtotal = Math.round(unitPrice * item.quantity * 100) / 100;
-        itemsTotal += subtotal;
-        totalWeightKg += item.quantity; // approximate kg
-
-        // Commissions
-        const platformCommission =
-          Math.round((subtotal * DEFAULT_PLATFORM_COMMISSION_PERCENT) / 100 * 100) / 100;
-        const farmer = product.farmerId as any;
-        const hasCollector = farmer?.linkedCollectorId;
-        const collectorCommission = hasCollector
-          ? Math.round((subtotal * DEFAULT_COLLECTOR_COMMISSION_PERCENT) / 100 * 100) / 100
-          : 0;
-
-        const farmerPayout = subtotal - platformCommission - collectorCommission;
-
-        validatedItems.push({
-          productId: product._id,
-          farmerId: farmer?._id,
-          farmId: product.farmId?._id,
-          productName: product.productName,
-          category: product.category,
-          unit: product.unit,
-          quantityOrdered: item.quantity,
-          unitPrice,
-          subtotal,
-          selfDeclaredGrade: product.selfDeclaredGrade,
-          collectorId: hasCollector ? farmer.linkedCollectorId : undefined,
-          collectorCommissionLkr: collectorCommission,
-          platformCommissionLkr: platformCommission,
-          farmerPayoutLkr: farmerPayout,
-          images: product.images,
-        });
-      }
-
-      // Determine appropriate DC
-      let assignedDc = await DistributionCenter.findOne({ isMainHub: true });
-      if (deliveryDistrict) {
-        const regionalDc = await DistributionCenter.findOne({ district: deliveryDistrict });
-        if (regionalDc) assignedDc = regionalDc;
-      }
-
-      // Delivery Fees
-      const leg1Fee = LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR;
-      const leg2Fee = LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR;
-      const totalDeliveryFee = leg1Fee + leg2Fee;
-      const grandTotal = itemsTotal + totalDeliveryFee;
-
-      res.status(200).json({
-        success: true,
-        data: {
-          items: validatedItems,
-          assignedDc: assignedDc ? { id: assignedDc._id, name: assignedDc.name, code: assignedDc.code } : null,
-          calculation: {
-            itemsTotal,
-            leg1DeliveryFee: leg1Fee,
-            leg2DeliveryFee: leg2Fee,
-            totalDeliveryFee,
-            grandTotal,
-            totalWeightKg,
-          },
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-}
-</file>
-
 <file path="server/src/controllers/customer.controller.ts">
 import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User.model.js';
@@ -21539,6 +19964,54 @@ AuditLogSchema.index({ createdAt: -1, action: 1 });
 export const AuditLog = mongoose.model<IAuditLog>('AuditLog', AuditLogSchema);
 </file>
 
+<file path="server/src/models/Cart.model.ts">
+import mongoose, { Document, Schema, Types } from 'mongoose';
+
+export interface ICartItem {
+  productId: Types.ObjectId;
+  title: string;
+  pricePerUnit: number;
+  unit: string;
+  quantity: number;
+  image?: string;
+  farmerName?: string;
+  minOrderQuantity?: number;
+  maxOrderQuantity?: number;
+}
+
+export interface ICart extends Document {
+  userId: Types.ObjectId;
+  items: ICartItem[];
+  updatedAt: Date;
+  createdAt: Date;
+}
+
+const CartItemSchema = new Schema<ICartItem>(
+  {
+    productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    title: { type: String, required: true },
+    pricePerUnit: { type: Number, required: true },
+    unit: { type: String, default: 'kg' },
+    quantity: { type: Number, required: true, min: 0.1 },
+    image: { type: String },
+    farmerName: { type: String },
+    minOrderQuantity: { type: Number, default: 1 },
+    maxOrderQuantity: { type: Number },
+  },
+  { _id: false }
+);
+
+const CartSchema = new Schema<ICart>(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
+    items: [CartItemSchema],
+  },
+  { timestamps: true }
+);
+
+export const Cart = mongoose.model<ICart>('Cart', CartSchema);
+</file>
+
 <file path="server/src/models/ContentFlag.model.ts">
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
@@ -22872,18 +21345,6 @@ router.post(
   ]),
   AuthController.submitKyc
 );
-
-export default router;
-</file>
-
-<file path="server/src/routes/cart.routes.ts">
-import { Router } from 'express';
-import { CartController } from '../controllers/cart.controller.js';
-import { optionalAuthenticate } from '../middleware/auth.middleware.js';
-
-const router = Router();
-
-router.post('/validate', optionalAuthenticate, CartController.validateCart);
 
 export default router;
 </file>
@@ -25696,6 +24157,773 @@ Thumbs.db
 }
 </file>
 
+<file path="client/src/components/molecules/GoogleSignInButton.tsx">
+import React, { useEffect, useRef } from 'react';
+import { AuthService } from '@/services/auth.service';
+import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
+import toast from 'react-hot-toast';
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+export interface GoogleSignInButtonProps {
+  role?: string;
+  onSuccess: (user: any, isNewUser?: boolean) => void;
+  className?: string;
+}
+
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '1039609194458-s3mm2bkcq0i5gcg229g64npq48ntc7gh.apps.googleusercontent.com';
+
+export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
+  role,
+  onSuccess,
+  className,
+}) => {
+  const { setAuth } = useAuthStore();
+  const buttonRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Dynamically load Google GSI script if not present
+    if (!document.getElementById('google-gsi-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-gsi-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogle;
+      document.body.appendChild(script);
+    } else if (window.google) {
+      initializeGoogle();
+    }
+  }, []);
+
+  const initializeGoogle = () => {
+    if (!window.google?.accounts?.id) return;
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleCredentialResponse,
+      auto_select: false,
+    });
+
+    if (buttonRef.current) {
+      window.google.accounts.id.renderButton(buttonRef.current, {
+        theme: 'outline',
+        size: 'large',
+        type: 'standard',
+        text: 'continue_with',
+        shape: 'rectangular',
+        width: '100%',
+      });
+    }
+  };
+
+  const handleCredentialResponse = async (response: any) => {
+    if (!response.credential) {
+      toast.error('Google authorization failed');
+      return;
+    }
+
+    try {
+      const res: any = await AuthService.googleLogin(response.credential, role);
+      if (res.success && res.data) {
+        setAuth(res.data.user, res.data.token);
+        useCartStore.getState().hydrateCartFromDb();
+        toast.success('Google authentication successful!');
+        onSuccess(res.data.user, res.data.isNewUser);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Google sign-in error');
+    }
+  };
+
+  return (
+    <div className={className}>
+      <div ref={buttonRef} className="w-full flex justify-center min-h-[40px]" />
+    </div>
+  );
+};
+</file>
+
+<file path="client/src/components/molecules/ProductCard.tsx">
+import React from 'react';
+import { cn } from '@/lib/cn';
+import { Sprout, MapPin, Star, ShoppingBag, ShieldCheck, Zap, Image as ImageIcon } from 'lucide-react';
+
+export interface ProductCardProps {
+  id: string;
+  title: string;
+  titleSi?: string;
+  pricePerUnit: number;
+  unit: string;
+  category: string;
+  images: string[];
+  district: string;
+  isOrganic?: boolean;
+  qualityGrade?: string;
+  minOrderQuantity?: number;
+  ratingAverage?: number;
+  farmerName?: string;
+  onAddToCart?: (e: React.MouseEvent) => void;
+  onClick?: () => void;
+  className?: string;
+}
+
+export const ProductCard: React.FC<ProductCardProps> = ({
+  id,
+  title,
+  titleSi,
+  pricePerUnit,
+  unit,
+  category,
+  images,
+  district,
+  isOrganic = false,
+  qualityGrade = 'Grade A',
+  minOrderQuantity = 1,
+  ratingAverage = 0,
+  farmerName,
+  onAddToCart,
+  onClick,
+  className,
+}) => {
+  const hasImage = images && images.length > 0;
+  const imageUrl = hasImage ? images[0] : null;
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        'group bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/10 hover:border-emerald-400/50 transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer shadow-lg relative',
+        className
+      )}
+    >
+      {/* 1. Image Frame with Vignette & Floating Pill Badges */}
+      <div className="relative aspect-4/3 w-full overflow-hidden bg-slate-100 dark:bg-black/40 flex items-center justify-center">
+        {hasImage ? (
+          <img
+            src={imageUrl as string}
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-95"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+            <ImageIcon className="w-10 h-10 mb-2 opacity-50" />
+            <span className="text-xs font-bold uppercase tracking-wider">No Image</span>
+          </div>
+        )}
+
+        {/* Top Badges */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start">
+          {isOrganic && (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/90 backdrop-blur-md text-white font-black text-[10px] tracking-wide flex items-center gap-1 shadow-md">
+              <Sprout className="w-3 h-3" />
+              100% Organic
+            </span>
+          )}
+          {qualityGrade === 'Export' && (
+            <span className="px-2 py-0.5 rounded-full bg-indigo-500/90 backdrop-blur-md text-white font-black text-[10px] tracking-wide flex items-center gap-1 shadow-md">
+              <ShieldCheck className="w-3 h-3" />
+              Export Grade
+            </span>
+          )}
+        </div>
+
+        {/* Top Right District Badge */}
+        <div className="absolute top-2.5 right-2.5">
+          <span className="px-2 py-0.5 rounded-full bg-slate-900/70 backdrop-blur-md text-white font-bold text-[10px] flex items-center gap-1 border border-white/10">
+            <MapPin className="w-3 h-3 text-slate-300" />
+            {district}
+          </span>
+        </div>
+
+        {/* Bottom Rating Pill */}
+        <div className="absolute bottom-2.5 left-3">
+          <span className="px-2 py-0.5 rounded-full bg-slate-900/70 backdrop-blur-md text-amber-400 font-bold text-[10px] flex items-center gap-1 border border-white/10">
+            <Star className="w-3 h-3 fill-amber-400" />
+            {ratingAverage > 0 ? ratingAverage.toFixed(1) : 'New'}
+          </span>
+        </div>
+      </div>
+
+      {/* 2. Content & Pricing Details */}
+      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
+        <div className="space-y-1">
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono block">
+            {category} {farmerName ? `• ${farmerName}` : ''}
+          </span>
+          <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors line-clamp-1">
+            {title}
+          </h3>
+          {titleSi && (
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 line-clamp-1">
+              {titleSi}
+            </p>
+          )}
+        </div>
+
+        {/* Price & Add to Cart Pill Action */}
+        <div className="pt-2 border-t border-slate-100 dark:border-white/10 flex items-center justify-between gap-2">
+          <div className="leading-tight">
+            <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight block">
+              LKR {pricePerUnit?.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">per {unit || 'kg'}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onAddToCart) onAddToCart(e);
+            }}
+            className="p-2.5 sm:px-4 sm:py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 dark:bg-emerald-400 dark:hover:bg-emerald-300 text-white dark:text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+            title="Add to Basket"
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Add</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="client/src/components/organisms/AddressDrawer.tsx">
+import React, { useState } from 'react';
+import { useTranslation } from '@/lib/i18n';
+import { useAuthStore } from '@/store/authStore';
+import { AuthService } from '@/services/auth.service';
+import { Input } from '@/components/atoms/Input';
+import { Select } from '@/components/atoms/Select';
+import { Button } from '@/components/atoms/Button';
+import { PROVINCES_DISTRICTS } from '@pola/shared';
+import { MapPin, X, Plus, CheckCircle2, Trash2, Star } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+export interface AddressDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectAddress?: (address: any) => void;
+}
+
+export const AddressDrawer: React.FC<AddressDrawerProps> = ({
+  isOpen,
+  onClose,
+  onSelectAddress,
+}) => {
+  const { t } = useTranslation();
+  const { user, updateUser } = useAuthStore();
+
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [label, setLabel] = useState('Home');
+  const [province, setProvince] = useState('Western');
+  const [district, setDistrict] = useState('Colombo');
+  const [city, setCity] = useState('Kollupitiya');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [postalCode, setPostalCode] = useState('00300');
+
+  if (!isOpen) return null;
+
+  const addresses = user?.addresses || [];
+  const districtsList =
+    PROVINCES_DISTRICTS[province as keyof typeof PROVINCES_DISTRICTS] || [];
+
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!streetAddress.trim() || !city.trim()) {
+      toast.error('Please fill in street and city');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const newAddress = {
+        label: label.trim() || 'Home',
+        province,
+        district,
+        city: city.trim(),
+        addressLine1: streetAddress.trim(),
+        streetAddress: streetAddress.trim(),
+        postalCode: postalCode.trim() || '00300',
+        isDefault: addresses.length === 0,
+      };
+
+      const updatedAddresses = [...addresses, newAddress];
+      await AuthService.updateProfile({ addresses: updatedAddresses });
+      updateUser({ addresses: updatedAddresses });
+
+      toast.success('New delivery address added!');
+      setIsAddingNew(false);
+      setStreetAddress('');
+
+      if (onSelectAddress) {
+        onSelectAddress(newAddress);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to save address');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSetDefault = async (index: number) => {
+    try {
+      const updated = addresses.map((addr, idx) => ({
+        ...addr,
+        isDefault: idx === index,
+      }));
+      await AuthService.updateProfile({ addresses: updated });
+      updateUser({ addresses: updated });
+      toast.success('Default address updated');
+    } catch (err: any) {
+      toast.error('Failed to update default address');
+    }
+  };
+
+  const handleDeleteAddress = async (index: number) => {
+    try {
+      const updated = addresses.filter((_, idx) => idx !== index);
+      // If we removed the default address, make the first remaining address default
+      if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
+        updated[0].isDefault = true;
+      }
+      await AuthService.updateProfile({ addresses: updated });
+      updateUser({ addresses: updated });
+      toast.success('Address removed');
+    } catch (err: any) {
+      toast.error('Failed to remove address');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden">
+      <div
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in"
+        onClick={onClose}
+      />
+
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+        <div className="w-screen max-w-md bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col">
+          {/* Header */}
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
+                  Delivery Addresses
+                </h3>
+                <p className="text-xs text-slate-400">Manage your shipping destinations</p>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {!isAddingNew ? (
+              <>
+                <div className="space-y-3">
+                  {addresses.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-400 space-y-2">
+                      <MapPin className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
+                      <p>No saved addresses yet.</p>
+                    </div>
+                  ) : (
+                    addresses.map((addr, idx) => {
+                      const displayStreet = addr.addressLine1 || addr.streetAddress || '';
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (onSelectAddress) {
+                              onSelectAddress(addr);
+                              onClose();
+                            }
+                          }}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-1 ${
+                            addr.isDefault
+                              ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                              {addr.label || 'Address'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {addr.isDefault ? (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                                  Default
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetDefault(idx);
+                                  }}
+                                  className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="Set as Default"
+                                >
+                                  <Star className="w-3 h-3" />
+                                  <span>Make Default</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAddress(idx);
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-500 rounded-md cursor-pointer transition-colors"
+                                title="Delete address"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-700 dark:text-slate-300">
+                            {displayStreet}, {addr.city}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {addr.district}, {addr.province} Province • {addr.postalCode || '00300'}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddingNew(true)}
+                  className="w-full mt-4"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Add New Delivery Address
+                </Button>
+              </>
+            ) : (
+              <form onSubmit={handleSaveAddress} className="space-y-4">
+                <Input
+                  label="Address Label (e.g. Home, Office, Kitchen)"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  required
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Select
+                    label="Province"
+                    value={province}
+                    onChange={(e) => {
+                      setProvince(e.target.value);
+                      const newDistricts = PROVINCES_DISTRICTS[e.target.value as keyof typeof PROVINCES_DISTRICTS] || [];
+                      setDistrict(newDistricts[0] || '');
+                    }}
+                  >
+                    {Object.keys(PROVINCES_DISTRICTS).map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </Select>
+
+                  <Select
+                    label="District"
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                  >
+                    {districtsList.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <Input
+                  label="City / Town"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  required
+                />
+
+                <Input
+                  label="Street Address / Building"
+                  placeholder="e.g. 45/2 Galle Road"
+                  value={streetAddress}
+                  onChange={(e) => setStreetAddress(e.target.value)}
+                  required
+                />
+
+                <Input
+                  label="Postal Code"
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value)}
+                />
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setIsAddingNew(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    type="submit"
+                    isLoading={isLoading}
+                    className="flex-1"
+                  >
+                    Save Address
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="client/src/components/organisms/RatingModal.tsx">
+import React, { useState } from 'react';
+import { cn } from '@/lib/cn';
+import { Button } from '@/components/atoms/Button';
+import { Textarea } from '@/components/atoms/Textarea';
+import { Star, X, Check } from 'lucide-react';
+import { RatingService } from '@/services/rating.service';
+import toast from 'react-hot-toast';
+
+export interface RatingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  orderId: string;
+  farmerName?: string;
+  driverName?: string;
+  onSubmitSuccess: () => void;
+}
+
+export const RatingModal: React.FC<RatingModalProps> = ({
+  isOpen,
+  onClose,
+  orderId,
+  farmerName = 'Farmer Partner',
+  driverName = 'Delivery Partner',
+  onSubmitSuccess,
+}) => {
+  const [produceRating, setProduceRating] = useState(5);
+  const [produceComment, setProduceComment] = useState('');
+  const [deliveryRating, setDeliveryRating] = useState(5);
+  const [deliveryComment, setDeliveryComment] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  const availableTags = [
+    'Super Fresh',
+    'Crisp & Clean',
+    'Accurate Weight',
+    'Punctual Delivery',
+    'Careful Handling',
+    'Friendly Service',
+  ];
+
+  const toggleTag = (tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsLoading(true);
+
+      // Submit Produce/Farmer Rating
+      await RatingService.submitRating({
+        orderId,
+        targetType: 'farmer',
+        targetUserId: null, // Depending on backend schema, might need actual IDs. For now assuming backend resolves if missing or handles orderId context
+        ratingScore: produceRating,
+        reviewText: produceComment,
+        tags: selectedTags,
+      });
+
+      // Submit Delivery Rating
+      await RatingService.submitRating({
+        orderId,
+        targetType: 'driver',
+        targetUserId: null,
+        ratingScore: deliveryRating,
+        reviewText: deliveryComment,
+        tags: selectedTags,
+      });
+
+      toast.success('Thank you for your feedback!');
+      onSubmitSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error('Failed to submit rating. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            Rate Your Produce & Delivery
+          </h3>
+          <p className="text-xs text-slate-400 font-mono">Order ID: {orderId.slice(-8)}</p>
+        </div>
+
+        <form onSubmit={handleFormSubmit} className="space-y-5 text-sm">
+          {/* Produce Rating */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                Produce Quality ({farmerName})
+              </span>
+              <div className="flex gap-1 text-amber-400">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => setProduceRating(i + 1)}
+                    className="p-0.5 cursor-pointer"
+                  >
+                    <Star
+                      className={cn(
+                        'w-5 h-5 transition-transform hover:scale-110',
+                        i < produceRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Textarea
+              placeholder="Tell us about the vegetables/fruits received..."
+              value={produceComment}
+              onChange={(e) => setProduceComment(e.target.value)}
+              rows={2}
+            />
+          </div>
+
+          {/* Delivery Rating */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                Delivery Service ({driverName})
+              </span>
+              <div className="flex gap-1 text-amber-400">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => setDeliveryRating(i + 1)}
+                    className="p-0.5 cursor-pointer"
+                  >
+                    <Star
+                      className={cn(
+                        'w-5 h-5 transition-transform hover:scale-110',
+                        i < deliveryRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Textarea
+              placeholder="Feedback for the courier partner..."
+              value={deliveryComment}
+              onChange={(e) => setDeliveryComment(e.target.value)}
+              rows={2}
+            />
+          </div>
+
+          {/* Quick Tag Chips */}
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 block">
+              Highlight Tags
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {availableTags.map((tag) => {
+                const isSelected = selectedTags.includes(tag);
+                return (
+                  <button
+                    type="button"
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={cn(
+                      'px-3 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1',
+                      isSelected
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-500 font-bold dark:bg-emerald-950/40 dark:text-emerald-300'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    )}
+                  >
+                    {isSelected && <Check className="w-3 h-3 text-emerald-600" />}
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button variant="outline" size="sm" onClick={onClose} type="button">
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit" isLoading={isLoading}>
+              Submit Review
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+</file>
+
 <file path="client/src/pages/admin/AuditLogPage.tsx">
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -26768,6 +25996,352 @@ export const PayoutQueuePage: React.FC = () => {
         )}
       </div>
     </DashboardLayout>
+  );
+};
+</file>
+
+<file path="client/src/pages/auth/CustomerLoginPage.tsx">
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AgroviaAuthLayout } from '@/components/templates/AgroviaAuthLayout';
+import { Input } from '@/components/atoms/Input';
+import { Button } from '@/components/atoms/Button';
+import { GoogleSignInButton } from '@/components/molecules/GoogleSignInButton';
+import { AuthService } from '@/services/auth.service';
+import { Role } from '@pola/shared';
+import { ShoppingBag, Mail, ArrowRight, ShieldCheck, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+export const CustomerLoginPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError('');
+      const res: any = await AuthService.requestOtp(email.trim().toLowerCase(), Role.CUSTOMER_B2C);
+      toast.success(res.message || '6-digit security code sent to your email!');
+
+      if (res.devOtp) {
+        toast(`[DEV MODE] Verification Code: ${res.devOtp}`, { icon: '🔑', duration: 7000 });
+      }
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectParam = searchParams.get('redirect');
+      const redirectQuery = redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : '';
+
+      navigate(
+        `/auth/verify?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${Role.CUSTOMER_B2C}${redirectQuery}`
+      );
+    } catch (err: any) {
+      setError(err.message || 'Failed to send security code');
+      toast.error(err.message || 'Failed to send security code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <AgroviaAuthLayout
+      portalId="customer"
+      title="Buyer & Consumer Sign In"
+      subtitle="Direct access to verified farmer harvests with 100% LankaPay escrow delivery guarantee."
+      badgeContent={
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border border-emerald-400/30 bg-emerald-500/20 text-emerald-300">
+          <ShoppingBag className="w-3.5 h-3.5" />
+          <span>Customer & B2B Portal</span>
+        </div>
+      }
+      footerContent={
+        <div className="space-y-2">
+          <p className="text-slate-300">
+            Need producer or courier tools?{' '}
+            <a href="/portals" className="underline font-bold text-emerald-300 hover:text-white transition-colors">
+              Browse 4 Portals
+            </a>
+          </p>
+          <p className="text-slate-400 text-[11px]">
+            By signing in, you agree to Pola Escrow Terms & Conditions.
+          </p>
+        </div>
+      }
+    >
+      <form onSubmit={handleRequestOtp} className="space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-200 mb-1.5 tracking-wide">
+            Email Address
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Mail className="w-4 h-4" />
+            </div>
+            <input
+              type="email"
+              placeholder="e.g. buyer@gmail.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError('');
+              }}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:border-emerald-400 focus:bg-white/15 transition-all"
+              autoFocus
+              required
+            />
+          </div>
+          {error && <p className="text-xs text-rose-400 mt-1 font-medium">{error}</p>}
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-3.5 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-300 active:scale-[0.99] text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer disabled:opacity-60"
+        >
+          {isLoading ? (
+            <span className="inline-block animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full" />
+          ) : (
+            <>
+              <span>Continue with Email OTP</span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="relative flex items-center justify-center my-4">
+        <div className="border-t border-white/15 w-full" />
+        <span className="px-3 text-[11px] text-slate-300 font-bold uppercase tracking-wider shrink-0">
+          Or instant SSO
+        </span>
+        <div className="border-t border-white/15 w-full" />
+      </div>
+
+      <div className="bg-white/95 rounded-2xl p-1.5 shadow-md">
+        <GoogleSignInButton
+          role={Role.CUSTOMER_B2C}
+          onSuccess={(user, isNewUser) => {
+            const searchParams = new URLSearchParams(window.location.search);
+            const redirectParam = searchParams.get('redirect');
+
+            if (redirectParam) {
+              navigate(redirectParam);
+            } else if (isNewUser && !user.onboardingCompleted) {
+              navigate('/customer/onboarding');
+            } else {
+              navigate('/');
+            }
+          }}
+        />
+      </div>
+
+      <div className="flex items-center justify-center gap-2 text-xs text-slate-300 pt-1">
+        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span>100% Escrow Protection • 6-Digit Delivery OTP</span>
+      </div>
+    </AgroviaAuthLayout>
+  );
+};
+</file>
+
+<file path="client/src/pages/auth/VerifyOtpPage.tsx">
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { AgroviaAuthLayout } from '@/components/templates/AgroviaAuthLayout';
+import { OtpInput } from '@/components/molecules/OtpInput';
+import { AuthService } from '@/services/auth.service';
+import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
+import { ArrowLeft, RotateCcw, ShieldCheck, Lock } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+export const VerifyOtpPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const email = searchParams.get('email') || '';
+  const role = searchParams.get('role') || '';
+  const redirectUrl = searchParams.get('redirect') || '';
+
+  const [otp, setOtp] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [timer, setTimer] = useState(60);
+
+  const { setAuth } = useAuthStore();
+
+  const getPortalId = (): 'customer' | 'farmer' | 'delivery' | 'admin' => {
+    if (role.startsWith('farmer') || role === 'collector') return 'farmer';
+    if (role.startsWith('delivery')) return 'delivery';
+    if (role.startsWith('admin')) return 'admin';
+    return 'customer';
+  };
+
+  const portalId = getPortalId();
+
+  useEffect(() => {
+    if (!email) {
+      navigate('/portals');
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [email]);
+
+  const handleVerify = async (codeToVerify?: string) => {
+    const code = (codeToVerify || otp).trim();
+    if (code.length !== 6) {
+      toast.error('Please enter all 6 digits');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(false);
+      const res: any = await AuthService.verifyOtp(email, code, role || undefined);
+
+      if (res.success && res.data) {
+        setAuth(res.data.user, res.data.token);
+        useCartStore.getState().hydrateCartFromDb();
+        toast.success(res.message || 'Authentication successful!');
+
+        // If an explicit destination redirect URL was passed, navigate there
+        if (redirectUrl && !redirectUrl.includes('onboarding')) {
+          navigate(redirectUrl);
+          return;
+        }
+
+        const isNewUser = res.data.isNewUser;
+        const onboardingCompleted = res.data.user?.onboardingCompleted;
+        const userRole = res.data.user.role || role;
+
+        // If newly registered user and onboarding not completed, start onboarding
+        if (isNewUser && !onboardingCompleted) {
+          if (userRole?.startsWith('farmer') || userRole === 'collector') {
+            navigate('/farmer/onboarding');
+          } else if (userRole?.startsWith('delivery')) {
+            navigate('/delivery/onboarding');
+          } else if (userRole?.startsWith('admin')) {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/customer/onboarding');
+          }
+        } else {
+          // Returning user signing in: Directly open active dashboard / marketplace
+          if (userRole?.startsWith('farmer') || userRole === 'collector') {
+            navigate('/farmer/dashboard');
+          } else if (userRole?.startsWith('delivery')) {
+            navigate('/delivery/dashboard');
+          } else if (userRole?.startsWith('admin')) {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/');
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(true);
+      toast.error(err.message || 'Invalid or expired OTP code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (timer > 0) return;
+    try {
+      const res: any = await AuthService.requestOtp(email, role || undefined);
+      setTimer(60);
+      setOtp('');
+      setError(false);
+      toast.success('New 6-digit code sent to your email!');
+      if (res.devOtp) {
+        toast(`[DEV MODE] Verification Code: ${res.devOtp}`, { icon: '🔑', duration: 7000 });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resend code');
+    }
+  };
+
+  return (
+    <AgroviaAuthLayout
+      portalId={portalId}
+      title="Verify 6-Digit Code"
+      subtitle={`Enter the one-time security code sent to ${email}`}
+      badgeContent={
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border border-white/20 bg-white/10 text-lime-300">
+          <Lock className="w-3.5 h-3.5" />
+          <span>Security Handshake</span>
+        </div>
+      }
+      footerContent={
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to email sign in</span>
+        </button>
+      }
+    >
+      <div className="space-y-6">
+        <div className="bg-black/30 p-4 rounded-2xl border border-white/10">
+          <OtpInput
+            length={6}
+            value={otp}
+            onChange={(newOtp) => {
+              setOtp(newOtp);
+              if (error) setError(false);
+              if (newOtp.length === 6) {
+                handleVerify(newOtp);
+              }
+            }}
+            error={error}
+            disabled={isLoading}
+          />
+        </div>
+
+        <button
+          type="button"
+          disabled={otp.length !== 6 || isLoading}
+          onClick={() => handleVerify()}
+          className="w-full py-3.5 px-6 rounded-2xl bg-lime-400 hover:bg-lime-300 active:scale-[0.99] text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <span className="inline-block animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full" />
+          ) : (
+            <span>Verify & Enter Portal →</span>
+          )}
+        </button>
+
+        <div className="text-center pt-1">
+          {timer > 0 ? (
+            <p className="text-xs text-slate-300">
+              Resend code in <span className="font-bold text-lime-300">{timer}s</span>
+            </p>
+          ) : (
+            <button
+              onClick={handleResend}
+              className="text-xs font-bold text-lime-300 hover:text-lime-200 inline-flex items-center gap-1.5 cursor-pointer underline"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Resend Code Now
+            </button>
+          )}
+        </div>
+      </div>
+    </AgroviaAuthLayout>
   );
 };
 </file>
@@ -30363,493 +29937,6 @@ export const MyProductsPage: React.FC = () => {
 };
 </file>
 
-<file path="client/src/pages/marketplace/CheckoutPage.tsx">
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MarketplaceLayout } from '@/components/templates/MarketplaceLayout';
-import { OrderService } from '@/services/order.service';
-import { AuthService } from '@/services/auth.service';
-import { useCartStore } from '@/store/cartStore';
-import { useThemeStore } from '@/store/themeStore';
-import { useAuthStore } from '@/store/authStore';
-import { PROVINCES_DISTRICTS } from '@pola/shared';
-import {
-  ShieldCheck,
-  MapPin,
-  CreditCard,
-  ArrowRight,
-  Package,
-  Banknote,
-  Wallet,
-  CheckCircle2,
-  Plus,
-  Bookmark,
-  Home,
-  Building2,
-  Trash2,
-  Lock,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-
-export const CheckoutPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { items, getSubtotal, clearCart, openCart } = useCartStore();
-  const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
-  const { user, isAuthenticated, updateUser } = useAuthStore();
-
-  // Saved Addresses list from user profile
-  const savedAddresses = user?.addresses || [];
-  const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(
-    savedAddresses.length > 0 ? 0 : -1
-  );
-  const [isAddingNewAddress, setIsAddingNewAddress] = useState(savedAddresses.length === 0);
-
-  // Address Fields
-  const [addressLabel, setAddressLabel] = useState('Home');
-  const [recipientName, setRecipientName] = useState(user?.fullName || '');
-  const [province, setProvince] = useState('Western');
-  const [district, setDistrict] = useState('Colombo');
-  const [city, setCity] = useState('');
-  const [addressLine, setAddressLine] = useState('');
-  const [contactPhone, setContactPhone] = useState(user?.phone || '');
-  const [customerNotes, setCustomerNotes] = useState('');
-  const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
-
-  // Payment Method State: 'cash_on_delivery' | 'paypal' | 'pola_wallet'
-  const [paymentMethod, setPaymentMethod] = useState<'cash_on_delivery' | 'paypal' | 'pola_wallet'>(
-    'cash_on_delivery'
-  );
-
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Populate from chosen saved address
-  useEffect(() => {
-    if (selectedAddressIndex >= 0 && savedAddresses[selectedAddressIndex]) {
-      const addr = savedAddresses[selectedAddressIndex];
-      setAddressLabel(addr.label || 'Saved Address');
-      setProvince(addr.province || 'Western');
-      setDistrict(addr.district || 'Colombo');
-      setCity(addr.city || '');
-      setAddressLine(addr.addressLine1 || addr.streetAddress || '');
-      setContactPhone(addr.contactPhone || user?.phone || '');
-      setIsAddingNewAddress(false);
-    }
-  }, [selectedAddressIndex, user]);
-
-  const subtotal = getSubtotal();
-  const deliveryFee = items.length > 0 ? 450 : 0;
-  const totalAmount = subtotal + deliveryFee;
-
-  const handleSelectSaved = (index: number) => {
-    setSelectedAddressIndex(index);
-    setIsAddingNewAddress(false);
-  };
-
-  const handlePlaceOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!isAuthenticated) {
-      toast.error('Please sign in to place your order');
-      navigate('/customer/login');
-      return;
-    }
-
-    if (items.length === 0) {
-      toast.error('Your produce basket is empty');
-      navigate('/catalog');
-      return;
-    }
-
-    if (!addressLine.trim() || !city.trim()) {
-      toast.error('Please provide a complete street address and city');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      const activeDeliveryAddress = {
-        label: addressLabel.trim() || 'Home',
-        province,
-        district,
-        city: city.trim(),
-        addressLine1: addressLine.trim(),
-        contactPhone: contactPhone.trim() || user?.phone || '+94771234567',
-      };
-
-      // If user opted to save new address to profile
-      if (isAddingNewAddress && saveAddressForFuture) {
-        try {
-          const updatedList = [
-            ...savedAddresses,
-            {
-              ...activeDeliveryAddress,
-              streetAddress: activeDeliveryAddress.addressLine1,
-              postalCode: '00300',
-              isDefault: savedAddresses.length === 0,
-            },
-          ];
-          await AuthService.updateProfile({ addresses: updatedList });
-          updateUser({ addresses: updatedList });
-        } catch (profileErr) {
-          console.warn('Address sync error:', profileErr);
-        }
-      }
-
-      const orderPayload = {
-        items: items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.pricePerUnit,
-        })),
-        deliveryAddress: {
-          label: addressLabel.trim() || 'Home',
-          province,
-          district,
-          city: city.trim(),
-          addressLine1: addressLine.trim(),
-          postalCode: '00300',
-          contactPhone: contactPhone.trim() || user?.phone || '+94771234567',
-        },
-        recipientName: recipientName.trim() || user?.fullName || 'Valued Buyer',
-        recipientPhone: contactPhone.trim() || user?.phone || '+94771234567',
-        deliveryInstructions: 'morning_8_12',
-        customerNotes: customerNotes.trim() || undefined,
-        paymentMethod,
-      };
-
-      const res: any = await OrderService.checkout(orderPayload);
-
-      if (res.success && res.data?.order) {
-        clearCart();
-        const orderId = res.data.order._id || res.data.order.id;
-        toast.success('Order placed successfully! Funds held securely in Escrow.');
-        navigate(`/orders/${orderId}`);
-      } else {
-        throw new Error(res.message || 'Failed to place order');
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Checkout failed. Please review your address details.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const availableDistricts = PROVINCES_DISTRICTS[province] || [];
-
-  return (
-    <MarketplaceLayout
-      searchQuery=""
-      onSearchChange={() => {}}
-      cartItemCount={items.length}
-      onOpenCart={openCart}
-      currentLanguage={language}
-      onLanguageChange={setLanguage}
-      isDark={isDark}
-      onToggleTheme={toggleTheme}
-      user={user}
-    >
-      <div className="max-w-6xl mx-auto space-y-8 pb-16 text-left">
-        {/* Header with Dual-Font Typography */}
-        <div className="space-y-1.5 pb-4 border-b border-white/10">
-          <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 inline-flex items-center gap-1.5">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            256-Bit SSL Escrow Checkout
-          </span>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-            Order Review &{' '}
-            <span className="font-serif-accent italic font-normal text-emerald-400">
-              Escrow Protection
-            </span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300">
-            Payment is held securely in escrow and released to the farmer only upon physical verification.
-          </p>
-        </div>
-
-        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Addresses & Payment Selector (7 Columns) */}
-          <div className="lg:col-span-7 space-y-6">
-            {/* Section 1: Saved Addresses / New Address */}
-            <div className="glass-terminal p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <div className="flex items-center gap-2 font-black text-white text-base">
-                  <div className="p-1.5 rounded-xl bg-emerald-400/20 text-emerald-300">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <span>1. Doorstep Delivery Address</span>
-                </div>
-
-                {savedAddresses.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddingNewAddress(true);
-                      setSelectedAddressIndex(-1);
-                      setAddressLabel('Office');
-                      setCity('');
-                      setAddressLine('');
-                    }}
-                    className="text-xs font-bold text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add New Address
-                  </button>
-                )}
-              </div>
-
-              {/* Saved Address Cards */}
-              {savedAddresses.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {savedAddresses.map((addr: any, idx: number) => {
-                    const isSelected = selectedAddressIndex === idx && !isAddingNewAddress;
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => handleSelectSaved(idx)}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
-                          isSelected
-                            ? 'border-emerald-400 bg-emerald-500/20 shadow-md text-white'
-                            : 'border-white/10 bg-white/5 hover:bg-white/10 text-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1.5 font-extrabold text-xs text-white">
-                            <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
-                            {addr.label || `Address #${idx + 1}`}
-                          </span>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                          )}
-                        </div>
-
-                        <p className="text-xs text-slate-300 leading-snug">
-                          {addr.addressLine1 || addr.streetAddress}
-                        </p>
-                        <p className="text-[11px] text-slate-400 font-medium font-mono">
-                          {addr.city}, {addr.district} District
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Form (if adding new address) */}
-              {isAddingNewAddress && (
-                <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Tag (e.g. Home, Office)</label>
-                      <input
-                        type="text"
-                        placeholder="Home / Office"
-                        value={addressLabel}
-                        onChange={(e) => setAddressLabel(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Recipient Name</label>
-                      <input
-                        type="text"
-                        placeholder="Full Legal Name"
-                        value={recipientName}
-                        onChange={(e) => setRecipientName(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Province</label>
-                      <select
-                        value={province}
-                        onChange={(e) => {
-                          setProvince(e.target.value);
-                          const newDists = PROVINCES_DISTRICTS[e.target.value] || [];
-                          if (newDists.length > 0) setDistrict(newDists[0]);
-                        }}
-                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                      >
-                        {Object.keys(PROVINCES_DISTRICTS).map((p) => (
-                          <option key={p} value={p} className="bg-slate-900 text-white">{p} Province</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">District</label>
-                      <select
-                        value={district}
-                        onChange={(e) => setDistrict(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                      >
-                        {availableDistricts.map((d) => (
-                          <option key={d} value={d} className="bg-slate-900 text-white">{d} District</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">City / Town</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Nugegoda"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-300 block mb-1">Contact Phone</label>
-                      <input
-                        type="tel"
-                        placeholder="077 123 4567"
-                        value={contactPhone}
-                        onChange={(e) => setContactPhone(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400 font-mono"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Street Address</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. No. 45, Temple Road"
-                      value={addressLine}
-                      onChange={(e) => setAddressLine(e.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Section 2: Payment Selector */}
-            <div className="glass-terminal p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-4">
-              <div className="flex items-center gap-2 font-black text-white text-base pb-3 border-b border-white/10">
-                <div className="p-1.5 rounded-xl bg-emerald-400/20 text-emerald-300">
-                  <CreditCard className="w-4 h-4" />
-                </div>
-                <span>2. Escrow Payment Method</span>
-              </div>
-
-              <div className="space-y-3">
-                {/* Cash on Delivery Escrow */}
-                <div
-                  onClick={() => setPaymentMethod('cash_on_delivery')}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                    paymentMethod === 'cash_on_delivery'
-                      ? 'border-emerald-400 bg-emerald-500/20 text-white shadow-md'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Banknote className="w-5 h-5 text-emerald-400" />
-                    <div>
-                      <span className="font-extrabold text-sm block">Cash on Delivery (Escrow Guarantee)</span>
-                      <span className="text-[11px] text-slate-400">Pay cash upon delivery after inspecting produce crate</span>
-                    </div>
-                  </div>
-                  {paymentMethod === 'cash_on_delivery' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-                </div>
-
-                {/* PayPal Escrow */}
-                <div
-                  onClick={() => setPaymentMethod('paypal')}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                    paymentMethod === 'paypal'
-                      ? 'border-emerald-400 bg-emerald-500/20 text-white shadow-md'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <CreditCard className="w-5 h-5 text-sky-400" />
-                    <div>
-                      <span className="font-extrabold text-sm block">PayPal International Escrow</span>
-                      <span className="text-[11px] text-slate-400">Card & PayPal balance held until OTP verified</span>
-                    </div>
-                  </div>
-                  {paymentMethod === 'paypal' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Order Summary & Place Order Pill (5 Columns) */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="glass-terminal p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6 sticky top-24">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <h3 className="font-black text-white text-base">Produce Crate Summary</h3>
-                <span className="text-xs text-slate-400 font-bold font-mono">{items.length} items</span>
-              </div>
-
-              {/* Items List */}
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                {items.map((item) => (
-                  <div key={item.productId} className="flex justify-between items-center text-xs">
-                    <div>
-                      <span className="font-bold text-white block truncate max-w-[200px]">{item.title}</span>
-                      <span className="text-[11px] text-slate-400">{item.quantity} {item.unit || 'kg'} × LKR {item.pricePerUnit}</span>
-                    </div>
-                    <span className="font-black text-emerald-400 font-mono">
-                      LKR {(item.quantity * item.pricePerUnit).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Cost Breakdown */}
-              <div className="pt-4 border-t border-white/10 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-300">
-                  <span>Harvest Subtotal</span>
-                  <span className="font-bold font-mono">LKR {subtotal.toLocaleString()}.00</span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Regional Courier Dispatch</span>
-                  <span className="font-bold font-mono">LKR {deliveryFee.toLocaleString()}.00</span>
-                </div>
-                <div className="flex justify-between text-base font-black text-white pt-2 border-t border-white/10">
-                  <span>Total Payable</span>
-                  <span className="text-emerald-400 text-lg font-mono">LKR {totalAmount.toLocaleString()}.00</span>
-                </div>
-              </div>
-
-              {/* Place Order Action Button */}
-              <button
-                type="submit"
-                disabled={isLoading || items.length === 0}
-                className="w-full py-4 px-6 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <span className="inline-block animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full" />
-                ) : (
-                  <>
-                    <span>Confirm Order & Lock Escrow</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </MarketplaceLayout>
-  );
-};
-</file>
-
 <file path="client/src/pages/shared/WalletPage.tsx">
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -31503,6 +30590,768 @@ export const VehicleService = {
     });
   },
 };
+</file>
+
+<file path="client/src/store/cartStore.ts">
+import { create } from 'zustand';
+import { CartService } from '@/services/cart.service';
+import { useAuthStore } from './authStore';
+
+export interface CartItem {
+  productId: string;
+  title: string;
+  pricePerUnit: number;
+  unit: string;
+  quantity: number;
+  image?: string;
+  farmerName?: string;
+  minOrderQuantity?: number;
+  maxOrderQuantity?: number;
+}
+
+interface CartState {
+  items: CartItem[];
+  isOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
+  toggleCart: () => void;
+  addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  removeItem: (productId: string) => void;
+  clearCart: () => void;
+  getSubtotal: () => number;
+  getItemCount: () => number;
+  hydrateCartFromDb: () => Promise<void>;
+  syncCartToDb: () => Promise<void>;
+}
+
+let syncTimeout: any = null;
+
+const triggerDbSync = (items: CartItem[]) => {
+  const { isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated) return;
+
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    try {
+      await CartService.saveCart(items);
+    } catch (err) {
+      console.warn('Background cart sync warning:', err);
+    }
+  }, 400);
+};
+
+export const useCartStore = create<CartState>((set, get) => ({
+  // Guest cart is strictly in-memory only (never written to localStorage)
+  items: [],
+  isOpen: false,
+
+  openCart: () => set({ isOpen: true }),
+  closeCart: () => set({ isOpen: false }),
+  toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
+
+  addItem: (item) => {
+    set((state) => {
+      const existingIndex = state.items.findIndex((i) => i.productId === item.productId);
+      let updatedItems: CartItem[];
+
+      if (existingIndex > -1) {
+        updatedItems = [...state.items];
+        updatedItems[existingIndex].quantity += item.quantity || 1;
+      } else {
+        updatedItems = [
+          ...state.items,
+          {
+            ...item,
+            quantity: item.quantity || item.minOrderQuantity || 1,
+          },
+        ];
+      }
+
+      triggerDbSync(updatedItems);
+      return { items: updatedItems, isOpen: true };
+    });
+  },
+
+  updateQuantity: (productId, quantity) => {
+    set((state) => {
+      const updatedItems = state.items
+        .map((item) => (item.productId === productId ? { ...item, quantity } : item))
+        .filter((item) => item.quantity > 0);
+
+      triggerDbSync(updatedItems);
+      return { items: updatedItems };
+    });
+  },
+
+  removeItem: (productId) => {
+    set((state) => {
+      const updatedItems = state.items.filter((item) => item.productId !== productId);
+      triggerDbSync(updatedItems);
+      return { items: updatedItems };
+    });
+  },
+
+  clearCart: () => {
+    const { isAuthenticated } = useAuthStore.getState();
+    if (isAuthenticated) {
+      CartService.clearSavedCart().catch(() => {});
+    }
+    set({ items: [] });
+  },
+
+  getSubtotal: () => {
+    return get().items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0);
+  },
+
+  getItemCount: () => {
+    return get().items.reduce((sum, item) => sum + item.quantity, 0);
+  },
+
+  hydrateCartFromDb: async () => {
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated) return;
+
+    try {
+      const res: any = await CartService.getSavedCart();
+      if (res.success && res.data?.items) {
+        const dbItems: CartItem[] = res.data.items.map((i: any) => ({
+          productId: i.productId?._id || i.productId,
+          title: i.title || i.productName,
+          pricePerUnit: i.pricePerUnit,
+          unit: i.unit || 'kg',
+          quantity: i.quantity,
+          image: i.image,
+          farmerName: i.farmerName,
+          minOrderQuantity: i.minOrderQuantity,
+        }));
+
+        set((state) => {
+          // Merge with any in-memory guest items
+          const merged = [...dbItems];
+          for (const localItem of state.items) {
+            const matchIndex = merged.findIndex((m) => m.productId === localItem.productId);
+            if (matchIndex > -1) {
+              merged[matchIndex].quantity = Math.max(merged[matchIndex].quantity, localItem.quantity);
+            } else {
+              merged.push(localItem);
+            }
+          }
+          // Push merged back to DB
+          triggerDbSync(merged);
+          return { items: merged };
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to hydrate cart from database:', err);
+    }
+  },
+
+  syncCartToDb: async () => {
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated) return;
+    try {
+      await CartService.saveCart(get().items);
+    } catch (err) {}
+  },
+}));
+</file>
+
+<file path="client/src/App.tsx">
+import React, { useEffect } from 'react';
+import { RouterProvider } from 'react-router-dom';
+import { router } from './router';
+import { Toaster } from 'react-hot-toast';
+import { CartDrawer } from './components/organisms/CartDrawer';
+import { useCartStore } from './store/cartStore';
+import { useThemeStore } from './store/themeStore';
+
+export const App: React.FC = () => {
+  const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal, hydrateCartFromDb } = useCartStore();
+  const { isDark } = useThemeStore();
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
+
+  useEffect(() => {
+    hydrateCartFromDb();
+  }, []);
+
+  return (
+    <>
+      <RouterProvider router={router} />
+
+      {/* Global Slide-over Cart Drawer */}
+      <CartDrawer
+        isOpen={isOpen}
+        onClose={closeCart}
+        items={items}
+        onUpdateQuantity={updateQuantity}
+        onRemoveItem={removeItem}
+        onCheckout={() => {
+          closeCart();
+          window.location.href = '/checkout';
+        }}
+        subtotalLkr={getSubtotal()}
+      />
+
+      {/* Toast Notification Container */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+          style: {
+            borderRadius: '16px',
+            background: isDark ? '#1E293B' : '#FFFFFF',
+            color: isDark ? '#F8FAFC' : '#0F172A',
+            fontSize: '13px',
+            fontWeight: 500,
+            border: isDark ? '1px solid #334155' : '1px solid #E2E8F0',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+          },
+        }}
+      />
+    </>
+  );
+};
+
+export default App;
+</file>
+
+<file path="client/src/router.tsx">
+import React from 'react';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { ProtectedRoute } from './components/templates/ProtectedRoute';
+
+// Dedicated Auth & Portal Selection Pages
+import { PortalSelectPage } from './pages/auth/PortalSelectPage';
+import { FarmerLoginPage } from './pages/auth/FarmerLoginPage';
+import { CustomerLoginPage } from './pages/auth/CustomerLoginPage';
+import { DeliveryLoginPage } from './pages/auth/DeliveryLoginPage';
+import { AdminLoginPage } from './pages/auth/AdminLoginPage';
+import { VerifyOtpPage } from './pages/auth/VerifyOtpPage';
+import { RoleSelectPage } from './pages/auth/RoleSelectPage';
+import { KycUploadPage } from './pages/auth/KycUploadPage';
+
+// Onboarding Wizards
+import { FarmerOnboardingPage } from './pages/farmer/FarmerOnboardingPage';
+import { CustomerOnboardingPage } from './pages/marketplace/CustomerOnboardingPage';
+import { DeliveryOnboardingPage } from './pages/delivery/DeliveryOnboardingPage';
+
+// Marketplace Pages
+import { HomePage } from './pages/marketplace/HomePage';
+import { CatalogPage } from './pages/marketplace/CatalogPage';
+import { ProductDetailPage } from './pages/marketplace/ProductDetailPage';
+import { CheckoutPage } from './pages/marketplace/CheckoutPage';
+import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
+import { CustomerOrdersPage } from './pages/marketplace/CustomerOrdersPage';
+
+// Farmer Pages
+import { FarmerDashboard } from './pages/farmer/FarmerDashboard';
+import { MyFarmsPage } from './pages/farmer/MyFarmsPage';
+import { AddFarmPage } from './pages/farmer/AddFarmPage';
+import { MyProductsPage } from './pages/farmer/MyProductsPage';
+import { AddProductPage } from './pages/farmer/AddProductPage';
+import { EditProductPage } from './pages/farmer/EditProductPage';
+import { FarmerOrdersPage } from './pages/farmer/FarmerOrdersPage';
+import { HubDropoffPage } from './pages/farmer/HubDropoffPage';
+
+// Delivery Pages
+import { DeliveryDashboard } from './pages/delivery/DeliveryDashboard';
+import { AvailableTripsPage } from './pages/delivery/AvailableTripsPage';
+import { HubIntakePage } from './pages/delivery/HubIntakePage';
+import { ActiveTripPage } from './pages/delivery/ActiveTripPage';
+import { VehiclesPage } from './pages/delivery/VehiclesPage';
+import { EarningsPage } from './pages/delivery/EarningsPage';
+
+// Admin Pages
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { KycQueuePage } from './pages/admin/KycQueuePage';
+import { PayoutQueuePage } from './pages/admin/PayoutQueuePage';
+import { DisputeAdjudicationPage } from './pages/admin/DisputeAdjudicationPage';
+import { LogisticsPage } from './pages/admin/LogisticsPage';
+import { AuditLogPage } from './pages/admin/AuditLogPage';
+import { ReportsPage } from './pages/admin/ReportsPage';
+
+// Shared Pages
+import { WalletPage } from './pages/shared/WalletPage';
+import { NotFoundPage } from './pages/shared/NotFoundPage';
+
+export const router = createBrowserRouter([
+  // Universal Multi-Portal Hub
+  { path: '/portals', element: <PortalSelectPage /> },
+  { path: '/portal-select', element: <PortalSelectPage /> },
+
+  // 1. Farmer Portal Routes
+  { path: '/farmer/login', element: <FarmerLoginPage /> },
+  {
+    path: '/farmer/onboarding',
+    element: (
+      <ProtectedRoute redirectPath="/farmer/login">
+        <FarmerOnboardingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <FarmerDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/farms',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <MyFarmsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/farms/new',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <AddFarmPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/products',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <MyProductsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/products/new',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <AddProductPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/products/:id/edit',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <EditProductPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/orders',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <FarmerOrdersPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/farmer/hubs',
+    element: (
+      <ProtectedRoute allowedRoles={['farmer', 'collector']} redirectPath="/farmer/login">
+        <HubDropoffPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  // 2. Customer & Buyer Marketplace Routes
+  { path: '/', element: <HomePage /> },
+  { path: '/customer/login', element: <CustomerLoginPage /> },
+  { path: '/login', element: <Navigate to="/customer/login" replace /> },
+  { path: '/auth/login', element: <Navigate to="/customer/login" replace /> },
+  { path: '/catalog', element: <CatalogPage /> },
+  { path: '/product/:id', element: <ProductDetailPage /> },
+  {
+    path: '/customer/onboarding',
+    element: (
+      <ProtectedRoute redirectPath="/customer/login">
+        <CustomerOnboardingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/checkout',
+    element: <CheckoutPage />,
+  },
+  {
+    path: '/orders/:id',
+    element: (
+      <ProtectedRoute redirectPath="/customer/login">
+        <OrderTrackingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/orders/:id/track',
+    element: (
+      <ProtectedRoute redirectPath="/customer/login">
+        <OrderTrackingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/customer/orders',
+    element: (
+      <ProtectedRoute redirectPath="/customer/login">
+        <CustomerOrdersPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  // 3. Delivery Fleet & Courier Routes
+  { path: '/delivery/login', element: <DeliveryLoginPage /> },
+  {
+    path: '/delivery/onboarding',
+    element: (
+      <ProtectedRoute redirectPath="/delivery/login">
+        <DeliveryOnboardingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/delivery/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+        <DeliveryDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/delivery/available',
+    element: (
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+        <AvailableTripsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/delivery/hub-schedule',
+    element: (
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+        <HubIntakePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/delivery/active-trip',
+    element: (
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+        <ActiveTripPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/delivery/vehicles',
+    element: (
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+        <VehiclesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/delivery/earnings',
+    element: (
+      <ProtectedRoute allowedRoles={['delivery_individual', 'delivery_company']} redirectPath="/delivery/login">
+        <EarningsPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  // 4. Executive Admin Routes
+  { path: '/admin/login', element: <AdminLoginPage /> },
+  {
+    path: '/admin/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
+        <AdminDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/kyc',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance', 'admin_support']} redirectPath="/admin/login">
+        <KycQueuePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/payouts',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_finance']} redirectPath="/admin/login">
+        <PayoutQueuePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/disputes',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_support']} redirectPath="/admin/login">
+        <DisputeAdjudicationPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/hubs',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops']} redirectPath="/admin/login">
+        <LogisticsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/audit',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']} redirectPath="/admin/login">
+        <AuditLogPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/reports',
+    element: (
+      <ProtectedRoute allowedRoles={['admin_super', 'admin_ops', 'admin_finance']} redirectPath="/admin/login">
+        <ReportsPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Shared Auth & Verification
+  { path: '/auth/verify', element: <VerifyOtpPage /> },
+  { path: '/auth/select-role', element: <RoleSelectPage /> },
+  {
+    path: '/auth/kyc',
+    element: (
+      <ProtectedRoute redirectPath="/customer/login">
+        <KycUploadPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/wallet',
+    element: (
+      <ProtectedRoute redirectPath="/customer/login">
+        <WalletPage />
+      </ProtectedRoute>
+    ),
+  },
+
+  // 404 Catch-All
+  { path: '*', element: <NotFoundPage /> },
+]);
+</file>
+
+<file path="server/src/controllers/cart.controller.ts">
+import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
+import { Product } from '../models/Product.model.js';
+import { Cart } from '../models/Cart.model.js';
+import { DistributionCenter } from '../models/DistributionCenter.model.js';
+import { AppError } from '../middleware/error.middleware.js';
+import {
+  LEG1_FLAT_FEE_LKR,
+  LEG1_PER_KG_LKR,
+  LEG2_BASE_FEE_LKR,
+  LEG2_PER_KG_LKR,
+  DEFAULT_PLATFORM_COMMISSION_PERCENT,
+  DEFAULT_COLLECTOR_COMMISSION_PERCENT,
+} from '../utils/constants.js';
+
+export class CartController {
+  /**
+   * Get saved cart for authenticated user
+   */
+  static async getSavedCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      const cart = await Cart.findOne({ userId });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          items: cart ? cart.items : [],
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Save / sync user cart items in DB
+   */
+  static async saveCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      const { items } = req.body;
+
+      if (!Array.isArray(items)) {
+        throw new AppError('Items must be an array', 400);
+      }
+
+      const formattedItems = items.map((item: any) => ({
+        productId: new Types.ObjectId(item.productId),
+        title: item.title || item.productName || 'Fresh Produce',
+        pricePerUnit: item.pricePerUnit || item.basePricePerUnit || 0,
+        unit: item.unit || 'kg',
+        quantity: item.quantity || 1,
+        image: item.image || (item.images && item.images[0]) || '',
+        farmerName: item.farmerName || '',
+        minOrderQuantity: item.minOrderQuantity || 1,
+        maxOrderQuantity: item.maxOrderQuantity,
+      }));
+
+      const cart = await Cart.findOneAndUpdate(
+        { userId },
+        { userId, items: formattedItems, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Cart synchronized with database',
+        data: { items: cart.items },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Clear saved cart in DB
+   */
+  static async clearSavedCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      await Cart.findOneAndDelete({ userId });
+
+      res.status(200).json({
+        success: true,
+        message: 'Saved cart cleared',
+        data: { items: [] },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Validate Cart Items, calculate subtotal with B2B tiers & delivery breakdown
+   */
+  static async validateCart(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { items, deliveryDistrict } = req.body;
+
+      if (!items || items.length === 0) {
+        throw new AppError('Cart items are required', 400);
+      }
+
+      let itemsTotal = 0;
+      let totalWeightKg = 0;
+      const validatedItems = [];
+
+      for (const item of items) {
+        const product = await Product.findById(item.productId).populate('farmerId farmId');
+        if (!product || product.status !== 'active') {
+          throw new AppError(`Product "${item.productId}" is no longer available`, 400);
+        }
+
+        if (item.quantity > product.availableQuantity) {
+          throw new AppError(
+            `Insufficient stock for "${product.productName}". Available: ${product.availableQuantity} ${product.unit}`,
+            400
+          );
+        }
+
+        // Determine unit price based on B2B tier
+        let unitPrice = product.basePricePerUnit;
+        if (product.b2bPricingTiers && product.b2bPricingTiers.length > 0) {
+          for (const tier of product.b2bPricingTiers) {
+            if (
+              item.quantity >= tier.minQuantity &&
+              (!tier.maxQuantity || item.quantity <= tier.maxQuantity)
+            ) {
+              unitPrice = tier.unitPrice;
+              break;
+            }
+          }
+        }
+
+        const subtotal = Math.round(unitPrice * item.quantity * 100) / 100;
+        itemsTotal += subtotal;
+        totalWeightKg += item.quantity; // approximate kg
+
+        // Commissions
+        const platformCommission =
+          Math.round((subtotal * DEFAULT_PLATFORM_COMMISSION_PERCENT) / 100 * 100) / 100;
+        const farmer = product.farmerId as any;
+        const hasCollector = farmer?.linkedCollectorId;
+        const collectorCommission = hasCollector
+          ? Math.round((subtotal * DEFAULT_COLLECTOR_COMMISSION_PERCENT) / 100 * 100) / 100
+          : 0;
+
+        const farmerPayout = subtotal - platformCommission - collectorCommission;
+
+        validatedItems.push({
+          productId: product._id,
+          farmerId: farmer?._id,
+          farmId: product.farmId?._id,
+          productName: product.productName,
+          category: product.category,
+          unit: product.unit,
+          quantityOrdered: item.quantity,
+          unitPrice,
+          subtotal,
+          selfDeclaredGrade: product.selfDeclaredGrade,
+          collectorId: hasCollector ? farmer.linkedCollectorId : undefined,
+          collectorCommissionLkr: collectorCommission,
+          platformCommissionLkr: platformCommission,
+          farmerPayoutLkr: farmerPayout,
+          images: product.images,
+        });
+      }
+
+      // Determine appropriate DC
+      let assignedDc = await DistributionCenter.findOne({ isMainHub: true });
+      if (deliveryDistrict) {
+        const regionalDc = await DistributionCenter.findOne({ district: deliveryDistrict });
+        if (regionalDc) assignedDc = regionalDc;
+      }
+
+      // Delivery Fees
+      const leg1Fee = LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR;
+      const leg2Fee = LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR;
+      const totalDeliveryFee = leg1Fee + leg2Fee;
+      const grandTotal = itemsTotal + totalDeliveryFee;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          items: validatedItems,
+          assignedDc: assignedDc ? { id: assignedDc._id, name: assignedDc.name, code: assignedDc.code } : null,
+          calculation: {
+            itemsTotal,
+            leg1DeliveryFee: leg1Fee,
+            leg2DeliveryFee: leg2Fee,
+            totalDeliveryFee,
+            grandTotal,
+            totalWeightKg,
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+}
 </file>
 
 <file path="server/src/controllers/delivery.controller.ts">
@@ -32552,128 +32401,22 @@ FarmSchema.virtual('irrigationSource').get(function () {
 export const Farm = mongoose.model<IFarm>('Farm', FarmSchema);
 </file>
 
-<file path="server/src/models/Product.model.ts">
-import mongoose, { Document, Schema, Types } from 'mongoose';
-import { ProductCategory, UnitOfSale, QualityGrade } from '@pola/shared';
+<file path="server/src/routes/cart.routes.ts">
+import { Router } from 'express';
+import { CartController } from '../controllers/cart.controller.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware.js';
 
-export interface IProduct extends Document {
-  _id: Types.ObjectId;
-  farmerId: Types.ObjectId;
-  farmId: Types.ObjectId;
-  productName: string;
-  category: ProductCategory;
-  variety?: string;
-  unit: UnitOfSale;
-  basePricePerUnit: number; // LKR
-  availableQuantity: number;
-  minOrderQuantity: number; // For B2C (usually 1) and B2B MOQ
-  b2bPricingTiers: Array<{
-    minQuantity: number;
-    maxQuantity?: number;
-    unitPrice: number;
-  }>;
-  selfDeclaredGrade: QualityGrade;
-  isOrganic: boolean;
-  requiresColdChain: boolean;
-  seasonTag?: 'maha' | 'yala' | 'year_round';
-  harvestDate?: Date;
-  shelfLifeDays?: number;
-  images: string[];
-  description?: string;
-  status: 'draft' | 'active' | 'out_of_stock' | 'delisted';
-  viewsCount: number;
-  totalSoldQuantity: number;
-  averageRating: number;
-  ratingCount: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
+const router = Router();
 
-const ProductSchema = new Schema<IProduct>(
-  {
-    farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    farmId: { type: Schema.Types.ObjectId, ref: 'Farm', required: true, index: true },
-    productName: { type: String, required: true, trim: true, index: 'text' },
-    category: {
-      type: String,
-      enum: Object.values(ProductCategory),
-      required: true,
-      index: true,
-    },
-    variety: { type: String, trim: true },
-    unit: {
-      type: String,
-      enum: Object.values(UnitOfSale),
-      required: true,
-      default: UnitOfSale.KG,
-    },
-    basePricePerUnit: { type: Number, required: true, min: 0 },
-    availableQuantity: { type: Number, required: true, min: 0 },
-    minOrderQuantity: { type: Number, default: 1, min: 1 },
-    b2bPricingTiers: [
-      {
-        minQuantity: { type: Number, required: true },
-        maxQuantity: { type: Number },
-        unitPrice: { type: Number, required: true },
-      },
-    ],
-    selfDeclaredGrade: {
-      type: String,
-      enum: Object.values(QualityGrade),
-      default: QualityGrade.GRADE_A,
-    },
-    isOrganic: { type: Boolean, default: false, index: true },
-    requiresColdChain: { type: Boolean, default: false, index: true },
-    seasonTag: {
-      type: String,
-      enum: ['maha', 'yala', 'year_round'],
-      default: 'year_round',
-    },
-    harvestDate: { type: Date },
-    shelfLifeDays: { type: Number },
-    images: [{ type: String }],
-    description: { type: String },
-    status: {
-      type: String,
-      enum: ['draft', 'active', 'out_of_stock', 'delisted'],
-      default: 'active',
-      index: true,
-    },
-    viewsCount: { type: Number, default: 0 },
-    totalSoldQuantity: { type: Number, default: 0 },
-    averageRating: { type: Number, default: 5.0 },
-    ratingCount: { type: Number, default: 0 },
-  },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-  }
-);
+// Cart Validation & Fee Calculation (Guest & Logged In)
+router.post('/validate', optionalAuthenticate, CartController.validateCart);
 
-// Virtual aliases for frontend compatibility
-ProductSchema.virtual('title').get(function () {
-  return this.productName;
-});
-ProductSchema.virtual('pricePerUnit').get(function () {
-  return this.basePricePerUnit;
-});
-ProductSchema.virtual('pricingTiers').get(function () {
-  return this.b2bPricingTiers;
-});
-ProductSchema.virtual('season').get(function () {
-  return this.seasonTag;
-});
-ProductSchema.virtual('qualityGrade').get(function () {
-  return this.selfDeclaredGrade;
-});
-ProductSchema.virtual('isActive').get(function () {
-  return this.status === 'active';
-});
+// User Persistent Cart (Logged-in)
+router.get('/', authenticate, CartController.getSavedCart);
+router.put('/', authenticate, CartController.saveCart);
+router.delete('/', authenticate, CartController.clearSavedCart);
 
-ProductSchema.index({ category: 1, status: 1, basePricePerUnit: 1 });
-
-export const Product = mongoose.model<IProduct>('Product', ProductSchema);
+export default router;
 </file>
 
 <file path="server/src/routes/delivery.routes.ts">
@@ -33273,6 +33016,396 @@ export const VehiclesPage: React.FC = () => {
 };
 </file>
 
+<file path="client/src/pages/marketplace/CheckoutPage.tsx">
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MarketplaceLayout } from '@/components/templates/MarketplaceLayout';
+import { OrderService } from '@/services/order.service';
+import { CartService } from '@/services/cart.service';
+import { useCartStore } from '@/store/cartStore';
+import { useThemeStore } from '@/store/themeStore';
+import { useAuthStore } from '@/store/authStore';
+import { AddressDrawer } from '@/components/organisms/AddressDrawer';
+import {
+  ShieldCheck,
+  MapPin,
+  CreditCard,
+  ArrowRight,
+  Package,
+  Banknote,
+  Wallet,
+  CheckCircle2,
+  Clock,
+  Lock,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+
+export const CheckoutPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { items, getSubtotal, clearCart, openCart } = useCartStore();
+  const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
+  const { user, isAuthenticated } = useAuthStore();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Address State
+  const [isAddressDrawerOpen, setIsAddressDrawerOpen] = useState(false);
+  const savedAddresses = user?.addresses || [];
+  const defaultAddress = savedAddresses.find((a: any) => a.isDefault) || savedAddresses[0] || null;
+  const [activeAddress, setActiveAddress] = useState<any>(defaultAddress);
+
+  // Delivery Instructions State
+  const [deliveryInstructions, setDeliveryInstructions] = useState('morning_8_12');
+
+  // Payment State
+  const [paymentMethod, setPaymentMethod] = useState<'cash_on_delivery' | 'paypal' | 'pola_wallet'>('cash_on_delivery');
+
+  // Calculation State
+  const [validatedData, setValidatedData] = useState<any>(null);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      toast.error('Your produce basket is empty');
+      navigate('/catalog');
+    }
+  }, [items.length, navigate]);
+
+  useEffect(() => {
+    if (activeAddress && items.length > 0) {
+      validateCartWithBackend();
+    }
+  }, [activeAddress, items]);
+
+  const validateCartWithBackend = async () => {
+    try {
+      setIsValidating(true);
+      const payload = items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
+      const res: any = await CartService.validateCart(payload, activeAddress?.district);
+      if (res.success && res.data) {
+        setValidatedData(res.data.calculation);
+      }
+    } catch (err) {
+      console.error('Cart validation error', err);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!isAuthenticated) {
+      navigate('/customer/login?redirect=/checkout');
+      return;
+    }
+
+    if (!activeAddress) {
+      toast.error('Please add a delivery address');
+      setIsAddressDrawerOpen(true);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const orderPayload = {
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.pricePerUnit,
+        })),
+        deliveryAddress: {
+          label: activeAddress.label || 'Home',
+          province: activeAddress.province,
+          district: activeAddress.district,
+          city: activeAddress.city,
+          addressLine1: activeAddress.addressLine1 || activeAddress.streetAddress,
+          postalCode: activeAddress.postalCode || '00300',
+          contactPhone: activeAddress.contactPhone || user?.phone || '+94771234567',
+        },
+        recipientName: user?.fullName || 'Valued Buyer',
+        recipientPhone: activeAddress.contactPhone || user?.phone || '+94771234567',
+        deliveryInstructions,
+        paymentMethod,
+      };
+
+      const res: any = await OrderService.checkout(orderPayload);
+
+      if (res.success && res.data?.order) {
+        clearCart();
+        const orderId = res.data.order._id || res.data.order.id;
+        toast.success('Order placed successfully! Funds held securely in Escrow.');
+        navigate(`/orders/${orderId}/track`);
+      } else {
+        throw new Error(res.message || 'Failed to place order');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Checkout failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const subtotal = validatedData?.itemsTotal || getSubtotal();
+  const deliveryFee = validatedData?.totalDeliveryFee || 0;
+  const totalAmount = validatedData?.grandTotal || (subtotal + (items.length > 0 ? 450 : 0)); // fallback
+
+  const renderDeliverySlotCard = (id: string, title: string, time: string) => {
+    const isSelected = deliveryInstructions === id;
+    return (
+      <div
+        onClick={() => setDeliveryInstructions(id)}
+        className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-1 ${
+          isSelected
+            ? 'border-emerald-400 bg-emerald-500/20 text-white shadow-md'
+            : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+        }`}
+      >
+        <Clock className={`w-4 h-4 ${isSelected ? 'text-emerald-400' : ''}`} />
+        <span className="font-bold text-xs block">{title}</span>
+        <span className="text-[10px]">{time}</span>
+      </div>
+    );
+  };
+
+  return (
+    <MarketplaceLayout
+      searchQuery=""
+      onSearchChange={() => {}}
+      cartItemCount={items.length}
+      onOpenCart={openCart}
+      currentLanguage={language}
+      onLanguageChange={setLanguage}
+      isDark={isDark}
+      onToggleTheme={toggleTheme}
+      user={user}
+    >
+      <div className="max-w-6xl mx-auto space-y-8 pb-16 text-left">
+        {/* Header */}
+        <div className="space-y-1.5 pb-4 border-b border-slate-200 dark:border-white/10">
+          <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-400/30 inline-flex items-center gap-1.5">
+            <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+            256-Bit SSL Escrow Checkout
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+            Order Review &{' '}
+            <span className="font-serif-accent italic font-normal text-emerald-600 dark:text-emerald-400">
+              Escrow Protection
+            </span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-300">
+            Payment is held securely in escrow and released to the farmer only upon physical verification.
+          </p>
+        </div>
+
+        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* 1. Address Section */}
+            <div className="glass-terminal bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-lg space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
+                <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-base">
+                  <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <span>1. Doorstep Delivery Address</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddressDrawerOpen(true)}
+                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                >
+                  {activeAddress ? 'Change Address' : 'Add Address'}
+                </button>
+              </div>
+
+              {activeAddress ? (
+                <div className="p-4 rounded-2xl border border-emerald-300 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 shadow-xs flex flex-col space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-emerald-900 dark:text-white flex items-center gap-1.5">
+                      {activeAddress.label || 'Home'}
+                    </span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {activeAddress.addressLine1 || activeAddress.streetAddress}, {activeAddress.city}
+                  </p>
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    {activeAddress.district} District, {activeAddress.province} Province
+                  </p>
+                </div>
+              ) : (
+                <div
+                  onClick={() => setIsAddressDrawerOpen(true)}
+                  className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/20 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                    Tap to add delivery address
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Delivery Time Slot */}
+            <div className="glass-terminal bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-lg space-y-4">
+              <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-base pb-3 border-b border-slate-100 dark:border-white/10">
+                <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300">
+                  <Package className="w-4 h-4" />
+                </div>
+                <span>2. Delivery Preferences</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {renderDeliverySlotCard('morning_8_12', 'Morning', '8 AM - 12 PM')}
+                {renderDeliverySlotCard('afternoon_12_4', 'Afternoon', '12 PM - 4 PM')}
+                {renderDeliverySlotCard('evening_4_8', 'Evening', '4 PM - 8 PM')}
+              </div>
+            </div>
+
+            {/* 3. Payment Selector */}
+            <div className="glass-terminal bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-lg space-y-4">
+              <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-base pb-3 border-b border-slate-100 dark:border-white/10">
+                <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <span>3. Escrow Payment Method</span>
+              </div>
+
+              <div className="space-y-3">
+                <div
+                  onClick={() => setPaymentMethod('cash_on_delivery')}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'cash_on_delivery'
+                      ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/20 shadow-xs'
+                      : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <span className="font-extrabold text-sm block text-slate-900 dark:text-white">Cash on Delivery (Escrow Guarantee)</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Pay cash upon delivery after inspecting produce</span>
+                    </div>
+                  </div>
+                  {paymentMethod === 'cash_on_delivery' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                </div>
+
+                <div
+                  onClick={() => setPaymentMethod('pola_wallet')}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'pola_wallet'
+                      ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/20 shadow-xs'
+                      : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Wallet className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                    <div>
+                      <span className="font-extrabold text-sm block text-slate-900 dark:text-white">Pola LankaPay Wallet</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Instant local bank transfer via LankaPay</span>
+                    </div>
+                  </div>
+                  {paymentMethod === 'pola_wallet' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                </div>
+
+                <div
+                  onClick={() => setPaymentMethod('paypal')}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'paypal'
+                      ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/20 shadow-xs'
+                      : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="w-5 h-5 text-sky-500 dark:text-sky-400" />
+                    <div>
+                      <span className="font-extrabold text-sm block text-slate-900 dark:text-white">PayPal International Escrow</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Card balance held until OTP verified</span>
+                    </div>
+                  </div>
+                  {paymentMethod === 'paypal' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Order Summary */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="glass-terminal bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-lg space-y-6 sticky top-24">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
+                <h3 className="font-black text-slate-900 dark:text-white text-base">Produce Crate Summary</h3>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-bold font-mono">{items.length} items</span>
+              </div>
+
+              {/* Items List */}
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {items.map((item) => (
+                  <div key={item.productId} className="flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block truncate max-w-[200px]">{item.title}</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">{item.quantity} {item.unit || 'kg'} × LKR {item.pricePerUnit}</span>
+                    </div>
+                    <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                      LKR {(item.quantity * item.pricePerUnit).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="pt-4 border-t border-slate-100 dark:border-white/10 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                  <span>Harvest Subtotal</span>
+                  <span className="font-bold font-mono text-slate-900 dark:text-white">LKR {subtotal.toLocaleString()}.00</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-300 items-center">
+                  <span>Regional Courier Dispatch</span>
+                  {isValidating ? (
+                    <span className="inline-block animate-pulse h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded-full" />
+                  ) : (
+                    <span className="font-bold font-mono text-slate-900 dark:text-white">LKR {deliveryFee.toLocaleString()}.00</span>
+                  )}
+                </div>
+                <div className="flex justify-between text-base font-black text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-white/10">
+                  <span>Total Payable</span>
+                  {isValidating ? (
+                    <span className="inline-block animate-pulse h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded-full" />
+                  ) : (
+                    <span className="text-emerald-600 dark:text-emerald-400 text-lg font-mono">LKR {totalAmount.toLocaleString()}.00</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Place Order Action Button */}
+              <button
+                type="submit"
+                disabled={isLoading || isValidating || items.length === 0}
+                className="w-full py-4 px-6 rounded-full bg-emerald-500 hover:bg-emerald-400 dark:bg-emerald-400 dark:hover:bg-emerald-300 text-white dark:text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <span className="inline-block animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                ) : (
+                  <>
+                    <span>{!isAuthenticated ? 'Sign In to Order' : 'Confirm Order & Lock Escrow'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <AddressDrawer
+        isOpen={isAddressDrawerOpen}
+        onClose={() => setIsAddressDrawerOpen(false)}
+        onSelectAddress={(addr) => setActiveAddress(addr)}
+      />
+    </MarketplaceLayout>
+  );
+};
+</file>
+
 <file path="client/src/services/wallet.service.ts">
 import { api } from './api';
 
@@ -33312,6 +33445,130 @@ export const WalletService = {
     return api.post('/wallet/topup/confirm', { paypalOrderId, amountLkr });
   },
 };
+</file>
+
+<file path="server/src/models/Product.model.ts">
+import mongoose, { Document, Schema, Types } from 'mongoose';
+import { ProductCategory, UnitOfSale, QualityGrade } from '@pola/shared';
+
+export interface IProduct extends Document {
+  _id: Types.ObjectId;
+  farmerId: Types.ObjectId;
+  farmId: Types.ObjectId;
+  productName: string;
+  category: ProductCategory;
+  variety?: string;
+  unit: UnitOfSale;
+  basePricePerUnit: number; // LKR
+  availableQuantity: number;
+  minOrderQuantity: number; // For B2C (usually 1) and B2B MOQ
+  b2bPricingTiers: Array<{
+    minQuantity: number;
+    maxQuantity?: number;
+    unitPrice: number;
+  }>;
+  selfDeclaredGrade: QualityGrade;
+  isOrganic: boolean;
+  requiresColdChain: boolean;
+  seasonTag?: 'maha' | 'yala' | 'year_round';
+  harvestDate?: Date;
+  shelfLifeDays?: number;
+  images: string[];
+  description?: string;
+  status: 'draft' | 'active' | 'out_of_stock' | 'delisted';
+  viewsCount: number;
+  totalSoldQuantity: number;
+  averageRating: number;
+  ratingCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const ProductSchema = new Schema<IProduct>(
+  {
+    farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    farmId: { type: Schema.Types.ObjectId, ref: 'Farm', required: true, index: true },
+    productName: { type: String, required: true, trim: true, index: 'text' },
+    category: {
+      type: String,
+      enum: Object.values(ProductCategory),
+      required: true,
+      index: true,
+    },
+    variety: { type: String, trim: true },
+    unit: {
+      type: String,
+      enum: Object.values(UnitOfSale),
+      required: true,
+      default: UnitOfSale.KG,
+    },
+    basePricePerUnit: { type: Number, required: true, min: 0 },
+    availableQuantity: { type: Number, required: true, min: 0 },
+    minOrderQuantity: { type: Number, default: 1, min: 1 },
+    b2bPricingTiers: [
+      {
+        minQuantity: { type: Number, required: true },
+        maxQuantity: { type: Number },
+        unitPrice: { type: Number, required: true },
+      },
+    ],
+    selfDeclaredGrade: {
+      type: String,
+      enum: Object.values(QualityGrade),
+      default: QualityGrade.GRADE_A,
+    },
+    isOrganic: { type: Boolean, default: false, index: true },
+    requiresColdChain: { type: Boolean, default: false, index: true },
+    seasonTag: {
+      type: String,
+      enum: ['maha', 'yala', 'year_round'],
+      default: 'year_round',
+    },
+    harvestDate: { type: Date },
+    shelfLifeDays: { type: Number },
+    images: [{ type: String }],
+    description: { type: String },
+    status: {
+      type: String,
+      enum: ['draft', 'active', 'out_of_stock', 'delisted'],
+      default: 'active',
+      index: true,
+    },
+    viewsCount: { type: Number, default: 0 },
+    totalSoldQuantity: { type: Number, default: 0 },
+    averageRating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+// Virtual aliases for frontend compatibility
+ProductSchema.virtual('title').get(function () {
+  return this.productName;
+});
+ProductSchema.virtual('pricePerUnit').get(function () {
+  return this.basePricePerUnit;
+});
+ProductSchema.virtual('pricingTiers').get(function () {
+  return this.b2bPricingTiers;
+});
+ProductSchema.virtual('season').get(function () {
+  return this.seasonTag;
+});
+ProductSchema.virtual('qualityGrade').get(function () {
+  return this.selfDeclaredGrade;
+});
+ProductSchema.virtual('isActive').get(function () {
+  return this.status === 'active';
+});
+
+ProductSchema.index({ category: 1, status: 1, basePricePerUnit: 1 });
+
+export const Product = mongoose.model<IProduct>('Product', ProductSchema);
 </file>
 
 </files>
