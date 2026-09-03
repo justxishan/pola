@@ -54,8 +54,12 @@ export const ProductService = {
     return api.post('/products', data);
   },
 
-  getMyProducts: async () => {
-    return api.get('/products/farmer/my-products');
+  getMyProducts: async (params?: { farmId?: string; status?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.farmId) searchParams.append('farmId', params.farmId);
+    if (params?.status) searchParams.append('status', params.status);
+    const query = searchParams.toString();
+    return api.get(`/products/farmer/my-products${query ? `?${query}` : ''}`);
   },
 
   updateProduct: async (id: string, data: any) => {

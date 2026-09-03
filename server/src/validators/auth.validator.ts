@@ -48,6 +48,9 @@ export const UpdateProfileSchema = z.object({
     isOnline: z.boolean().optional(),
     addresses: z.array(z.any()).optional(),
     kycStatus: z.string().optional(),
+    themePreference: z.enum(['light', 'dark', 'system']).optional(),
+    assignedHubId: z.string().optional(),
+    profileImage: z.string().optional(),
     bankDetails: z
       .object({
         bankName: z.string().optional(),

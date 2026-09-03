@@ -57,6 +57,9 @@ import { ReportsPage } from './pages/admin/ReportsPage';
 
 // Shared Pages
 import { WalletPage } from './pages/shared/WalletPage';
+import { EditProfilePage } from './pages/shared/EditProfilePage';
+import { HelpSupportPage } from './pages/shared/HelpSupportPage';
+import { MessagesPage } from './pages/shared/MessagesPage';
 import { NotFoundPage } from './pages/shared/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -337,6 +340,62 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute redirectPath="/customer/login">
             <WalletPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/profile/edit',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <EditProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/profile',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <EditProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/farmer/profile/edit',
+        element: (
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
+            <EditProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/support',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <HelpSupportPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/farmer/support',
+        element: (
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
+            <HelpSupportPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/messages',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <MessagesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/farmer/messages',
+        element: (
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
+            <MessagesPage />
           </ProtectedRoute>
         ),
       },

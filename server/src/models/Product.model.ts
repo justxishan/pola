@@ -25,7 +25,7 @@ export interface IProduct extends Document {
   shelfLifeDays?: number;
   images: string[];
   description?: string;
-  status: 'draft' | 'active' | 'out_of_stock' | 'delisted';
+  status: 'draft' | 'pending_verification' | 'active' | 'out_of_stock' | 'delisted';
   viewsCount: number;
   totalSoldQuantity: number;
   averageRating: number;
@@ -80,8 +80,8 @@ const ProductSchema = new Schema<IProduct>(
     description: { type: String },
     status: {
       type: String,
-      enum: ['draft', 'active', 'out_of_stock', 'delisted'],
-      default: 'active',
+      enum: ['draft', 'pending_verification', 'active', 'out_of_stock', 'delisted'],
+      default: 'pending_verification',
       index: true,
     },
     viewsCount: { type: Number, default: 0 },

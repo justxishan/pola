@@ -348,6 +348,8 @@ export class AuthController {
             addresses: user.addresses || [],
             bankDetails: user.bankDetails,
             preferredLanguage: user.preferredLanguage,
+            themePreference: user.themePreference || 'system',
+            assignedHubId: user.assignedHubId,
           },
         },
       });

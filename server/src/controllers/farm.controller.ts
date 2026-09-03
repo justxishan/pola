@@ -33,7 +33,7 @@ export class FarmController {
         district,
         addressLine,
         city,
-        gps: { latitude, longitude },
+        gps: (latitude !== undefined && longitude !== undefined && !isNaN(Number(latitude)) && !isNaN(Number(longitude))) ? { latitude: Number(latitude), longitude: Number(longitude) } : undefined,
         extentValue,
         extentUnit,
         ownershipType,

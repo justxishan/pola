@@ -55,7 +55,7 @@ export class ProductController {
         shelfLifeDays,
         images: images || [],
         description,
-        status: 'active',
+        status: farm.verificationStatus === 'verified' ? 'active' : 'pending_verification',
       });
 
       res.status(201).json({
@@ -74,13 +74,14 @@ export class ProductController {
   static async getMyProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const farmerId = req.user!.userId;
-      const { status } = req.query;
+      const { status, farmId } = req.query as any;
 
       const filter: any = { farmerId };
       if (status) filter.status = status;
+      if (farmId) filter.farmId = farmId;
 
       const products = await Product.find(filter)
-        .populate('farmId', 'farmName district province')
+        .populate('farmId', 'farmName district province verificationStatus')
         .sort({ createdAt: -1 });
 
       res.status(200).json({

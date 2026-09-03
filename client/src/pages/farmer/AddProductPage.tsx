@@ -11,13 +11,10 @@ import { ProductService } from '@/services/product.service';
 import { FarmService } from '@/services/farm.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useTranslation } from '@/lib/i18n';
+import { getFarmerNavItems } from '@/lib/navItems';
 import { PRODUCT_CATEGORIES, STANDARD_UNITS } from '@pola/shared';
 import {
-  LayoutDashboard,
-  Sprout,
-  Package,
-  Wallet,
-  ShoppingBag,
   ArrowLeft,
   Plus,
   Trash2,
@@ -28,11 +25,11 @@ export const AddProductPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
+  const { t } = useTranslation();
 
   const [farms, setFarms] = useState<any[]>([]);
   const [farmId, setFarmId] = useState('');
   const [title, setTitle] = useState('');
-  const [titleSi, setTitleSi] = useState('');
   const [category, setCategory] = useState(Object.keys(PRODUCT_CATEGORIES)[0]);
   const [unit, setUnit] = useState('kg');
   const [pricePerUnit, setPricePerUnit] = useState(250);
@@ -50,13 +47,7 @@ export const AddProductPage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms', label: 'My Farms', icon: <Sprout className="w-5 h-5" />, path: '/farmer/farms' },
-    { id: 'products', label: 'Crop Listings', icon: <Package className="w-5 h-5" />, path: '/farmer/products' },
-    { id: 'orders', label: 'Farm Orders', icon: <ShoppingBag className="w-5 h-5" />, path: '/farmer/orders' },
-    { id: 'wallet', label: 'Earnings & Wallet', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const navItems = getFarmerNavItems(t);
 
   useEffect(() => {
     fetchFarms();
@@ -137,9 +128,15 @@ export const AddProductPage: React.FC = () => {
 
   return (
     <DashboardLayout
-      portalTitle="Farmer Operations Center"
+      portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
       activePath="/farmer/products"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
@@ -171,21 +168,13 @@ export const AddProductPage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Produce Name (English)"
-              placeholder="e.g. Fresh Red Carrots"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-            <Input
-              label="Produce Name (Sinhala)"
-              placeholder="e.g. කැරට්"
-              value={titleSi}
-              onChange={(e) => setTitleSi(e.target.value)}
-            />
-          </div>
+          <Input
+            label="Produce Name / Crop Title"
+            placeholder="e.g. Fresh Red Carrots / Kuroda Grade A"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select

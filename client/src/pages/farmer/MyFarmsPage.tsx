@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { FarmCard } from '@/components/molecules/FarmCard';
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Spinner } from '@/components/atoms/Spinner';
 import { FarmService } from '@/services/farm.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
-import { LayoutDashboard, Sprout, Package, Wallet, ShoppingBag, Plus, Scale } from 'lucide-react';
+import { getFarmerNavItems } from '@/lib/navItems';
+import { Plus, Sprout } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const MyFarmsPage: React.FC = () => {
@@ -18,15 +20,10 @@ export const MyFarmsPage: React.FC = () => {
 
   const [farms, setFarms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [farmToToggle, setFarmToToggle] = useState<any | null>(null);
 
-  const navItems = [
-    { id: 'dashboard', label: t.dashboard, icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms', label: t.myFarms, icon: <Sprout className="w-5 h-5" />, path: '/farmer/farms' },
-    { id: 'products', label: t.cropListings, icon: <Package className="w-5 h-5" />, path: '/farmer/products' },
-    { id: 'orders', label: t.farmOrders, icon: <ShoppingBag className="w-5 h-5" />, path: '/farmer/orders' },
-    { id: 'hubs', label: t.hubDropoffs, icon: <Scale className="w-5 h-5" />, path: '/farmer/hubs' },
-    { id: 'wallet', label: t.earningsWallet, icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const navItems = getFarmerNavItems(t);
 
   useEffect(() => {
     fetchFarms();
@@ -46,7 +43,18 @@ export const MyFarmsPage: React.FC = () => {
     }
   };
 
-  const handleToggleActive = async (farm: any) => {
+  const handleToggleClick = (farm: any) => {
+    if (farm.isActive) {
+      // Deactivation requires confirmation
+      setFarmToToggle(farm);
+      setIsConfirmOpen(true);
+    } else {
+      // Activating can proceed directly
+      executeToggle(farm);
+    }
+  };
+
+  const executeToggle = async (farm: any) => {
     try {
       const nextStatus = !farm.isActive;
       await FarmService.updateFarm(farm._id, { isActive: nextStatus });
@@ -54,14 +62,23 @@ export const MyFarmsPage: React.FC = () => {
       fetchFarms();
     } catch (err: any) {
       toast.error('Failed to toggle farm status');
+    } finally {
+      setIsConfirmOpen(false);
+      setFarmToToggle(null);
     }
   };
 
   return (
     <DashboardLayout
-      portalTitle={t.farmerOpsCenter}
+      portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
       activePath="/farmer/farms"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
@@ -79,23 +96,23 @@ export const MyFarmsPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="space-y-1">
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Registered Agricultural Parcels &{' '}
-              <span className="font-serif-accent italic font-normal text-lime-300">
-                Land Holdings
-              </span>
+              My Farms
             </h1>
             <p className="text-xs sm:text-sm text-slate-300">
               Manage your verified cultivation plots, GPS coordinates, and organic PGS certifications
             </p>
           </div>
 
-          <button
-            onClick={() => navigate('/farmer/farms/new')}
-            className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Register New Farm Plot</span>
-          </button>
+          {/* Only render when farms exist to prevent duplicate button in empty state */}
+          {farms.length > 0 && (
+            <button
+              onClick={() => navigate('/farmer/farms/new')}
+              className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Register New Farm Plot</span>
+            </button>
+          )}
         </div>
 
         {/* Farm Cards Grid */}
@@ -135,13 +152,28 @@ export const MyFarmsPage: React.FC = () => {
                 irrigationSource={farm.irrigationType || farm.irrigationSource || 'well'}
                 isOrganicCertified={farm.isOrganicCertified}
                 isActive={farm.isActive ?? true}
-                onToggleActive={() => handleToggleActive(farm)}
-                onViewListings={() => navigate('/farmer/products')}
+                verificationStatus={farm.verificationStatus}
+                onToggleActive={() => handleToggleClick(farm)}
+                onViewListings={() => navigate(`/farmer/products?farmId=${farm._id}`)}
               />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        title="Deactivate Farm Parcel"
+        description={`Are you sure you want to deactivate "${farmToToggle?.farmName || 'this farm'}"? It will temporarily pause all active crop listings linked to this parcel.`}
+        confirmText="Deactivate"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={() => farmToToggle && executeToggle(farmToToggle)}
+        onClose={() => {
+          setIsConfirmOpen(false);
+          setFarmToToggle(null);
+        }}
+      />
     </DashboardLayout>
   );
 };

@@ -14,6 +14,7 @@ export interface FarmCardProps {
   irrigationSource: string;
   isOrganicCertified?: boolean;
   isActive?: boolean;
+  verificationStatus?: string;
   onEdit?: () => void;
   onViewListings?: () => void;
   onToggleActive?: () => void;
@@ -30,6 +31,7 @@ export const FarmCard: React.FC<FarmCardProps> = ({
   irrigationSource,
   isOrganicCertified,
   isActive = true,
+  verificationStatus = 'pending',
   onEdit,
   onViewListings,
   onToggleActive,
@@ -61,16 +63,30 @@ export const FarmCard: React.FC<FarmCardProps> = ({
             </div>
           </div>
 
-          <span
-            className={cn(
-              'px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider',
-              isActive
-                ? 'bg-lime-400/20 text-lime-300 border border-lime-400/30'
-                : 'bg-white/10 text-slate-400 border border-white/10'
-            )}
-          >
-            {isActive ? t.active : t.inactive}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <span
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider',
+                verificationStatus === 'verified'
+                  ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
+                  : verificationStatus === 'rejected'
+                  ? 'bg-rose-400/20 text-rose-300 border border-rose-400/30'
+                  : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+              )}
+            >
+              {verificationStatus}
+            </span>
+            <span
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider',
+                isActive
+                  ? 'bg-lime-400/20 text-lime-300 border border-lime-400/30'
+                  : 'bg-white/10 text-slate-400 border border-white/10'
+              )}
+            >
+              {isActive ? t.active : t.inactive}
+            </span>
+          </div>
         </div>
 
         {/* Specs Grid */}

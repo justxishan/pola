@@ -9,6 +9,7 @@ import { Role } from '@pola/shared';
 const router = Router();
 
 router.get('/', HubController.getHubs);
+router.get('/my-dropoffs', authenticate, HubController.getMyHubDropoffs);
 router.get('/:id', HubController.getHubById);
 
 router.post(

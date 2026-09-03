@@ -27,7 +27,7 @@ const ParticipantSchema = new Schema<IParticipant>(
 
 const ConversationSchema = new Schema<IConversation>(
   {
-    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
+    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
     participants: [ParticipantSchema],
     buyerInitiated: { type: Boolean, default: false },
     lastMessageAt: { type: Date, default: Date.now },

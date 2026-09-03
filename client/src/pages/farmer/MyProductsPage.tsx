@@ -1,53 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Spinner } from '@/components/atoms/Spinner';
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { ProductService } from '@/services/product.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { getFarmerNavItems } from '@/lib/navItems';
 import {
-  LayoutDashboard,
-  Sprout,
-  Package,
-  Wallet,
-  ShoppingBag,
   Plus,
   Edit,
   Trash2,
   Power,
-  Layers,
-  Scale,
-  Sparkles,
+  Package,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const MyProductsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const farmId = searchParams.get('farmId');
+
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
 
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<any | null>(null);
 
-  const navItems = [
-    { id: 'dashboard', label: t.dashboard, icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms', label: t.myFarms, icon: <Sprout className="w-5 h-5" />, path: '/farmer/farms' },
-    { id: 'products', label: t.cropListings, icon: <Package className="w-5 h-5" />, path: '/farmer/products' },
-    { id: 'orders', label: t.farmOrders, icon: <ShoppingBag className="w-5 h-5" />, path: '/farmer/orders' },
-    { id: 'hubs', label: t.hubDropoffs, icon: <Scale className="w-5 h-5" />, path: '/farmer/hubs' },
-    { id: 'wallet', label: t.earningsWallet, icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const navItems = getFarmerNavItems(t);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [farmId]);
 
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      const res: any = await ProductService.getMyProducts();
+      const res: any = await ProductService.getMyProducts(farmId ? { farmId } : undefined);
       if (res.success && res.data) {
         setProducts(res.data.products || []);
       }
@@ -73,22 +67,35 @@ export const MyProductsPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this crop listing?')) return;
+  const handleDeleteClick = (product: any) => {
+    setProductToDelete(product);
+    setIsConfirmOpen(true);
+  };
+
+  const executeDelete = async (id: string) => {
     try {
       await ProductService.deleteProduct(id);
       toast.success('Listing deleted');
       fetchProducts();
     } catch (err: any) {
       toast.error('Failed to delete listing');
+    } finally {
+      setIsConfirmOpen(false);
+      setProductToDelete(null);
     }
   };
 
   return (
     <DashboardLayout
-      portalTitle={t.farmerOpsCenter}
+      portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
       activePath="/farmer/products"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
@@ -106,24 +113,38 @@ export const MyProductsPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="space-y-1">
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Crop Inventory &{' '}
-              <span className="font-serif-accent italic font-normal text-lime-300">
-                Harvest Catalog
-              </span>
+              Crop Listings
             </h1>
             <p className="text-xs sm:text-sm text-slate-300">
               Manage your active agricultural listings, tiered wholesale rates, and inventory levels
             </p>
           </div>
 
-          <button
-            onClick={() => navigate('/farmer/products/new')}
-            className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>List New Crop Harvest</span>
-          </button>
+          {/* Only render header CTA when products exist */}
+          {products.length > 0 && (
+            <button
+              onClick={() => navigate('/farmer/products/new')}
+              className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>List New Crop Harvest</span>
+            </button>
+          )}
         </div>
+
+        {/* Farm Filter Tag */}
+        {farmId && (
+          <div className="flex items-center gap-2 text-xs bg-lime-400/10 text-lime-300 px-4 py-2 rounded-2xl border border-lime-400/20 w-fit">
+            <span>Filtered by Farm Plot</span>
+            <button
+              onClick={() => setSearchParams({})}
+              className="p-1 hover:bg-lime-400/20 rounded-full cursor-pointer"
+              title="Clear Filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Listings Grid */}
         {isLoading ? (
@@ -176,12 +197,22 @@ export const MyProductsPage: React.FC = () => {
                       <div className="absolute top-2.5 right-2.5">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                            isActiveListing
+                            product.status === 'pending_verification'
+                              ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                              : product.status === 'out_of_stock'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
+                              : isActiveListing
                               ? 'bg-lime-400 text-slate-950 shadow-md'
                               : 'bg-white/20 text-slate-300'
                           }`}
                         >
-                          {isActiveListing ? 'Active' : 'Paused'}
+                          {product.status === 'pending_verification'
+                            ? 'Pending Verification'
+                            : product.status === 'out_of_stock'
+                            ? 'Out of Stock'
+                            : isActiveListing
+                            ? 'Active'
+                            : 'Paused'}
                         </span>
                       </div>
                     </div>
@@ -225,7 +256,7 @@ export const MyProductsPage: React.FC = () => {
                       <Edit className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => handleDelete(product._id)}
+                      onClick={() => handleDeleteClick(product)}
                       className="p-2 rounded-full bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-all cursor-pointer"
                       title="Delete"
                     >
@@ -239,6 +270,20 @@ export const MyProductsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        title="Delete Crop Listing"
+        description={`Are you sure you want to permanently remove "${productToDelete?.productName || productToDelete?.title || 'this listing'}"? This cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={() => productToDelete && executeDelete(productToDelete._id)}
+        onClose={() => {
+          setIsConfirmOpen(false);
+          setProductToDelete(null);
+        }}
+      />
     </DashboardLayout>
   );
 };

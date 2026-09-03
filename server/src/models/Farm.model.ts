@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import { OwnershipType } from '@pola/shared';
+import { OwnershipType, VerificationStatus } from '@pola/shared';
 
 export interface IFarm extends Document {
   _id: Types.ObjectId;
@@ -9,9 +9,9 @@ export interface IFarm extends Document {
   district: string;
   addressLine: string;
   city: string;
-  gps: {
-    latitude: number;
-    longitude: number;
+  gps?: {
+    latitude?: number;
+    longitude?: number;
   };
   extentValue: number; // Numeric value
   extentUnit: 'acres' | 'perches' | 'hectares';
@@ -24,6 +24,7 @@ export interface IFarm extends Document {
   organicCertExpiry?: Date;
   photos?: string[];
   notes?: string;
+  verificationStatus: VerificationStatus;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -38,8 +39,14 @@ const FarmSchema = new Schema<IFarm>(
     addressLine: { type: String, required: true },
     city: { type: String, required: true },
     gps: {
-      latitude: { type: Number, required: true },
-      longitude: { type: Number, required: true },
+      latitude: { type: Number, required: false },
+      longitude: { type: Number, required: false },
+    },
+    verificationStatus: {
+      type: String,
+      enum: Object.values(VerificationStatus),
+      default: VerificationStatus.PENDING,
+      index: true,
     },
     extentValue: { type: Number, required: true },
     extentUnit: { type: String, enum: ['acres', 'perches', 'hectares'], default: 'acres' },
