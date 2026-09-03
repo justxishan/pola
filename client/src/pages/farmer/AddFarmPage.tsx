@@ -9,16 +9,14 @@ import { Button } from '@/components/atoms/Button';
 import { FarmService } from '@/services/farm.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useTranslation } from '@/lib/i18n';
+import { getFarmerNavItems } from '@/lib/navItems';
 import { PROVINCES_DISTRICTS } from '@pola/shared';
 import {
-  LayoutDashboard,
-  Sprout,
-  Package,
-  Wallet,
-  ShoppingBag,
   MapPin,
   ArrowLeft,
   Navigation,
+  CheckCircle2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -26,28 +24,24 @@ export const AddFarmPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
+  const { t } = useTranslation();
 
   const [farmName, setFarmName] = useState('');
   const [province, setProvince] = useState('Central');
   const [district, setDistrict] = useState('Matale');
   const [nearestVillage, setNearestVillage] = useState('');
   const [addressLine, setAddressLine] = useState('');
-  const [latitude, setLatitude] = useState(7.8731);
-  const [longitude, setLongitude] = useState(80.6517);
-  const [landExtentAcres, setLandExtentAcres] = useState(2.5);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [landExtent, setLandExtent] = useState(2.5);
+  const [extentUnit, setExtentUnit] = useState<'acres' | 'perches' | 'hectares'>('acres');
   const [ownershipType, setOwnershipType] = useState('owned');
   const [irrigationSource, setIrrigationSource] = useState('well');
   const [isOrganicCertified, setIsOrganicCertified] = useState(false);
   const [certFiles, setCertFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms', label: 'My Farms', icon: <Sprout className="w-5 h-5" />, path: '/farmer/farms' },
-    { id: 'products', label: 'Crop Listings', icon: <Package className="w-5 h-5" />, path: '/farmer/products' },
-    { id: 'orders', label: 'Farm Orders', icon: <ShoppingBag className="w-5 h-5" />, path: '/farmer/orders' },
-    { id: 'wallet', label: 'Earnings & Wallet', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const navItems = getFarmerNavItems(t);
 
   const handleGetLocation = () => {
     if (navigator.geolocation) {
@@ -85,32 +79,35 @@ export const AddFarmPage: React.FC = () => {
         formData.append('district', district);
         formData.append('addressLine', addressLine.trim() || nearestVillage.trim());
         formData.append('city', nearestVillage.trim() || addressLine.trim());
-        // Send numbers as plain numbers — FormData coercion fix via multipart
-        formData.append('latitude', String(latitude));
-        formData.append('longitude', String(longitude));
-        formData.append('extentValue', String(landExtentAcres));
-        formData.append('extentUnit', 'acres');
+        if (latitude !== null && longitude !== null) {
+          formData.append('latitude', String(latitude));
+          formData.append('longitude', String(longitude));
+        }
+        formData.append('extentValue', String(landExtent));
+        formData.append('extentUnit', extentUnit);
         formData.append('ownershipType', ownershipType);
         formData.append('irrigationType', irrigationSource);
         formData.append('isOrganicCertified', String(isOrganicCertified));
         formData.append('organicCertificate', certFiles[0]);
         await FarmService.createFarm(formData);
       } else {
-        // Send JSON so numbers arrive as numbers (Zod z.number() works correctly)
-        await FarmService.createFarmJson({
+        const payload: any = {
           farmName: farmName.trim(),
           province,
           district,
           addressLine: addressLine.trim() || nearestVillage.trim(),
           city: nearestVillage.trim() || addressLine.trim(),
-          latitude,
-          longitude,
-          extentValue: landExtentAcres,
-          extentUnit: 'acres',
+          extentValue: landExtent,
+          extentUnit,
           ownershipType,
           irrigationType: irrigationSource,
           isOrganicCertified,
-        });
+        };
+        if (latitude !== null && longitude !== null) {
+          payload.latitude = latitude;
+          payload.longitude = longitude;
+        }
+        await FarmService.createFarmJson(payload);
       }
 
       toast.success('Farm field registered successfully!');
@@ -122,14 +119,19 @@ export const AddFarmPage: React.FC = () => {
     }
   };
 
-
   const availableDistricts = PROVINCES_DISTRICTS[province] || [];
 
   return (
     <DashboardLayout
-      portalTitle="Farmer Operations Center"
+      portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
       activePath="/farmer/farms"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
@@ -156,7 +158,7 @@ export const AddFarmPage: React.FC = () => {
             Register Farm Parcel
           </h1>
           <p className="text-xs text-slate-400">
-            Enter land acreage, irrigation, and GPS pin for village hub collection routing
+            Enter land acreage, irrigation, and optional GPS pin for village hub collection routing
           </p>
         </div>
 
@@ -210,13 +212,18 @@ export const AddFarmPage: React.FC = () => {
             />
           </div>
 
-          {/* GPS Coordinates */}
+          {/* GPS Coordinates (Optional) */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-emerald-600" />
-                GPS Coordinates
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  GPS Coordinates (Optional)
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Used for nearest village hub routing. You can skip this or capture with one tap.
+                </p>
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -228,33 +235,34 @@ export const AddFarmPage: React.FC = () => {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <Input
-                label="Latitude"
-                type="number"
-                step="any"
-                value={latitude}
-                onChange={(e) => setLatitude(parseFloat(e.target.value))}
-              />
-              <Input
-                label="Longitude"
-                type="number"
-                step="any"
-                value={longitude}
-                onChange={(e) => setLongitude(parseFloat(e.target.value))}
-              />
-            </div>
+            {latitude !== null && longitude !== null && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Detected Location: {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E</span>
+              </div>
+            )}
           </div>
 
           {/* Agronomy Details */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              label="Land Extent (Acres)"
-              type="number"
-              step="0.1"
-              value={landExtentAcres}
-              onChange={(e) => setLandExtentAcres(parseFloat(e.target.value))}
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label="Land Extent"
+                type="number"
+                step="0.1"
+                value={landExtent}
+                onChange={(e) => setLandExtent(parseFloat(e.target.value))}
+              />
+              <Select
+                label="Unit"
+                value={extentUnit}
+                onChange={(e) => setExtentUnit(e.target.value as any)}
+              >
+                <option value="acres">Acres</option>
+                <option value="perches">Perches</option>
+                <option value="hectares">Hectares</option>
+              </Select>
+            </div>
 
             <Select
               label="Ownership Type"

@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { VillageHub } from '../models/VillageHub.model.js';
 import { QualityInspection } from '../models/QualityInspection.model.js';
 import { Order } from '../models/Order.model.js';
+import { User } from '../models/User.model.js';
 import { WastageLog } from '../models/WastageLog.model.js';
 import { GradingService } from '../services/grading.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
@@ -158,6 +159,95 @@ export class HubController {
         success: true,
         message: 'Hub intake grading sheet submitted successfully',
         data: { inspection, order },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get authenticated farmer's assigned hub, upcoming drop-off batch, and inspection receipts
+   */
+  static async getMyHubDropoffs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const farmerId = req.user!.userId;
+      const user = await User.findById(farmerId);
+
+      // 1. Find assigned hub or fallback to nearest/first hub in district/province
+      let assignedHub = null;
+      if (user?.assignedHubId) {
+        assignedHub = await VillageHub.findById(user.assignedHubId).populate('linkedDcId', 'name code district');
+      }
+      if (!assignedHub) {
+        const userDistrict = user?.addresses?.[0]?.district;
+        const query: any = { isActive: true };
+        if (userDistrict) query.district = userDistrict;
+        assignedHub = await VillageHub.findOne(query).populate('linkedDcId', 'name code district');
+        if (!assignedHub) {
+          assignedHub = await VillageHub.findOne({ isActive: true }).populate('linkedDcId', 'name code district');
+        }
+      }
+
+      // 2. Aggregate upcoming drop-off batch from active orders
+      const pendingOrders = await Order.find({
+        'items.farmerId': farmerId,
+        status: {
+          $in: [OrderStatus.PAYMENT_CONFIRMED, OrderStatus.AWAITING_HUB_COLLECTION],
+        },
+      }).select('orderNumber items status createdAt');
+
+      const cropAggregates: { [key: string]: { cropName: string; totalQuantity: number; unit: string; totalValue: number } } = {};
+      let totalBatchKg = 0;
+      let totalBatchValue = 0;
+
+      for (const order of pendingOrders) {
+        for (const item of order.items) {
+          if (String(item.farmerId) === String(farmerId)) {
+            const name = item.productName || 'Produce Lot';
+            const qty = item.quantityOrdered || 0;
+            const price = item.unitPrice || 0;
+            const val = item.subtotal || (qty * price);
+
+            if (!cropAggregates[name]) {
+              cropAggregates[name] = {
+                cropName: name,
+                totalQuantity: 0,
+                unit: item.unit || 'kg',
+                totalValue: 0,
+              };
+            }
+            cropAggregates[name].totalQuantity += qty;
+            cropAggregates[name].totalValue += val;
+            totalBatchKg += qty;
+            totalBatchValue += val;
+          }
+        }
+      }
+
+      const upcomingCrops = Object.values(cropAggregates);
+      const cratesRequired = Math.ceil(totalBatchKg / 20) || 0; // 20kg per crate
+
+      // 3. Past Quality Inspections / Receipts
+      const inspections = await QualityInspection.find({ farmerId })
+        .populate('hubId', 'hubName addressLine city')
+        .populate('productId', 'productName title unit')
+        .populate('orderId', 'orderNumber')
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          assignedHub,
+          upcomingBatch: {
+            ordersCount: pendingOrders.length,
+            crops: upcomingCrops,
+            totalBatchKg,
+            totalBatchValue,
+            cratesRequired,
+          },
+          inspections,
+        },
       });
     } catch (error) {
       next(error);

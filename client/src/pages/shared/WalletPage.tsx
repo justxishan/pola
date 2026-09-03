@@ -13,23 +13,13 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useCartStore } from '@/store/cartStore';
 import { useTranslation } from '@/lib/i18n';
+import { getFarmerNavItems, getDeliveryNavItems } from '@/lib/navItems';
 import {
   Wallet,
   ArrowUpRight,
-  ArrowDownLeft,
-  Clock,
-  Building,
   CreditCard,
-  FileSpreadsheet,
   FileText,
   X,
-  Sparkles,
-  LayoutDashboard,
-  Sprout,
-  Package,
-  ShoppingBag,
-  ShieldCheck,
-  CheckCircle2,
   Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -43,6 +33,7 @@ export const WalletPage: React.FC = () => {
 
   const [wallet, setWallet] = useState<any | null>(null);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [meta, setMeta] = useState<any>({ total: 0, page: 1, limit: 20, totalPages: 1 });
   const [isLoading, setIsLoading] = useState(true);
 
   // Withdrawal Modal
@@ -55,31 +46,29 @@ export const WalletPage: React.FC = () => {
     user?.role === 'collector' ||
     user?.role?.startsWith('delivery');
 
-  const navItems = [
-    { id: 'dashboard', label: t.dashboard, icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms', label: t.myFarms, icon: <Sprout className="w-5 h-5" />, path: '/farmer/farms' },
-    { id: 'products', label: t.cropListings, icon: <Package className="w-5 h-5" />, path: '/farmer/products' },
-    { id: 'orders', label: t.farmOrders, icon: <ShoppingBag className="w-5 h-5" />, path: '/farmer/orders' },
-    { id: 'wallet', label: t.earningsWallet, icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const isDelivery = user?.role?.startsWith('delivery');
+  const navItems = isDelivery ? getDeliveryNavItems(t) : getFarmerNavItems(t);
 
   useEffect(() => {
-    fetchWalletData();
+    fetchWalletData(1);
   }, []);
 
-  const fetchWalletData = async () => {
+  const fetchWalletData = async (targetPage: number = 1) => {
     try {
       setIsLoading(true);
       const [walletRes, ledgerRes]: [any, any] = await Promise.all([
         WalletService.getMyWallet(),
-        WalletService.getLedger(),
+        WalletService.getLedger(targetPage, 20),
       ]);
 
       if (walletRes.success && walletRes.data) {
         setWallet(walletRes.data.wallet);
       }
       if (ledgerRes.success && ledgerRes.data) {
-        setLedger(ledgerRes.data.entries || []);
+        setLedger(ledgerRes.data.transactions || []);
+        if (ledgerRes.data.meta) {
+          setMeta(ledgerRes.data.meta);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -95,7 +84,8 @@ export const WalletPage: React.FC = () => {
       toast.error('Minimum withdrawal amount is LKR 500.00');
       return;
     }
-    if (amount > (wallet?.availableBalance || 0)) {
+    const available = wallet?.availableBalanceLkr ?? wallet?.availableBalance ?? 0;
+    if (amount > available) {
       toast.error('Withdrawal amount exceeds available balance');
       return;
     }
@@ -107,7 +97,7 @@ export const WalletPage: React.FC = () => {
         toast.success(res.message || 'Withdrawal request submitted for LankaPay batch processing');
         setIsWithdrawOpen(false);
         setWithdrawAmount('');
-        fetchWalletData();
+        fetchWalletData(meta.page || 1);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to request withdrawal');
@@ -143,11 +133,11 @@ export const WalletPage: React.FC = () => {
         )}
       </div>
 
-      {/* 3 Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {/* 4 Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Available Balance"
-          value={`LKR ${(wallet?.availableBalance || 0).toLocaleString()}.00`}
+          value={`LKR ${(wallet?.availableBalanceLkr ?? wallet?.availableBalance ?? 0).toLocaleString()}.00`}
           subtitle="Ready for withdrawal or checkout"
           icon={<Wallet className="w-6 h-6 text-emerald-400" />}
           iconBgColor="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
@@ -155,18 +145,29 @@ export const WalletPage: React.FC = () => {
 
         <StatCard
           title="Escrow Hold Balance"
-          value={`LKR ${(wallet?.escrowBalance || 0).toLocaleString()}.00`}
+          value={`LKR ${(wallet?.pendingEscrowBalanceLkr ?? wallet?.escrowBalance ?? 0).toLocaleString()}.00`}
           subtitle="Held until delivery OTP verified"
           icon={<Lock className="w-6 h-6 text-amber-400" />}
           iconBgColor="bg-amber-500/20 text-amber-300 border border-amber-400/30"
         />
 
         <StatCard
-          title="Total Lifetime Payouts"
-          value={`LKR ${(wallet?.totalWithdrawn || 0).toLocaleString()}.00`}
-          subtitle="Direct LankaPay transfers"
+          title="Total Gross Earned"
+          value={`LKR ${(wallet?.totalEarnedLkr ?? 0).toLocaleString()}.00`}
+          subtitle="Direct sales and earnings"
           icon={<CreditCard className="w-6 h-6 text-sky-400" />}
           iconBgColor="bg-sky-500/20 text-sky-300 border border-sky-400/30"
+        />
+
+        <StatCard
+          title="Pending Payouts"
+          value={`LKR ${ledger
+            .filter((e: any) => e.withdrawalStatus === 'pending')
+            .reduce((sum: number, e: any) => sum + Math.abs(e.amountLkr ?? e.amount ?? 0), 0)
+            .toLocaleString()}.00`}
+          subtitle="In LankaPay clearing queue"
+          icon={<ArrowUpRight className="w-6 h-6 text-amber-400" />}
+          iconBgColor="bg-amber-500/20 text-amber-300 border border-amber-400/30"
         />
       </div>
 
@@ -193,41 +194,77 @@ export const WalletPage: React.FC = () => {
             No wallet ledger transactions recorded yet.
           </div>
         ) : (
-          <div className="overflow-x-auto no-scrollbar">
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3">Type</th>
-                  <th className="pb-3">Reference / Order</th>
-                  <th className="pb-3">Amount</th>
-                  <th className="pb-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {ledger.map((entry: any) => (
-                  <tr key={entry._id} className="hover:bg-white/5 transition-colors">
-                    <td className="py-3.5 text-slate-300">
-                      {new Date(entry.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="py-3.5 font-bold text-white capitalize">
-                      {entry.type?.replace(/_/g, ' ')}
-                    </td>
-                    <td className="py-3.5 font-mono text-[11px] text-slate-400">
-                      {entry.referenceId || entry.orderId || 'N/A'}
-                    </td>
-                    <td className="py-3.5 font-black text-sm text-emerald-400">
-                      LKR {entry.amount?.toLocaleString()}
-                    </td>
-                    <td className="py-3.5">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                        VERIFIED
-                      </span>
-                    </td>
+          <div className="space-y-4">
+            <div className="overflow-x-auto no-scrollbar">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider">
+                    <th className="pb-3">Date</th>
+                    <th className="pb-3">Type</th>
+                    <th className="pb-3">Reference / Order</th>
+                    <th className="pb-3">Amount</th>
+                    <th className="pb-3">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {ledger.map((entry: any) => {
+                    const amount = entry.amountLkr ?? entry.amount ?? 0;
+                    const isCredit = amount >= 0;
+                    const orderRef = entry.referenceOrderId?.orderNumber || entry.referenceOrderId || entry.referenceId || entry.orderId || 'N/A';
+
+                    return (
+                      <tr key={entry._id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-3.5 text-slate-300">
+                          {new Date(entry.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-3.5 font-bold text-white capitalize">
+                          {(entry.transactionType || entry.type)?.replace(/_/g, ' ')}
+                        </td>
+                        <td className="py-3.5 font-mono text-[11px] text-slate-400">
+                          {typeof orderRef === 'object' ? orderRef.orderNumber || 'Order' : orderRef}
+                        </td>
+                        <td className={`py-3.5 font-black text-sm ${isCredit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {isCredit ? '+' : '-'} LKR {Math.abs(amount).toLocaleString()}
+                        </td>
+                        <td className="py-3.5">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            entry.withdrawalStatus === 'rejected'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
+                              : entry.withdrawalStatus === 'pending'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
+                          }`}>
+                            {entry.withdrawalStatus || 'VERIFIED'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {meta.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t border-white/10 text-xs text-slate-300">
+                <span>Page {meta.page} of {meta.totalPages} ({meta.total} total)</span>
+                <div className="flex gap-2">
+                  <button
+                    disabled={meta.page <= 1}
+                    onClick={() => fetchWalletData(meta.page - 1)}
+                    className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-all"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={meta.page >= meta.totalPages}
+                    onClick={() => fetchWalletData(meta.page + 1)}
+                    className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -236,7 +273,7 @@ export const WalletPage: React.FC = () => {
       {isWithdrawOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-slate-800 pb-3 border-b">
               <h3 className="font-extrabold text-base text-white">LankaPay Bank Withdrawal</h3>
               <button
                 onClick={() => setIsWithdrawOpen(false)}
@@ -261,7 +298,7 @@ export const WalletPage: React.FC = () => {
                   required
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Available for withdrawal: LKR {(wallet?.availableBalance || 0).toLocaleString()}
+                  Available for withdrawal: LKR {(wallet?.availableBalanceLkr ?? wallet?.availableBalance ?? 0).toLocaleString()}
                 </p>
               </div>
 
@@ -286,9 +323,15 @@ export const WalletPage: React.FC = () => {
   if (isFarmerOrDelivery) {
     return (
       <DashboardLayout
-        portalTitle="Financial Operations Desk"
+        portalTitle="Earnings & Wallet"
         portalRole={user?.role || 'Partner'}
         navItems={navItems}
+        mobileNavItems={navItems.map((item) => ({
+          id: item.id,
+          label: item.label,
+          icon: item.icon,
+          path: item.path,
+        }))}
         activePath="/wallet"
         onNavigate={(path) => navigate(path)}
         currentLanguage={language}

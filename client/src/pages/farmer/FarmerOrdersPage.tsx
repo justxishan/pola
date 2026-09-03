@@ -10,14 +10,9 @@ import { OrderService } from '@/services/order.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { getFarmerNavItems } from '@/lib/navItems';
 import { ChatDrawer } from '@/components/organisms/ChatDrawer';
 import {
-  LayoutDashboard,
-  Sprout,
-  Package,
-  Wallet,
-  ShoppingBag,
-  MapPin,
   QrCode,
   FileText,
   Calendar,
@@ -44,14 +39,7 @@ export const FarmerOrdersPage: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatOrder, setChatOrder] = useState<any | null>(null);
 
-  const navItems = [
-    { id: 'dashboard', label: t.dashboard    || 'Dashboard',          icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms',     label: t.myFarms      || 'My Farms',            icon: <Sprout          className="w-5 h-5" />, path: '/farmer/farms'     },
-    { id: 'products',  label: t.cropListings || 'Crop Listings',       icon: <Package         className="w-5 h-5" />, path: '/farmer/products'  },
-    { id: 'orders',    label: t.farmOrders   || 'Farm Orders',         icon: <ShoppingBag     className="w-5 h-5" />, path: '/farmer/orders'    },
-    { id: 'hubs',      label: t.hubDropoffs  || 'Hub Drop-offs',       icon: <MapPin          className="w-5 h-5" />, path: '/farmer/hubs'      },
-    { id: 'wallet',    label: t.earningsWallet || 'Earnings & Wallet', icon: <Wallet          className="w-5 h-5" />, path: '/wallet'           },
-  ];
+  const navItems = getFarmerNavItems(t);
 
   useEffect(() => {
     fetchOrders();
@@ -97,9 +85,15 @@ export const FarmerOrdersPage: React.FC = () => {
 
   return (
     <DashboardLayout
-      portalTitle={t.farmerOpsCenter}
+      portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
       activePath="/farmer/orders"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}

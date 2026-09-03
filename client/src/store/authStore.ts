@@ -11,6 +11,9 @@ export interface UserProfile {
   avatarUrl?: string;
   addresses?: any[];
   bankDetails?: any;
+  preferredLanguage?: 'en' | 'si' | 'ta';
+  themePreference?: 'light' | 'dark' | 'system';
+  assignedHubId?: string;
 }
 
 interface AuthState {

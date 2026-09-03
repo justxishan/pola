@@ -13,6 +13,8 @@ export interface IUser extends Document {
   dateOfBirth?: Date;
   gender?: 'male' | 'female' | 'other';
   preferredLanguage: 'en' | 'si' | 'ta';
+  themePreference?: 'light' | 'dark' | 'system';
+  assignedHubId?: Types.ObjectId;
 
   // Sri Lankan Identity & KYC
   nicNumber?: string;
@@ -103,6 +105,8 @@ const UserSchema = new Schema<IUser>(
     dateOfBirth: { type: Date },
     gender: { type: String, enum: ['male', 'female', 'other'] },
     preferredLanguage: { type: String, enum: ['en', 'si', 'ta'], default: 'en' },
+    themePreference: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
+    assignedHubId: { type: Schema.Types.ObjectId, ref: 'VillageHub' },
 
     nicNumber: { type: String, trim: true, uppercase: true, sparse: true, index: true },
     isOldNicFormat: { type: Boolean },

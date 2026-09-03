@@ -2,13 +2,13 @@ import { api } from './api';
 
 export const WalletService = {
   getMyWallet: async () => {
-    return api.get('/wallet/me');
+    return api.get('/wallet/my-wallet');
   },
 
   getLedgerEntries: async (page: number = 1, limit: number = 20, type?: string) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (type) params.append('type', type);
-    return api.get(`/wallet/ledger?${params.toString()}`);
+    return api.get(`/wallet/transactions?${params.toString()}`);
   },
 
   /** Alias for getLedgerEntries */
@@ -28,11 +28,11 @@ export const WalletService = {
 
   /** Initiate PayPal top-up — returns approveUrl */
   initiatePayPalTopUp: async (amountLkr: number) => {
-    return api.post('/wallet/topup', { amountLkr });
+    return api.post('/wallet/top-up', { amountLkr });
   },
 
   /** Capture and confirm PayPal top-up after user approves */
   confirmPayPalTopUp: async (paypalOrderId: string, amountLkr: number) => {
-    return api.post('/wallet/topup/confirm', { paypalOrderId, amountLkr });
+    return api.post('/wallet/top-up/confirm', { paypalOrderId, amountLkr });
   },
 };

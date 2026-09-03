@@ -6,6 +6,13 @@ class ChatServiceClass {
   private currentOrderId: string | null = null;
 
   /**
+   * REST: Get all conversations for current user
+   */
+  async getMyConversations() {
+    return api.get('/chat/conversations');
+  }
+
+  /**
    * REST: Get conversation & message history for an order
    */
   async getOrderConversation(orderId: string) {

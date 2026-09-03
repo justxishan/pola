@@ -10,17 +10,11 @@ import { FarmService } from '@/services/farm.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { getFarmerNavItems } from '@/lib/navItems';
 import {
-  LayoutDashboard,
-  Sprout,
-  Package,
-  Wallet,
-  ShoppingBag,
-  ArrowRight,
   ArrowLeft,
   Plus,
   Trash2,
-  MapPin,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -50,14 +44,7 @@ export const EditProductPage: React.FC = () => {
     Array<{ minQuantity: number; maxQuantity?: number; pricePerUnit: number }>
   >([]);
 
-  const navItems = [
-    { id: 'dashboard', label: t.dashboard, icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms', label: t.myFarms, icon: <Sprout className="w-5 h-5" />, path: '/farmer/farms' },
-    { id: 'products', label: t.cropListings, icon: <Package className="w-5 h-5" />, path: '/farmer/products' },
-    { id: 'orders', label: t.farmOrders, icon: <ShoppingBag className="w-5 h-5" />, path: '/farmer/orders' },
-    { id: 'hubs', label: t.hubDropoffs, icon: <MapPin className="w-5 h-5" />, path: '/farmer/hubs' },
-    { id: 'wallet', label: t.earningsWallet, icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const navItems = getFarmerNavItems(t);
 
   useEffect(() => {
     fetchInitialData();
@@ -142,9 +129,15 @@ export const EditProductPage: React.FC = () => {
 
   return (
     <DashboardLayout
-      portalTitle={t.farmerOpsCenter}
+      portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
       activePath="/farmer/products"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
