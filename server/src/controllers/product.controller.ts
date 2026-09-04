@@ -120,6 +120,9 @@ export class ProductController {
       if (category) {
         filter.category = category;
       }
+      if (district) {
+        filter['farmId.district'] = district;
+      }
       if (isOrganic !== undefined) {
         filter.isOrganic = isOrganic;
       }

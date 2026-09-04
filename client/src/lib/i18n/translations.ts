@@ -198,7 +198,7 @@ export const translations: Record<LanguageCode, Translations> = {
     adminPortalDesc: 'Platform GMV analytics, split-screen KYC document verification, LankaPay withdrawal processing, and order routing.',
     openPortal: 'Open Portal',
 
-    farmerOpsCenter: 'Farmer Operations Center',
+    farmerOpsCenter: 'Farmer Portal',
     welcomeFarmer: 'Ayubowan, Farmer Partner!',
     farmerSubtitle: 'Manage your agricultural harvests, village hub drop-offs, and LankaPay payouts.',
     registerNewFarm: 'Register New Farm',
@@ -323,7 +323,7 @@ export const translations: Record<LanguageCode, Translations> = {
     adminPortalDesc: 'GMV විශ්ලේෂණ, KYC ලේඛන තහවුරු කිරීම්, ලංකාපේ බැංකු ගෙවීම් සහ ඇණවුම් පාලනය.',
     openPortal: 'පුවරුව විවෘත කරන්න',
 
-    farmerOpsCenter: 'ගොවි මෙහෙයුම් මධ්‍යස්ථානය',
+    farmerOpsCenter: 'ගොවි පෝර්ටලය',
     welcomeFarmer: 'ආයුබෝවන්, ගොවි මහතාණෙනි!',
     farmerSubtitle: 'ඔබගේ කෘෂිකාර්මික අස්වනු, ගම්මාන මධ්‍යස්ථාන භාරදීම් සහ ලංකාපේ ගෙවීම් මෙහෙයවන්න.',
     registerNewFarm: 'නව ගොවිබිමක් ලියාපදිංචි කරන්න',
@@ -448,7 +448,7 @@ export const translations: Record<LanguageCode, Translations> = {
     adminPortalDesc: 'GMV பகுப்பாய்வு, KYC ஆவண சரிபார்ப்பு, லங்காபே வங்கி பணம் செலுத்துதல் மற்றும் கட்டளை மேலாண்மை.',
     openPortal: 'தளத்தை திறக்கவும்',
 
-    farmerOpsCenter: 'விவசாய செயல்பாட்டு மையம்',
+    farmerOpsCenter: 'விவசாய போர்டல்',
     welcomeFarmer: 'வணக்கம், விவசாய கூட்டாளரே!',
     farmerSubtitle: 'உங்கள் விவசாய அறுவடைகள், கிராம மைய ஒப்படைப்புகள் மற்றும் லங்காபே கொடுப்பனவுகளை நிர்வகிக்கவும்.',
     registerNewFarm: 'புதிய பண்ணையை பதிவு செய்யவும்',
