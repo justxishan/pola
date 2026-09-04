@@ -18,6 +18,7 @@ import adminRoutes from './admin.routes.js';
 import notificationRoutes from './notification.routes.js';
 import webhookRoutes from './webhook.routes.js';
 import chatRoutes from './chat.routes.js';
+import bankAccountRoutes from './bankAccount.routes.js';
 
 const router = Router();
 
@@ -50,5 +51,6 @@ router.use('/admin', adminRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/chat', chatRoutes);
+router.use('/bank-accounts', bankAccountRoutes);
 
 export default router;

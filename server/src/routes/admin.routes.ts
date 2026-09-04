@@ -31,4 +31,9 @@ router.post('/orders/:id/reassign', AdminController.forceReassignOrder);
 router.get('/orders', AdminController.getAllOrders);
 router.get('/audit-logs', AdminController.getAuditLogs);
 
+// Farm Verification Queue
+router.get('/farms/queue', AdminController.getFarmVerificationQueue);
+router.patch('/farms/:id/verify', AdminController.verifyFarm);
+router.patch('/farms/:id/reject', AdminController.rejectFarm);
+
 export default router;

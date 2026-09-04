@@ -350,17 +350,68 @@ export class OrderController {
   static async getFarmerOrders(req: Request, res: Response, next: NextFunction) {
     try {
       const farmerId = req.user!.userId;
-      const { status } = req.query as { status?: string };
+      const {
+        status,
+        search,
+        dateFrom,
+        dateTo,
+        minAmount,
+        maxAmount,
+        sortBy = 'newest',
+      } = req.query as {
+        status?: string;
+        search?: string;
+        dateFrom?: string;
+        dateTo?: string;
+        minAmount?: string;
+        maxAmount?: string;
+        sortBy?: string;
+      };
 
       const filter: any = { 'items.farmerId': farmerId };
       if (status && status !== 'all') {
         filter.status = status;
       }
 
+      if (dateFrom || dateTo) {
+        filter.createdAt = {};
+        if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+        if (dateTo) {
+          const to = new Date(dateTo);
+          to.setHours(23, 59, 59, 999);
+          filter.createdAt.$lte = to;
+        }
+      }
+
+      if (minAmount !== undefined && minAmount !== '' || maxAmount !== undefined && maxAmount !== '') {
+        filter.grandTotal = {};
+        if (minAmount !== undefined && minAmount !== '') filter.grandTotal.$gte = Number(minAmount);
+        if (maxAmount !== undefined && maxAmount !== '') filter.grandTotal.$lte = Number(maxAmount);
+      }
+
+      if (search && search.trim()) {
+        const queryTerm = search.trim();
+        const matchedUsers = await User.find({
+          fullName: { $regex: queryTerm, $options: 'i' },
+        }).select('_id');
+        const userIds = matchedUsers.map((u) => u._id);
+
+        filter.$or = [
+          { orderNumber: { $regex: queryTerm, $options: 'i' } },
+          { customerId: { $in: userIds } },
+          { 'items.productName': { $regex: queryTerm, $options: 'i' } },
+        ];
+      }
+
+      let sortConfig: any = { createdAt: -1 };
+      if (sortBy === 'oldest') sortConfig = { createdAt: 1 };
+      else if (sortBy === 'amount_high') sortConfig = { grandTotal: -1 };
+      else if (sortBy === 'amount_low') sortConfig = { grandTotal: 1 };
+
       const orders = await Order.find(filter)
         .populate('customerId', 'fullName email phone')
         .populate('assignedDcId', 'name code district')
-        .sort({ createdAt: -1 });
+        .sort(sortConfig);
 
       res.status(200).json({
         success: true,

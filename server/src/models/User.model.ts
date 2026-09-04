@@ -43,6 +43,18 @@ export interface IUser extends Document {
     accountHolderName: string;
   };
 
+  bankAccounts?: Array<{
+    _id?: Types.ObjectId;
+    bankName: string;
+    bankCode?: string;
+    branchName: string;
+    branchCode?: string;
+    accountNumber: string;
+    accountHolderName: string;
+    isDefault: boolean;
+    createdAt?: Date;
+  }>;
+
   // Addresses
   addresses: Array<{
     _id?: Types.ObjectId;
@@ -139,6 +151,19 @@ const UserSchema = new Schema<IUser>(
       accountNumber: { type: String },
       accountHolderName: { type: String },
     },
+
+    bankAccounts: [
+      {
+        bankName: { type: String, required: true },
+        bankCode: { type: String },
+        branchName: { type: String, required: true },
+        branchCode: { type: String },
+        accountNumber: { type: String, required: true },
+        accountHolderName: { type: String, required: true },
+        isDefault: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
 
     addresses: [
       {
