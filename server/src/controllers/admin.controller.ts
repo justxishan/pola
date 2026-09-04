@@ -142,9 +142,21 @@ export class AdminController {
         .populate('userId', 'fullName email phone bankDetails role')
         .sort({ createdAt: 1 });
 
+      const sanitizedQueue = entries.map((entry: any) => {
+        const entryObj = entry.toObject ? entry.toObject() : { ...entry };
+        if (entryObj.userId && entryObj.userId.bankDetails) {
+          const raw = entryObj.userId.bankDetails.accountNumber || '';
+          entryObj.userId.bankDetails = {
+            ...entryObj.userId.bankDetails,
+            accountNumber: raw.length > 4 ? `•••• •••• ${raw.slice(-4)}` : raw,
+          };
+        }
+        return entryObj;
+      });
+
       res.status(200).json({
         success: true,
-        data: { queue: entries },
+        data: { queue: sanitizedQueue },
       });
     } catch (error) {
       next(error);

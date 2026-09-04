@@ -39,6 +39,7 @@ export class ProductController {
       const product = await Product.create({
         farmerId,
         farmId,
+        district: farm.district,
         productName,
         category,
         variety,
@@ -121,7 +122,15 @@ export class ProductController {
         filter.category = category;
       }
       if (district) {
-        filter['farmId.district'] = district;
+        const matchingFarms = await Farm.find({
+          district: { $regex: new RegExp(`^${district}$`, 'i') },
+        }).select('_id');
+        const farmIds = matchingFarms.map((f) => f._id);
+
+        filter.$or = [
+          { district: { $regex: new RegExp(`^${district}$`, 'i') } },
+          { farmId: { $in: farmIds } },
+        ];
       }
       if (isOrganic !== undefined) {
         filter.isOrganic = isOrganic;

@@ -5,6 +5,7 @@ export interface IProduct extends Document {
   _id: Types.ObjectId;
   farmerId: Types.ObjectId;
   farmId: Types.ObjectId;
+  district?: string;
   productName: string;
   category: ProductCategory;
   variety?: string;
@@ -38,6 +39,7 @@ const ProductSchema = new Schema<IProduct>(
   {
     farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     farmId: { type: Schema.Types.ObjectId, ref: 'Farm', required: true, index: true },
+    district: { type: String, trim: true, index: true },
     productName: { type: String, required: true, trim: true, index: 'text' },
     category: {
       type: String,
