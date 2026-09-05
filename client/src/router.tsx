@@ -149,6 +149,14 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: '/farmer/messages',
+        element: (
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
+            <MessagesPage />
+          </ProtectedRoute>
+        ),
+      },
 
       // 2. Customer & Buyer Marketplace Routes
       { path: '/', element: <HomePage /> },
@@ -264,6 +272,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <EarningsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/delivery/messages',
+        element: (
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
+            <MessagesPage />
           </ProtectedRoute>
         ),
       },
