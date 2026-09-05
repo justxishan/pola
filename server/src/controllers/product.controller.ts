@@ -5,6 +5,9 @@ import { Farm } from '../models/Farm.model.js';
 import { User } from '../models/User.model.js';
 import { Role, VerificationStatus } from '@pola/shared';
 import { CloudinaryService } from '../services/cloudinary.service.js';
+import { Wishlist } from '../models/Wishlist.model.js';
+import { NotificationService } from '../services/notification.service.js';
+import { logger } from '../utils/logger.util.js';
 import { AppError } from '../middleware/error.middleware.js';
 
 export class ProductController {
@@ -277,8 +280,43 @@ export class ProductController {
         updates.status = updates.isActive ? 'active' : 'delisted';
       }
 
+      const oldPrice = product.basePricePerUnit;
+      const oldAvailable = product.availableQuantity;
+
       Object.assign(product, updates);
       await product.save();
+
+      const newPrice = product.basePricePerUnit;
+      const newAvailable = product.availableQuantity;
+      const priceDropped = oldPrice > 0 && newPrice < oldPrice;
+      const backInStock = oldAvailable === 0 && newAvailable > 0;
+
+      if (priceDropped || backInStock) {
+        Wishlist.find({ 'items.productId': product._id })
+          .select('userId')
+          .then((wishlists) => {
+            for (const w of wishlists) {
+              const title = priceDropped
+                ? `Price Drop Alert: ${product.productName}`
+                : `Back in Stock: ${product.productName}`;
+              const message = priceDropped
+                ? `Good news! ${product.productName} is now LKR ${newPrice} per ${product.unit} (was LKR ${oldPrice}).`
+                : `${product.productName} is back in stock with ${newAvailable} ${product.unit} available!`;
+
+              NotificationService.sendNotification({
+                userId: w.userId,
+                title,
+                message,
+                type: 'system',
+                portal: 'customer',
+                linkUrl: `/product/${product._id}`,
+              });
+            }
+          })
+          .catch((err) => {
+            logger.error(`Failed to send wishlist notifications: ${err.message}`);
+          });
+      }
 
       res.status(200).json({
         success: true,

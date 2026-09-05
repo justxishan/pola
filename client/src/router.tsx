@@ -25,6 +25,7 @@ import { ProductDetailPage } from './pages/marketplace/ProductDetailPage';
 import { CheckoutPage } from './pages/marketplace/CheckoutPage';
 import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
 import { CustomerOrdersPage } from './pages/marketplace/CustomerOrdersPage';
+import { WishlistPage } from './pages/marketplace/WishlistPage';
 
 // Farmer Pages
 import { FarmerDashboard } from './pages/farmer/FarmerDashboard';
@@ -194,6 +195,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute redirectPath="/customer/login">
             <CustomerOrdersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/wishlist',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <WishlistPage />
           </ProtectedRoute>
         ),
       },

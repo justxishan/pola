@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CartDrawer } from './components/organisms/CartDrawer';
 import { useCartStore } from './store/cartStore';
+import { useWishlistStore } from './store/wishlistStore';
 import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
 import { ChatService } from './services/chat.service';
@@ -34,6 +35,12 @@ export const RootLayout: React.FC = () => {
   useEffect(() => {
     hydrateCartFromDb();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      useWishlistStore.getState().fetchWishlist();
+    }
+  }, [isAuthenticated]);
 
   // Global persistent WebSocket connection & real-time notification push
   useEffect(() => {
