@@ -786,7 +786,6 @@ export const MessagesPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
   );
 
   // ── Conditional layout shell ─────────────────────────────────────────
