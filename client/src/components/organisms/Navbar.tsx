@@ -91,9 +91,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const fetchUnreadCount = async () => {
     try {
-      const res: any = await NotificationService.getMyNotifications();
+      const res: any = await NotificationService.getMyNotifications('customer');
       if (res?.data?.notifications) {
-        const count = res.data.notifications.filter((n: any) => !n.isRead).length;
+        const count = res.data.notifications.filter(
+          (n: any) => (!n.portal || n.portal === 'customer') && !n.isRead
+        ).length;
         setUnreadCount(count);
       }
     } catch {
@@ -134,8 +136,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       fetchChatUnreadCount();
     }, 30_000);
 
-    const handleInstantAlert = () => {
-      fetchUnreadCount();
+    const handleInstantAlert = (e: any) => {
+      const notif = e?.detail;
+      if (!notif?.portal || notif.portal === 'customer') {
+        fetchUnreadCount();
+      }
       fetchChatUnreadCount();
     };
     window.addEventListener('pola:notification:new', handleInstantAlert);
@@ -385,6 +390,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           setIsNotificationsOpen(false);
           fetchUnreadCount(); // refresh badge after marking items read
         }}
+        onRefreshCount={fetchUnreadCount}
+        portal="customer"
       />
 
       {/* ── Centered Sign Out Confirmation Dialog ───────────────────── */}

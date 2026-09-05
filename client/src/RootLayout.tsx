@@ -61,6 +61,24 @@ export const RootLayout: React.FC = () => {
         const notif = data?.notification;
         if (!notif) return;
 
+        // Determine current active portal from URL
+        const currentPath = window.location.pathname;
+        const currentPortal = currentPath.startsWith('/farmer')
+          ? 'farmer'
+          : currentPath.startsWith('/delivery')
+          ? 'delivery'
+          : currentPath.startsWith('/admin')
+          ? 'admin'
+          : 'customer';
+
+        // Notify bells & dashboards to increment count immediately
+        window.dispatchEvent(new CustomEvent('pola:notification:new', { detail: notif }));
+
+        // Only pop up toast notification if it belongs to the current portal
+        if (notif.portal && notif.portal !== currentPortal) {
+          return;
+        }
+
         toast(
           (t) => (
             <div
@@ -80,9 +98,6 @@ export const RootLayout: React.FC = () => {
           ),
           { duration: 5000 }
         );
-
-        // Notify bells & dashboards to increment count immediately
-        window.dispatchEvent(new CustomEvent('pola:notification:new', { detail: notif }));
       };
 
       ChatService.onNotificationReceived(handleLiveNotification);

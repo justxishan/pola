@@ -40,9 +40,14 @@ export class NotificationController {
     try {
       const userId = req.user!.userId;
       const { id } = req.params;
+      const portal = req.query.portal as string | undefined;
 
       if (id === 'all') {
-        await Notification.updateMany({ userId, isRead: false }, { isRead: true, readAt: new Date() });
+        const filter: Record<string, any> = { userId, isRead: false };
+        if (portal && ['customer', 'farmer', 'delivery', 'admin'].includes(portal)) {
+          filter.portal = portal;
+        }
+        await Notification.updateMany(filter, { isRead: true, readAt: new Date() });
       } else {
         await Notification.findOneAndUpdate(
           { _id: id, userId },

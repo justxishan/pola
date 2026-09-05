@@ -1,12 +1,14 @@
 import { api } from './api';
 
 export const NotificationService = {
-  getMyNotifications: async () => {
-    return api.get('/notifications');
+  getMyNotifications: async (portal?: 'customer' | 'farmer' | 'delivery' | 'admin') => {
+    const params = portal ? `?portal=${portal}` : '';
+    return api.get(`/notifications${params}`);
   },
 
-  markAsRead: async (id: string | 'all') => {
-    return api.patch(`/notifications/${id}/read`);
+  markAsRead: async (id: string | 'all', portal?: 'customer' | 'farmer' | 'delivery' | 'admin') => {
+    const params = portal ? `?portal=${portal}` : '';
+    return api.patch(`/notifications/${id}/read${params}`);
   },
 
   deleteNotification: async (id: string) => {

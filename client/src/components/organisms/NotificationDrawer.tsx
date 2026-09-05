@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from '@/lib/i18n';
 import { useAuthStore } from '@/store/authStore';
 import { resolveNotificationPath } from '@/lib/routeResolver';
@@ -45,16 +45,30 @@ export interface NotificationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onRefreshCount?: () => void;
+  portal?: 'customer' | 'farmer' | 'delivery' | 'admin';
 }
 
 export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   isOpen,
   onClose,
   onRefreshCount,
+  portal,
 }) => {
   const { user } = useAuthStore();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const activePortal: 'customer' | 'farmer' | 'delivery' | 'admin' =
+    portal ||
+    (location.pathname.startsWith('/farmer')
+      ? 'farmer'
+      : location.pathname.startsWith('/delivery')
+      ? 'delivery'
+      : location.pathname.startsWith('/admin')
+      ? 'admin'
+      : 'customer');
+
   const [activeTab, setActiveTab] = useState<'all' | 'system' | 'messages'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,14 +86,15 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       setIsSelectionMode(false);
       setSelectedIds(new Set());
     }
-  }, [isOpen]);
+  }, [isOpen, activePortal]);
 
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
-      const res: any = await NotificationService.getMyNotifications();
+      const res: any = await NotificationService.getMyNotifications(activePortal);
       if (res.success && res.data) {
-        setNotifications(res.data.notifications || []);
+        const raw: NotificationItem[] = res.data.notifications || [];
+        setNotifications(raw.filter((n) => !n.portal || n.portal === activePortal));
       }
     } catch (err: any) {
       console.warn('Failed to load notifications:', err);
@@ -92,7 +107,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
 
   const markAllAsRead = async () => {
     try {
-      await NotificationService.markAsRead('all');
+      await NotificationService.markAsRead('all', activePortal);
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       if (onRefreshCount) onRefreshCount();
       toast.success('All marked as read');

@@ -121,11 +121,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const theme = getPortalTheme(portalRole);
   const currentActivePath = activePath || location.pathname;
 
+  const portalName: 'farmer' | 'delivery' | 'admin' | 'customer' =
+    (portalRole as any) ||
+    (location.pathname.startsWith('/farmer')
+      ? 'farmer'
+      : location.pathname.startsWith('/delivery')
+      ? 'delivery'
+      : location.pathname.startsWith('/admin')
+      ? 'admin'
+      : 'customer');
+
   const fetchUnreadCount = async () => {
     try {
-      const res: any = await NotificationService.getMyNotifications();
+      const res: any = await NotificationService.getMyNotifications(portalName);
       if (res?.data?.notifications) {
-        const count = res.data.notifications.filter((n: any) => !n.isRead).length;
+        const count = res.data.notifications.filter(
+          (n: any) => (!n.portal || n.portal === portalName) && !n.isRead
+        ).length;
         setLiveUnreadCount(count);
       }
     } catch {
@@ -139,8 +151,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     fetchUnreadCount();
     pollIntervalRef.current = setInterval(fetchUnreadCount, 30_000);
 
-    const handleInstantAlert = () => {
-      fetchUnreadCount();
+    const handleInstantAlert = (e: any) => {
+      const notif = e?.detail;
+      if (!notif?.portal || notif.portal === portalName) {
+        fetchUnreadCount();
+      }
     };
     window.addEventListener('pola:notification:new', handleInstantAlert);
 
@@ -189,6 +204,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           setIsNotificationsOpen(false);
           if (unreadNotificationsCount === undefined) fetchUnreadCount();
         }}
+        onRefreshCount={fetchUnreadCount}
+        portal={portalName}
       />
 
       {/* ── Mobile Bottom Navigation ────────────────────────────────── */}
