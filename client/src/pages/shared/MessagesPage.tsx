@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
+import { MarketplaceLayout } from '@/components/templates/MarketplaceLayout';
 import { Spinner } from '@/components/atoms/Spinner';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/atoms/Button';
@@ -8,6 +9,7 @@ import { Avatar } from '@/components/atoms/Avatar';
 import { ChatService } from '@/services/chat.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useCartStore } from '@/store/cartStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems, getDeliveryNavItems } from '@/lib/navItems';
 import {
@@ -38,10 +40,12 @@ export const MessagesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, token, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
+  const { items: cartItems, openCart } = useCartStore();
   const { t } = useTranslation();
 
   const isFarmer = user?.role?.startsWith('farmer') || user?.role === 'collector';
   const isDelivery = user?.role?.startsWith('delivery');
+  const isCustomer = !isFarmer && !isDelivery && !user?.role?.startsWith('admin');
 
   const navItems = isFarmer
     ? getFarmerNavItems(t)
@@ -372,32 +376,11 @@ export const MessagesPage: React.FC = () => {
     );
   };
 
-  return (
-    <DashboardLayout
-      portalTitle={isFarmer ? (t.farmerOpsCenter || 'Farmer Portal') : 'Pola Portal'}
-      portalRole={user?.role || 'User'}
-      navItems={navItems}
-      mobileNavItems={navItems.map((item) => ({
-        id: item.id,
-        label: item.label,
-        icon: item.icon,
-        path: item.path,
-      }))}
-      activePath={isFarmer ? '/farmer/messages' : '/messages'}
-      onNavigate={(path) => navigate(path)}
-      currentLanguage={language}
-      onLanguageChange={setLanguage}
-      isDark={isDark}
-      onToggleTheme={toggleTheme}
-      user={user || undefined}
-      onLogout={() => {
-        logout();
-        navigate('/');
-      }}
-    >
-      <div className="max-w-[1440px] mx-auto space-y-4">
-        {/* Main Two-Pane Chat Container */}
-        <div className="h-[calc(100vh-140px)] min-h-[580px] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col md:flex-row">
+  // ── Inner chat UI (layout-agnostic) ─────────────────────────────────
+  const chatUI = (
+    <div className="max-w-[1440px] mx-auto space-y-4">
+      {/* Main Two-Pane Chat Container */}
+      <div className="h-[calc(100vh-140px)] min-h-[580px] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col md:flex-row">
           
           {/* ── LEFT PANE: Conversation List (35% on desktop) ────────────── */}
           <div
@@ -803,6 +786,52 @@ export const MessagesPage: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  // ── Conditional layout shell ─────────────────────────────────────────
+  if (isCustomer) {
+    return (
+      <MarketplaceLayout
+        searchQuery=""
+        onSearchChange={() => {}}
+        cartItemCount={cartItems.length}
+        onOpenCart={openCart}
+        currentLanguage={language}
+        onLanguageChange={setLanguage}
+        isDark={isDark}
+        onToggleTheme={toggleTheme}
+        user={user}
+      >
+        {chatUI}
+      </MarketplaceLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout
+      portalTitle={isFarmer ? (t.farmerOpsCenter || 'Farmer Portal') : 'Pola Portal'}
+      portalRole={user?.role || 'User'}
+      navItems={navItems}
+      mobileNavItems={navItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        path: item.path,
+      }))}
+      activePath={isFarmer ? '/farmer/messages' : '/messages'}
+      onNavigate={(path) => navigate(path)}
+      currentLanguage={language}
+      onLanguageChange={setLanguage}
+      isDark={isDark}
+      onToggleTheme={toggleTheme}
+      user={user || undefined}
+      onLogout={() => {
+        logout();
+        navigate('/');
+      }}
+    >
+      {chatUI}
     </DashboardLayout>
   );
 };
