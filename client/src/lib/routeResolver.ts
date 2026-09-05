@@ -1,6 +1,7 @@
 import { Role, ADMIN_ROLES, DELIVERY_ROLES, FARMER_ROLES, CUSTOMER_ROLES } from '@pola/shared';
 
 export interface NotificationLike {
+  type?: string;
   portal?: 'customer' | 'farmer' | 'delivery' | 'admin';
   destinationKey?: string;
   relatedId?: string;
@@ -25,8 +26,8 @@ export function getDashboardPathForRole(role?: string): string {
 }
 
 /**
- * Resolves a notification to its appropriate client route based on its semantic destination key
- * and the user's currently active portal role.
+ * Resolves a notification to its appropriate client route based on its semantic destination key,
+ * type, linkUrl, and the user's currently active portal role.
  */
 export function resolveNotificationPath(notification: NotificationLike, userRole?: string): string {
   const currentRole = userRole || '';
@@ -35,6 +36,22 @@ export function resolveNotificationPath(notification: NotificationLike, userRole
   const isAdmin = ADMIN_ROLES.includes(currentRole as Role) || currentRole.startsWith('admin');
   const isCustomer = !isFarmer && !isDelivery && !isAdmin;
 
+  // 1. Direct Chat Thread / Message Notifications
+  if (notification.type === 'message' || notification.destinationKey === 'CHAT_THREAD') {
+    if (isFarmer) {
+      return notification.relatedId ? `/farmer/messages?orderId=${notification.relatedId}` : '/farmer/messages';
+    }
+    if (isDelivery) {
+      return '/delivery/active-trip';
+    }
+    if (isAdmin) {
+      return '/admin/orders';
+    }
+    // Customer route specified in 08/09 specs
+    return notification.relatedId ? `/messages?orderId=${notification.relatedId}` : '/messages';
+  }
+
+  // 2. Semantic Destination Keys
   if (notification.destinationKey) {
     switch (notification.destinationKey) {
       case 'ORDER_DETAIL':
@@ -71,14 +88,14 @@ export function resolveNotificationPath(notification: NotificationLike, userRole
         if (isFarmer) return notification.relatedId ? `/farmer/messages?orderId=${notification.relatedId}` : '/farmer/messages';
         if (isDelivery) return '/delivery/active-trip';
         if (isAdmin) return '/admin/orders';
-        return notification.relatedId ? `/orders/${notification.relatedId}/track` : '/customer/orders';
+        return notification.relatedId ? `/messages?orderId=${notification.relatedId}` : '/messages';
 
       default:
         break;
     }
   }
 
-  // Fallback: If linkUrl matches the user's role/portal, use it
+  // 3. Fallback: If linkUrl matches the user's role/portal, use it
   if (notification.linkUrl) {
     const url = notification.linkUrl;
     if (url.startsWith('/farmer') && !isFarmer) {

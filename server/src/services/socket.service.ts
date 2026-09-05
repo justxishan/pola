@@ -249,7 +249,7 @@ export class SocketService {
             if (pid !== userId) {
               let targetPortal: 'customer' | 'farmer' | 'delivery' | 'admin' = 'customer';
               let targetDestKey: any = 'CHAT_THREAD';
-              let targetUrl = `/orders/${order._id}/track`;
+              let targetUrl = `/messages?orderId=${order._id}`;
 
               if (p.role === 'farmer') {
                 targetPortal = 'farmer';
