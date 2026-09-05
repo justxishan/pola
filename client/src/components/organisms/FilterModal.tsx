@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/cn';
-import { DISTRICTS, PRODUCT_CATEGORIES } from '@pola/shared';
+import { DISTRICTS, PRODUCT_CATEGORIES, ProductCategory } from '@pola/shared';
 import { useTranslation } from '@/lib/i18n';
 import {
   X,
@@ -53,16 +53,12 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   }, []);
 
   const categories = React.useMemo(() => {
-    return PRODUCT_CATEGORIES || [
-      'Vegetables',
-      'Fruits',
-      'Grains & Pulses',
-      'Spices & Herbs',
-      'Dairy & Eggs',
-      'Tubers & Roots',
-      'Coconut & Plantation',
-      'Other Agro Products',
-    ];
+    // PRODUCT_CATEGORIES is a Record<ProductCategory, CategoryMetadata> — not an
+    // array. Derive a stable sorted array of { id, label } pairs from it.
+    return Object.values(PRODUCT_CATEGORIES).map((meta) => ({
+      id: meta.id as string,
+      label: meta.nameEn,
+    }));
   }, []);
 
   useEffect(() => {
@@ -192,12 +188,12 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                   {!draft.category && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
                 </button>
                 {categories.map((cat) => {
-                  const isSelected = draft.category === cat;
+                  const isSelected = draft.category === cat.id;
                   return (
                     <button
-                      key={cat}
+                      key={cat.id}
                       type="button"
-                      onClick={() => setDraft((prev) => ({ ...prev, category: isSelected ? null : cat }))}
+                      onClick={() => setDraft((prev) => ({ ...prev, category: isSelected ? null : cat.id }))}
                       className={cn(
                         'w-full text-left px-3 py-2 rounded-xl transition-all font-medium flex items-center justify-between cursor-pointer',
                         isSelected
@@ -205,7 +201,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                           : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
                       )}
                     >
-                      <span className="truncate">{cat}</span>
+                      <span className="truncate">{cat.label}</span>
                       {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                     </button>
                   );
