@@ -22,9 +22,14 @@ export class PayoutService {
     const user = await User.findById(userId);
     if (!user) throw new AppError('User not found', 404);
 
-    if (!user.bankDetails || !user.bankDetails.accountNumber) {
+    const defaultAccount =
+      user.bankAccounts?.find((acc: any) => acc.isDefault) ||
+      user.bankAccounts?.[0] ||
+      user.bankDetails;
+
+    if (!defaultAccount || !defaultAccount.accountNumber) {
       throw new AppError(
-        'No verified payout bank account found on profile. Please add bank details first.',
+        'No verified payout bank account found on profile. Please add a bank account in your Wallet first.',
         400
       );
     }
@@ -43,6 +48,9 @@ export class PayoutService {
     wallet.availableBalanceLkr -= amountLkr;
     await wallet.save();
 
+    const rawAcc = defaultAccount.accountNumber;
+    const maskedAcc = rawAcc.length > 4 ? `•••• ${rawAcc.slice(-4)}` : rawAcc;
+
     const ledgerEntry = await LedgerEntry.create({
       walletId: wallet._id,
       userId,
@@ -51,10 +59,10 @@ export class PayoutService {
       previousBalanceLkr: prevBal,
       newBalanceLkr: wallet.availableBalanceLkr,
       withdrawalStatus: WithdrawalStatus.REQUESTED,
-      description: `LankaPay withdrawal request of LKR ${amountLkr.toFixed(2)} to ${user.bankDetails.bankName} (Acc: ${user.bankDetails.accountNumber})`,
+      description: `LankaPay withdrawal request of LKR ${amountLkr.toFixed(2)} to ${defaultAccount.bankName} (${maskedAcc})`,
     });
 
-    logger.info(`💸 Withdrawal requested: LKR ${amountLkr} by user ${userId}`);
+    logger.info(`💸 Withdrawal requested: LKR ${amountLkr} by user ${userId} to ${defaultAccount.bankName} (${maskedAcc})`);
     return ledgerEntry;
   }
 

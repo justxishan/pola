@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems } from '@/lib/navItems';
+import { STANDARD_UNITS, UNIT_LABELS } from '@pola/shared';
 import {
   ArrowLeft,
   Plus,
@@ -219,13 +220,10 @@ export const EditProductPage: React.FC = () => {
                   label="Unit of Sale"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
-                  options={[
-                    { value: 'kg', label: 'Kilograms (kg)' },
-                    { value: 'g', label: 'Grams (g)' },
-                    { value: 'litre', label: 'Litres (L)' },
-                    { value: 'dozen', label: 'Dozen' },
-                    { value: 'bundle', label: 'Bundle' },
-                  ]}
+                  options={STANDARD_UNITS.map((u) => ({
+                    value: u,
+                    label: UNIT_LABELS[u as keyof typeof UNIT_LABELS] || u,
+                  }))}
                 />
 
                 <Input

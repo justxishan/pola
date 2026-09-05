@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Button } from '@/components/atoms/Button';
@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems, getDeliveryNavItems } from '@/lib/navItems';
+import { TicketService } from '@/services/ticket.service';
 import {
   ArrowLeft,
   PhoneCall,
@@ -51,9 +52,13 @@ export const HelpSupportPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      // Simulate quick support ticket creation
-      await new Promise((r) => setTimeout(r, 600));
-      const refId = `TCK-${Math.floor(100000 + Math.random() * 900000)}`;
+      const result = await TicketService.createTicket({
+        subject: `Support Request — ${category}`,
+        category,
+        messageText: message.trim(),
+        relatedOrderId: orderNumber.trim() || undefined,
+      });
+      const refId = result.data.ticket.ticketNumber;
       toast.success(`Support ticket ${refId} created. An agent will contact you shortly.`);
       setMessage('');
       setOrderNumber('');

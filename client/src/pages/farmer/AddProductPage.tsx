@@ -13,7 +13,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems } from '@/lib/navItems';
-import { PRODUCT_CATEGORIES, STANDARD_UNITS } from '@pola/shared';
+import { PRODUCT_CATEGORIES, STANDARD_UNITS, UNIT_LABELS } from '@pola/shared';
 import {
   ArrowLeft,
   Plus,
@@ -212,8 +212,8 @@ export const AddProductPage: React.FC = () => {
               onChange={(e) => setUnit(e.target.value)}
             >
               {STANDARD_UNITS.map((u) => (
-                <option key={u.code} value={u.code}>
-                  {u.nameEn} ({u.code})
+                <option key={u} value={u}>
+                  {UNIT_LABELS[u as keyof typeof UNIT_LABELS] || u}
                 </option>
               ))}
             </Select>

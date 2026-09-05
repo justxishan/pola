@@ -43,6 +43,18 @@ export interface IUser extends Document {
     accountHolderName: string;
   };
 
+  bankAccounts?: Array<{
+    _id?: Types.ObjectId;
+    bankName: string;
+    bankCode?: string;
+    branchName: string;
+    branchCode?: string;
+    accountNumber: string;
+    accountHolderName: string;
+    isDefault: boolean;
+    createdAt?: Date;
+  }>;
+
   // Addresses
   addresses: Array<{
     _id?: Types.ObjectId;
@@ -140,6 +152,19 @@ const UserSchema = new Schema<IUser>(
       accountHolderName: { type: String },
     },
 
+    bankAccounts: [
+      {
+        bankName: { type: String, required: true },
+        bankCode: { type: String },
+        branchName: { type: String, required: true },
+        branchCode: { type: String },
+        accountNumber: { type: String, required: true },
+        accountHolderName: { type: String, required: true },
+        isDefault: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
     addresses: [
       {
         label: { type: String, default: 'Primary' },
@@ -180,7 +205,31 @@ const UserSchema = new Schema<IUser>(
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform(_doc, ret: any) {
+        delete ret.passwordHash;
+        delete ret.otpCode;
+        delete ret.otpExpiresAt;
+        if (ret.bankDetails?.accountNumber && ret.bankDetails.accountNumber.length > 4) {
+          ret.bankDetails.accountNumber = `•••• •••• ${ret.bankDetails.accountNumber.slice(-4)}`;
+        }
+        if (Array.isArray(ret.bankAccounts)) {
+          ret.bankAccounts = ret.bankAccounts.map((acc: any) => {
+            if (acc.accountNumber && acc.accountNumber.length > 4) {
+              return {
+                ...acc,
+                accountNumber: `•••• •••• ${acc.accountNumber.slice(-4)}`,
+              };
+            }
+            return acc;
+          });
+        }
+        return ret;
+      },
+    },
+  }
 );
 
 export const User = mongoose.model<IUser>('User', UserSchema);

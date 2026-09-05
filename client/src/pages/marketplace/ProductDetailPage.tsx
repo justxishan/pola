@@ -97,6 +97,14 @@ export const ProductDetailPage: React.FC = () => {
     'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80';
   const images = product.images && product.images.length > 0 ? product.images : [defaultImage];
 
+  const availableStock =
+    product.availableQuantity !== undefined && product.availableQuantity !== null
+      ? product.availableQuantity
+      : 0;
+  const isDecimalUnit = ['kg', 'g', 'l', 'ml'].includes((product.unit || 'kg').toLowerCase());
+  const step = isDecimalUnit ? 0.5 : 1;
+  const minQty = product.minOrderQuantity || (isDecimalUnit ? 0.5 : 1);
+
   // Dynamic Tier Calculation
   let activePrice = product.pricePerUnit;
   if (product.pricingTiers && product.pricingTiers.length > 0) {
@@ -111,6 +119,10 @@ export const ProductDetailPage: React.FC = () => {
   const totalCalculated = activePrice * quantity;
 
   const handleAddToCart = (itemToCart: any = product, qty: number = quantity) => {
+    if (availableStock <= 0) {
+      toast.error('This harvest listing is currently out of stock.');
+      return;
+    }
     addItem({
       productId: itemToCart._id,
       title: itemToCart.title,
@@ -120,11 +132,16 @@ export const ProductDetailPage: React.FC = () => {
       image: itemToCart.images?.[0] || images[0],
       farmerName: itemToCart.farmerId?.fullName || 'Pola Farmer',
       minOrderQuantity: itemToCart.minOrderQuantity || 1,
+      maxOrderQuantity: availableStock,
     });
     toast.success(`Added ${qty} ${itemToCart.unit} of ${itemToCart.title} to your basket!`);
   };
 
   const handleBuyNow = () => {
+    if (availableStock <= 0) {
+      toast.error('This harvest listing is currently out of stock.');
+      return;
+    }
     handleAddToCart();
     openCart();
   };
@@ -286,8 +303,10 @@ export const ProductDetailPage: React.FC = () => {
               <div className="text-3xl font-black text-white font-mono">
                 LKR {totalCalculated.toLocaleString()}.00
               </div>
-              <span className="text-[11px] text-emerald-400 font-semibold block">
-                In Stock: {product.availableQuantity || 120} {product.unit || 'kg'} available
+              <span className={`text-[11px] font-semibold block ${availableStock > 0 ? 'text-emerald-400' : 'text-rose-400 font-bold'}`}>
+                {availableStock > 0
+                  ? `In Stock: ${availableStock} ${product.unit || 'kg'} available`
+                  : 'Out of Stock'}
               </span>
             </div>
 
@@ -299,21 +318,42 @@ export const ProductDetailPage: React.FC = () => {
               <div className="flex items-center border border-white/15 rounded-2xl overflow-hidden bg-black/40 p-1">
                 <button
                   type="button"
-                  onClick={() => setQuantity(Math.max(product.minOrderQuantity || 1, quantity - 1))}
-                  className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  disabled={availableStock <= 0 || quantity <= minQty}
+                  onClick={() => setQuantity(Math.max(minQty, Number((quantity - step).toFixed(2))))}
+                  className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
                 <input
                   type="number"
+                  step={step}
+                  min={minQty}
+                  max={availableStock > 0 ? availableStock : 99999}
+                  disabled={availableStock <= 0}
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full text-center text-sm font-black bg-transparent text-white outline-none font-mono"
+                  onChange={(e) => {
+                    const parsed = isDecimalUnit ? parseFloat(e.target.value) : parseInt(e.target.value);
+                    if (isNaN(parsed)) {
+                      setQuantity(minQty);
+                    } else {
+                      const clamped = Math.max(minQty, Math.min(availableStock > 0 ? availableStock : 99999, parsed));
+                      setQuantity(clamped);
+                    }
+                  }}
+                  className="w-full text-center text-sm font-black bg-transparent text-white outline-none font-mono disabled:opacity-40"
                 />
                 <button
                   type="button"
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  disabled={availableStock <= 0 || (availableStock > 0 && quantity >= availableStock)}
+                  onClick={() => {
+                    if (availableStock > 0 && quantity >= availableStock) {
+                      toast.error(`Maximum available stock is ${availableStock} ${product.unit || 'kg'}`);
+                      return;
+                    }
+                    const nextVal = Number((quantity + step).toFixed(2));
+                    setQuantity(Math.min(availableStock > 0 ? availableStock : 99999, nextVal));
+                  }}
+                  className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -324,17 +364,19 @@ export const ProductDetailPage: React.FC = () => {
             <div className="space-y-2.5 pt-2">
               <button
                 type="button"
+                disabled={availableStock <= 0}
                 onClick={handleAddToCart}
-                className="w-full py-3.5 px-6 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
+                className="w-full py-3.5 px-6 rounded-full bg-emerald-400 hover:bg-emerald-300 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Add to Basket</span>
+                <span>{availableStock > 0 ? 'Add to Basket' : 'Out of Stock'}</span>
               </button>
 
               <button
                 type="button"
+                disabled={availableStock <= 0}
                 onClick={handleBuyNow}
-                className="w-full py-3.5 px-6 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full py-3.5 px-6 rounded-full bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:text-slate-500 disabled:cursor-not-allowed border border-white/15 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <Zap className="w-4 h-4 text-emerald-400" />
                 <span>Instant Checkout</span>

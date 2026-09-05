@@ -53,13 +53,15 @@ export function getDeliveryNavItems(t: Record<string, string> = {}): NavItemDef[
   ];
 }
 
-export function getAdminNavItems(kpis?: { pendingKycCount?: number; pendingPayoutsCount?: number }): NavItemDef[] {
+export function getAdminNavItems(kpis?: { pendingKycCount?: number; pendingPayoutsCount?: number; pendingFarmsCount?: number }): NavItemDef[] {
   return [
     { id: 'dashboard', label: 'Command Center', icon: <LayoutDashboard className="w-5 h-5" />, path: '/admin/dashboard' },
     { id: 'kyc', label: 'KYC Verification', icon: <ShieldCheck className="w-5 h-5" />, path: '/admin/kyc', badgeCount: kpis?.pendingKycCount },
+    { id: 'farms', label: 'Farm Approvals', icon: <Sprout className="w-5 h-5" />, path: '/admin/farms', badgeCount: kpis?.pendingFarmsCount },
     { id: 'payouts', label: 'LankaPay Payouts', icon: <CreditCard className="w-5 h-5" />, path: '/admin/payouts', badgeCount: kpis?.pendingPayoutsCount },
     { id: 'orders', label: 'Order Oversight', icon: <ShoppingBag className="w-5 h-5" />, path: '/admin/orders' },
     { id: 'disputes', label: 'Dispute Desk', icon: <AlertTriangle className="w-5 h-5" />, path: '/admin/disputes' },
     { id: 'hubs', label: 'Hubs & DCs', icon: <Building className="w-5 h-5" />, path: '/admin/hubs' },
+    { id: 'reports', label: 'Reports Studio', icon: <FileText className="w-5 h-5" />, path: '/admin/reports' },
   ];
 }

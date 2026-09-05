@@ -48,6 +48,7 @@ import { EarningsPage } from './pages/delivery/EarningsPage';
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { KycQueuePage } from './pages/admin/KycQueuePage';
+import { FarmVerificationQueuePage } from './pages/admin/FarmVerificationQueuePage';
 import { PayoutQueuePage } from './pages/admin/PayoutQueuePage';
 import { OrderManagementPage } from './pages/admin/OrderManagementPage';
 import { DisputeAdjudicationPage } from './pages/admin/DisputeAdjudicationPage';
@@ -272,6 +273,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={ADMIN_ROLES} redirectPath="/admin/login">
             <KycQueuePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/farms',
+        element: (
+          <ProtectedRoute allowedRoles={ADMIN_ROLES} redirectPath="/admin/login">
+            <FarmVerificationQueuePage />
           </ProtectedRoute>
         ),
       },

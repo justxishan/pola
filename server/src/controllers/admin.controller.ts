@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { User } from '../models/User.model.js';
 import { Order } from '../models/Order.model.js';
+import { Farm } from '../models/Farm.model.js';
+import { Product } from '../models/Product.model.js';
 import { LedgerEntry } from '../models/LedgerEntry.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
 import { PayoutService } from '../services/payout.service.js';
@@ -19,6 +21,7 @@ export class AdminController {
         pendingKycCount,
         pendingWithdrawalsCount,
         activeOrdersCount,
+        pendingFarmsCount,
         totalGmvResult,
       ] = await Promise.all([
         User.countDocuments({ isActive: true }),
@@ -33,6 +36,7 @@ export class AdminController {
             ],
           },
         }),
+        Farm.countDocuments({ verificationStatus: VerificationStatus.PENDING, isActive: true }),
         Order.aggregate([
           { $match: { status: OrderStatus.COMPLETED } },
           {
@@ -55,6 +59,7 @@ export class AdminController {
           pendingKycCount,
           pendingWithdrawalsCount,
           activeOrdersCount,
+          pendingFarmsCount,
           gmv,
           platformRevenue,
         },
@@ -137,9 +142,21 @@ export class AdminController {
         .populate('userId', 'fullName email phone bankDetails role')
         .sort({ createdAt: 1 });
 
+      const sanitizedQueue = entries.map((entry: any) => {
+        const entryObj = entry.toObject ? entry.toObject() : { ...entry };
+        if (entryObj.userId && entryObj.userId.bankDetails) {
+          const raw = entryObj.userId.bankDetails.accountNumber || '';
+          entryObj.userId.bankDetails = {
+            ...entryObj.userId.bankDetails,
+            accountNumber: raw.length > 4 ? `•••• •••• ${raw.slice(-4)}` : raw,
+          };
+        }
+        return entryObj;
+      });
+
       res.status(200).json({
         success: true,
-        data: { queue: entries },
+        data: { queue: sanitizedQueue },
       });
     } catch (error) {
       next(error);
@@ -325,6 +342,106 @@ export class AdminController {
             totalPages: Math.ceil(total / limit),
           },
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get Farm Verification Queue (pending farms awaiting admin approval)
+   */
+  static async getFarmVerificationQueue(req: Request, res: Response, next: NextFunction) {
+    try {
+      const farms = await Farm.find({ verificationStatus: VerificationStatus.PENDING, isActive: true })
+        .populate('farmerId', 'fullName email phone profileImage kycStatus')
+        .sort({ createdAt: 1 });
+
+      res.status(200).json({
+        success: true,
+        data: { farms, total: farms.length },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Approve a Farm Plot & bulk-activate its pending products
+   */
+  static async verifyFarm(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = req.user!.userId;
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const farm = await Farm.findById(id);
+      if (!farm) throw new AppError('Farm not found', 404);
+      if (farm.verificationStatus === VerificationStatus.VERIFIED) {
+        throw new AppError('Farm is already verified', 409);
+      }
+
+      farm.verificationStatus = VerificationStatus.VERIFIED;
+      if (notes) farm.notes = `[Admin Approved]: ${notes}`;
+      await farm.save();
+
+      const { modifiedCount } = await Product.updateMany(
+        { farmId: farm._id, status: 'pending_verification' },
+        { $set: { status: 'active' } }
+      );
+
+      await AuditLog.create({
+        adminId: new Types.ObjectId(adminId),
+        adminEmail: req.user!.email,
+        adminRole: req.user!.role,
+        action: 'FARM_VERIFIED',
+        targetEntity: 'Farm',
+        targetId: farm._id.toString(),
+        details: { farmName: farm.farmName, district: farm.district, productsActivated: modifiedCount, notes },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Farm "${farm.farmName}" approved. ${modifiedCount} product(s) activated on the marketplace.`,
+        data: { farm, productsActivated: modifiedCount },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reject a Farm Plot
+   */
+  static async rejectFarm(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = req.user!.userId;
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason || !reason.trim()) throw new AppError('A rejection reason is required', 400);
+
+      const farm = await Farm.findById(id);
+      if (!farm) throw new AppError('Farm not found', 404);
+
+      farm.verificationStatus = VerificationStatus.REJECTED;
+      farm.notes = `[Admin Rejected]: ${reason}`;
+      await farm.save();
+
+      await AuditLog.create({
+        adminId: new Types.ObjectId(adminId),
+        adminEmail: req.user!.email,
+        adminRole: req.user!.role,
+        action: 'FARM_REJECTED',
+        targetEntity: 'Farm',
+        targetId: farm._id.toString(),
+        details: { farmName: farm.farmName, district: farm.district, reason },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Farm "${farm.farmName}" has been rejected.`,
+        data: { farm },
       });
     } catch (error) {
       next(error);

@@ -226,13 +226,19 @@ export const PayoutQueuePage: React.FC = () => {
                       header: 'Bank Account (LankaPay)',
                       accessor: (row: any) => {
                         const bank = (row.userId as any)?.bankDetails;
+                        const raw = bank?.accountNumber || '';
+                        const masked = raw.startsWith('••••')
+                          ? raw
+                          : raw.length > 4
+                          ? `•••• •••• ${raw.slice(-4)}`
+                          : raw || '—';
                         return (
                           <div className="text-xs">
                             <span className="font-semibold text-slate-800 dark:text-slate-200 block">
                               {bank?.bankName || '—'}
                             </span>
-                            <span className="text-slate-400">
-                              {bank?.accountNumber} {bank?.branchName ? `(${bank.branchName})` : ''}
+                            <span className="text-slate-400 font-mono">
+                              {masked} {bank?.branchName ? `(${bank.branchName})` : ''}
                             </span>
                           </div>
                         );

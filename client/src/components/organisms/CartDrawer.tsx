@@ -13,6 +13,7 @@ export interface CartItem {
   image?: string;
   farmerName?: string;
   minOrderQuantity?: number;
+  maxOrderQuantity?: number;
 }
 
 export interface CartDrawerProps {
@@ -108,7 +109,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                     <QuantityStepper
                       value={item.quantity}
-                      min={item.minOrderQuantity || 1}
+                      min={item.minOrderQuantity || (['kg', 'g', 'l', 'ml'].includes((item.unit || '').toLowerCase()) ? 0.5 : 1)}
+                      max={item.maxOrderQuantity && item.maxOrderQuantity > 0 ? item.maxOrderQuantity : 99999}
+                      step={['kg', 'g', 'l', 'ml'].includes((item.unit || '').toLowerCase()) ? 0.5 : 1}
                       unit={item.unit}
                       onChange={(qty) => onUpdateQuantity(item.productId, qty)}
                     />
