@@ -55,6 +55,7 @@ export const ProductQuerySchema = z.object({
     page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
     limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 20)),
     farmId: z.string().optional(),
+    farmerId: z.string().optional(),
     search: z.string().optional(),
     category: z.nativeEnum(ProductCategory).optional(),
     district: z.string().optional(),

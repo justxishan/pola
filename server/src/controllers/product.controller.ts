@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
 import { Product } from '../models/Product.model.js';
 import { Farm } from '../models/Farm.model.js';
 import { User } from '../models/User.model.js';
@@ -105,6 +106,7 @@ export class ProductController {
         page = 1,
         limit = 20,
         search,
+        farmerId,
         category,
         district,
         isOrganic,
@@ -121,6 +123,10 @@ export class ProductController {
       } = req.query as any;
 
       const andClauses: any[] = [{ status: 'active', availableQuantity: { $gt: 0 } }];
+
+      if (farmerId && Types.ObjectId.isValid(farmerId)) {
+        andClauses.push({ farmerId: new Types.ObjectId(farmerId) });
+      }
 
       if (search && search.trim()) {
         const clean = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

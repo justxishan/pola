@@ -1,6 +1,7 @@
 import { api } from './api';
 
 export interface CatalogQueryFilters {
+  farmerId?: string;
   category?: string;
   district?: string;
   minPrice?: number;
@@ -21,6 +22,7 @@ export interface CatalogQueryFilters {
 export const ProductService = {
   getCatalog: async (filters: CatalogQueryFilters = {}) => {
     const params = new URLSearchParams();
+    if (filters.farmerId) params.append('farmerId', filters.farmerId);
     if (filters.category) params.append('category', filters.category);
     if (filters.district) params.append('district', filters.district);
     if (filters.minPrice !== undefined) params.append('minPrice', String(filters.minPrice));

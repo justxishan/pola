@@ -60,6 +60,7 @@ export const HomePage: React.FC = () => {
   const minRating = searchParams.get('rating') ? Number(searchParams.get('rating')) : null;
   const sortBy = searchParams.get('sort') || searchParams.get('sortBy') || 'featured';
   const isB2b = searchParams.get('b2b') === 'true';
+  const selectedFarmerId = searchParams.get('farmerId') || undefined;
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -149,6 +150,7 @@ export const HomePage: React.FC = () => {
     try {
       setIsLoading(true);
       const res: any = await ProductService.getCatalog({
+        farmerId: selectedFarmerId,
         search: search || undefined,
         category: selectedCategory || undefined,
         district: selectedDistrict || undefined,
