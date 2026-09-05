@@ -196,6 +196,20 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
         </button>
+
+        <button
+          onClick={() => {
+            onClose();
+            navigate('/profile/edit');
+          }}
+          className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            <span>Settings & Preferences</span>
+          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+        </button>
       </div>
 
       {/* Preferences Section (Language & Theme) */}

@@ -11,7 +11,7 @@ import { NotificationService } from '@/services/notification.service';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import toast from 'react-hot-toast';
 import {
-  ShoppingBag,
+  ShoppingCart,
   Sprout,
   MapPin,
   Search,
@@ -155,62 +155,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           </a>
         </div>
 
-        {/* Center: Segmented Portal Switcher Pills */}
-        <nav className="hidden lg:flex items-center gap-1 p-1 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-xs font-bold">
-          <button
-            onClick={() => navigate('/')}
-            className={cn(
-              'px-4 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5',
-              currentPath === '/' || currentPath.startsWith('/catalog') || currentPath.startsWith('/product')
-                ? 'bg-white dark:bg-white/15 text-slate-950 dark:text-white shadow-sm font-extrabold border border-slate-200 dark:border-white/20'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5'
-            )}
-          >
-            <ShoppingBag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>{t.marketplace || 'Marketplace'}</span>
-          </button>
+        {/* Center: Clean Marketplace Brand Subtitle / Tagline on Desktop */}
+        <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
+            <Sprout className="w-3.5 h-3.5" />
+            <span>Farm-Direct Escrow Marketplace</span>
+          </span>
+        </div>
 
-          <button
-            onClick={() => navigate('/farmer/login')}
-            className={cn(
-              'px-4 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5',
-              currentPath.startsWith('/farmer')
-                ? 'bg-lime-400 text-slate-950 shadow-md font-black'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5'
-            )}
-          >
-            <Sprout className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400" />
-            <span>{t.farmers || 'Farmers'}</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/delivery/login')}
-            className={cn(
-              'px-4 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5',
-              currentPath.startsWith('/delivery')
-                ? 'bg-yellow-400 text-slate-950 shadow-md font-black'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5'
-            )}
-          >
-            <Truck className="w-3.5 h-3.5 text-yellow-600 dark:text-yellow-400" />
-            <span>{t.deliveryFleet || 'Delivery Fleet'}</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/admin/login')}
-            className={cn(
-              'px-4 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5',
-              currentPath.startsWith('/admin')
-                ? 'bg-teal-400 text-slate-950 shadow-md font-black'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5'
-            )}
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            <span>{t.adminHq || 'Admin HQ'}</span>
-          </button>
-        </nav>
-
-        {/* Right: Trilingual, Theme Toggle, Search, Location, Cart & Profile Cluster */}
+        {/* Right: Trilingual, Theme Toggle, Search, Cart & Profile Cluster */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Quick Search Toggle / Input */}
           <div className="relative">
@@ -231,6 +184,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   onClick={() => setIsSearchExpanded(false)}
                   className="ml-1 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                  title="Close Search"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -240,24 +194,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setIsSearchExpanded(true)}
                 className="p-2 rounded-full hover:bg-slate-200/60 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-colors cursor-pointer"
                 title="Search Produce"
+                aria-label="Search Produce"
               >
                 <Search className="w-4 h-4" />
               </button>
             )}
           </div>
-
-          {/* Delivery Location Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenLocationPicker) onOpenLocationPicker();
-              else setIsAddressDrawerOpen(true);
-            }}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-200/50 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all cursor-pointer"
-          >
-            <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="truncate max-w-[100px]">{selectedDistrict}</span>
-          </button>
 
           {/* Trilingual Switcher Capsule */}
           <div className="flex items-center p-0.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-[11px] font-bold">
@@ -269,6 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-white dark:bg-white/25 text-emerald-700 dark:text-white shadow-xs font-black'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
+              title="English"
             >
               EN
             </button>
@@ -280,6 +223,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-white dark:bg-white/25 text-emerald-700 dark:text-white shadow-xs font-black'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
+              title="සිංහල"
             >
               සිං
             </button>
@@ -291,6 +235,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-white dark:bg-white/25 text-emerald-700 dark:text-white shadow-xs font-black'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
+              title="தமிழ்"
             >
               த
             </button>
@@ -302,6 +247,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={toggleTheme}
             className="p-2 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/15 transition-all cursor-pointer"
             title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle Theme"
           >
             {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
           </button>
@@ -312,6 +258,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => navigate('/customer/orders')}
               className="relative p-2 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/15 transition-all cursor-pointer"
               title="My Orders"
+              aria-label="My Orders"
             >
               <Package className="w-3.5 h-3.5" />
             </button>
@@ -339,8 +286,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenCart}
               className="relative p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-all flex items-center gap-1.5 cursor-pointer"
+              title={`View Cart (${cartItemCount} items)`}
+              aria-label="Shopping Cart"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingCart className="w-4 h-4" />
               {cartItemCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-emerald-400 text-slate-950 font-black text-[10px]">
                   {cartItemCount}
@@ -354,15 +303,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-full bg-slate-200/60 dark:bg-white/10 border border-slate-300/80 dark:border-white/15 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-white transition-all cursor-pointer"
+                className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-slate-200/60 dark:bg-white/10 border border-slate-300/80 dark:border-white/15 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-white transition-all cursor-pointer"
+                title={user?.name || storeUser?.fullName || user?.email || storeUser?.email || 'User Account'}
+                aria-label="User Account"
               >
-                <div className="w-6 h-6 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center font-black text-xs">
+                <div className="w-7 h-7 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-xs">
                   {(user?.name || storeUser?.fullName) ? (user?.name || storeUser?.fullName)!.charAt(0).toUpperCase() : 'U'}
                 </div>
-                <span className="hidden sm:inline text-xs font-bold truncate max-w-[80px]">
-                  {user?.name || storeUser?.fullName || user?.email?.split('@')[0] || storeUser?.email?.split('@')[0]}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 
               <ProfileDropdown

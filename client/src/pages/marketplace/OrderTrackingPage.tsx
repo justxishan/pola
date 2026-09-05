@@ -5,6 +5,7 @@ import { OrderTimeline } from '@/components/organisms/OrderTimeline';
 import { StatusPill } from '@/components/molecules/StatusPill';
 import { Button } from '@/components/atoms/Button';
 import { Spinner } from '@/components/atoms/Spinner';
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { OrderService } from '@/services/order.service';
 import { useCartStore } from '@/store/cartStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -102,6 +103,11 @@ export const OrderTrackingPage: React.FC = () => {
     order.status === 'payment_confirmed' ||
     order.status === 'awaiting_hub_collection';
 
+  const isCancelled =
+    order.status === 'cancelled' ||
+    order.status === 'refunded' ||
+    order.status === 'returned';
+
   const subtotal = order.itemsTotal || 0;
   const deliveryFee = order.totalDeliveryFee || 0;
   const totalPaid = order.grandTotal || subtotal + deliveryFee;
@@ -144,8 +150,11 @@ export const OrderTrackingPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => OrderService.downloadInvoicePdf(order._id)}
-              leftIcon={<FileText className="w-4 h-4" />}
+              onClick={() => !isCancelled && OrderService.downloadInvoicePdf(order._id)}
+              disabled={isCancelled}
+              className={isCancelled ? 'opacity-40 cursor-not-allowed' : ''}
+              title={isCancelled ? 'Invoice not available for cancelled orders' : 'Download Invoice PDF'}
+              leftIcon={<FileText className="w-3.5 h-3.5" />}
             >
               Download Invoice PDF
             </Button>
@@ -374,56 +383,17 @@ export const OrderTrackingPage: React.FC = () => {
         )}
 
         {/* Cancel Confirmation Modal */}
-        {showCancelModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-            <div
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in"
-              onClick={() => setShowCancelModal(false)}
-            />
-
-            <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4 animate-in zoom-in-95">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
-                  <XCircle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
-                    Cancel Order #{order.orderNumber}?
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Placed on {new Date(order.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Cancelling this order will release the reserved crop quantities back to the farmer. Escrow funds will be returned.
-              </p>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={() => setShowCancelModal(false)}
-                  disabled={isCancelling}
-                >
-                  Keep Order
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  type="button"
-                  onClick={handleCancel}
-                  isLoading={isCancelling}
-                  className="bg-rose-600 hover:bg-rose-500"
-                >
-                  Confirm Cancellation
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          isOpen={showCancelModal}
+          title={`Cancel Order #${order?.orderNumber || ''}?`}
+          description="Cancelling this order will release the reserved crop quantities back to the farmer. Escrow funds will be returned."
+          confirmText="Confirm Cancellation"
+          cancelText="Keep Order"
+          isDestructive={true}
+          isLoading={isCancelling}
+          onConfirm={handleCancel}
+          onCancel={() => setShowCancelModal(false)}
+        />
 
         {/* Real-time Order Chat Drawer */}
         <ChatDrawer

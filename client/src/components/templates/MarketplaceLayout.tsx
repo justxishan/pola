@@ -5,7 +5,7 @@ import { Navbar, NavbarProps } from '@/components/organisms/Navbar';
 import { MobileBottomNav } from '@/components/organisms/MobileBottomNav';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
-import { Sprout, ShieldCheck, Home, Layers, ShoppingBag, Package, User } from 'lucide-react';
+import { Sprout, ShieldCheck, Home, Layers, ShoppingCart, Package, User } from 'lucide-react';
 import { usePortalThemeStore } from '@/store/portalThemeStore';
 
 export interface MarketplaceLayoutProps extends Omit<NavbarProps, 'className'> {
@@ -45,7 +45,7 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
     {
       id: 'cart',
       label: 'Cart',
-      icon: <ShoppingBag className="w-5 h-5" />,
+      icon: <ShoppingCart className="w-5 h-5" />,
       path: '__cart__',
       badgeCount: cartItemCount,
     },
@@ -113,14 +113,8 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
             <a href="/catalog" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-slate-300/60 dark:hover:bg-white/15 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all">
               Catalog
             </a>
-            <a href="/farmer/login" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-lime-500/20 hover:text-lime-700 dark:hover:text-lime-300 hover:border-lime-400/40 text-slate-800 dark:text-slate-300 transition-all">
-              Farmer Network
-            </a>
-            <a href="/delivery/login" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-yellow-500/20 hover:text-yellow-700 dark:hover:text-yellow-300 hover:border-yellow-400/40 text-slate-800 dark:text-slate-300 transition-all">
-              Delivery Fleet
-            </a>
-            <a href="/admin/login" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-teal-500/20 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-400/40 text-slate-800 dark:text-slate-300 transition-all">
-              Admin HQ
+            <a href="/help" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-slate-300/60 dark:hover:bg-white/15 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all">
+              Help & Support
             </a>
             <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30">
               <ShieldCheck className="w-4 h-4" /> 100% Escrow Protected

@@ -44,7 +44,7 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, selectedDistrict]);
+  }, [selectedCategory]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -63,7 +63,6 @@ export const HomePage: React.FC = () => {
       setIsLoading(true);
       const res: any = await ProductService.getCatalog({
         category: selectedCategory || undefined,
-        district: selectedDistrict || undefined,
         limit: 12,
       });
 
@@ -93,19 +92,6 @@ export const HomePage: React.FC = () => {
 
   const dbDeals = products.filter((p) => p.isOrganic || (p.pricingTiers && p.pricingTiers.length > 0)).slice(0, 4);
   const activeDeals = dbDeals.length > 0 ? dbDeals : products.slice(0, 4);
-
-  const featuredDistricts = [
-    'Nuwara Eliya',
-    'Matale',
-    'Kandy',
-    'Anuradhapura',
-    'Badulla',
-    'Kurunegala',
-    'Jaffna',
-    'Polonnaruwa',
-    'Hambantota',
-    'Monaragala',
-  ];
 
   return (
     <MarketplaceLayout
@@ -174,8 +160,7 @@ export const HomePage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                Live Farm Produce Lots{' '}
-                {selectedDistrict && <span className="text-emerald-600 dark:text-emerald-400">in {selectedDistrict}</span>}
+                Live Farm Produce Lots
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Direct farm lots available for immediate dispatch under Escrow guarantee
@@ -301,60 +286,7 @@ export const HomePage: React.FC = () => {
           </section>
         )}
 
-        {/* 5. District Sourcing Hub Filter Pills */}
-        <section className="glass-terminal p-6 sm:p-8 rounded-3xl border border-slate-200/80 dark:border-white/10 space-y-4 text-left transition-colors">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="space-y-1">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                Source by Agrarian Farming District
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Filter fresh harvest lots based on regional climate and origin farms
-              </p>
-            </div>
-            {selectedDistrict && (
-              <button
-                onClick={() => setSelectedDistrict(null)}
-                className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Reset District
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            <button
-              onClick={() => setSelectedDistrict(null)}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                selectedDistrict === null
-                  ? 'bg-emerald-400 text-slate-950 font-black shadow-md'
-                  : 'bg-slate-200/60 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-300/60 dark:hover:bg-white/15 border border-slate-300/80 dark:border-white/10'
-              }`}
-            >
-              All Sri Lanka (25 Districts)
-            </button>
-            {featuredDistricts.map((dist) => {
-              const isSelected = selectedDistrict === dist;
-              return (
-                <button
-                  key={dist}
-                  onClick={() => setSelectedDistrict(isSelected ? null : dist)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-emerald-400 text-slate-950 font-black shadow-md'
-                      : 'bg-slate-200/60 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-300/60 dark:hover:bg-white/15 border border-slate-300/80 dark:border-white/10'
-                  }`}
-                >
-                  {dist}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* 6. 4-Card Quick Sourcing Action Grid */}
+        {/* 5. 4-Card Quick Sourcing Action Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <div
             onClick={() => navigate('/catalog')}

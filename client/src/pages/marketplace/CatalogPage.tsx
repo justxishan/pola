@@ -38,6 +38,7 @@ export const CatalogPage: React.FC = () => {
     maxPrice: 5000,
     isOrganicOnly: searchParams.get('organic') === 'true',
     qualityGrade: searchParams.get('grade') || null,
+    minRating: null,
   });
 
   const [products, setProducts] = useState<any[]>([]);
@@ -69,6 +70,10 @@ export const CatalogPage: React.FC = () => {
       if (res.success && res.data) {
         let list = res.data.products || [];
 
+        if (filters.minRating) {
+          list = list.filter((p: any) => (p.ratingAverage || 0) >= (filters.minRating || 0));
+        }
+
         if (sortBy === 'price_asc') {
           list = [...list].sort((a, b) => a.pricePerUnit - b.pricePerUnit);
         } else if (sortBy === 'price_desc') {
@@ -85,6 +90,28 @@ export const CatalogPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const handleResetFilters = () => {
+    setFilters({
+      category: null,
+      district: null,
+      minPrice: 50,
+      maxPrice: 5000,
+      isOrganicOnly: false,
+      qualityGrade: null,
+      minRating: null,
+    });
+    setSearch('');
+  };
+
+  const activeFilterCount =
+    (search ? 1 : 0) +
+    (filters.category ? 1 : 0) +
+    (filters.district ? 1 : 0) +
+    (filters.maxPrice < 5000 ? 1 : 0) +
+    (filters.qualityGrade ? 1 : 0) +
+    (filters.minRating ? 1 : 0) +
+    (filters.isOrganicOnly ? 1 : 0);
 
   const handleAddToCart = (product: any, quantity: number = 1) => {
     addItem({
@@ -160,6 +187,111 @@ export const CatalogPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Active Filter Chips Row */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs font-bold text-slate-400">Active Filters:</span>
+
+            {search && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span>"{search}"</span>
+                <button
+                  onClick={() => setSearch('')}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove Search Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filters.category && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span>Category: {filters.category.replace(/_/g, ' ')}</span>
+                <button
+                  onClick={() => setFilters({ ...filters, category: null })}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove Category Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filters.district && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span>District: {filters.district}</span>
+                <button
+                  onClick={() => setFilters({ ...filters, district: null })}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove District Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filters.maxPrice < 5000 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span>Under LKR {filters.maxPrice.toLocaleString()}</span>
+                <button
+                  onClick={() => setFilters({ ...filters, maxPrice: 5000 })}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove Price Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filters.qualityGrade && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span>{filters.qualityGrade}</span>
+                <button
+                  onClick={() => setFilters({ ...filters, qualityGrade: null })}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove Grade Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filters.minRating && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                <span>Rating ≥ {filters.minRating}★</span>
+                <button
+                  onClick={() => setFilters({ ...filters, minRating: null })}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove Rating Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {filters.isOrganicOnly && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span>Certified Organic</span>
+                <button
+                  onClick={() => setFilters({ ...filters, isOrganicOnly: false })}
+                  className="hover:text-white cursor-pointer"
+                  title="Remove Organic Filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              onClick={handleResetFilters}
+              className="text-xs text-slate-400 hover:text-emerald-300 underline cursor-pointer ml-1"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
         {/* Catalog 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Desktop Left Sidebar: Filter Panel */}
@@ -167,16 +299,7 @@ export const CatalogPage: React.FC = () => {
             <FilterPanel
               filters={filters}
               onFilterChange={setFilters}
-              onReset={() =>
-                setFilters({
-                  category: null,
-                  district: null,
-                  minPrice: 50,
-                  maxPrice: 5000,
-                  isOrganicOnly: false,
-                  qualityGrade: null,
-                })
-              }
+              onReset={handleResetFilters}
             />
           </aside>
 
@@ -256,16 +379,7 @@ export const CatalogPage: React.FC = () => {
             <FilterPanel
               filters={filters}
               onFilterChange={setFilters}
-              onReset={() =>
-                setFilters({
-                  category: null,
-                  district: null,
-                  minPrice: 50,
-                  maxPrice: 5000,
-                  isOrganicOnly: false,
-                  qualityGrade: null,
-                })
-              }
+              onReset={handleResetFilters}
             />
             <button
               onClick={() => setIsMobileFilterOpen(false)}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/cn';
 import { DISTRICTS, PRODUCT_CATEGORIES } from '@pola/shared';
-import { Filter, RotateCcw, ShieldCheck, Sparkles, MapPin, Check } from 'lucide-react';
+import { Filter, RotateCcw, ShieldCheck, Sparkles, MapPin, Check, Star } from 'lucide-react';
 
 export interface FilterState {
   category: string | null;
@@ -11,6 +11,7 @@ export interface FilterState {
   maxPrice: number;
   isOrganicOnly: boolean;
   qualityGrade?: string | null;
+  minRating?: number | null;
   requiresColdChain?: boolean;
 }
 
@@ -31,10 +32,18 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
     return DISTRICTS ? [...DISTRICTS].sort() : [];
   }, []);
 
+  const categoryList = React.useMemo(() => {
+    if (!PRODUCT_CATEGORIES) return [];
+    return Object.entries(PRODUCT_CATEGORIES).map(([k, meta]: [string, any]) => ({
+      key: k,
+      name: meta?.nameEn || k.replace(/_/g, ' '),
+    }));
+  }, []);
+
   return (
     <div
       className={cn(
-        'glass-terminal p-6 rounded-3xl border border-white/10 shadow-2xl space-y-6',
+        'glass-terminal p-6 rounded-3xl border border-white/10 shadow-2xl space-y-6 text-left',
         className
       )}
     >
@@ -57,8 +66,30 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         </button>
       </div>
 
-      {/* Origin District Select */}
+      {/* Produce Category */}
       <div className="space-y-2">
+        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+          Produce Category
+        </label>
+        <select
+          value={filters.category || ''}
+          onChange={(e) =>
+            onFilterChange({ ...filters, category: e.target.value || null })
+          }
+          className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-xs font-bold text-white focus:outline-none focus:border-emerald-400 cursor-pointer"
+        >
+          <option value="" className="bg-slate-900 text-white">All Crop Categories</option>
+          {categoryList.map((c) => (
+            <option key={c.key} value={c.key} className="bg-slate-900 text-white">
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Origin District Select */}
+      <div className="space-y-2 pt-2 border-t border-white/10">
         <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
           <MapPin className="w-3.5 h-3.5 text-emerald-400" />
           Origin Farming District
@@ -68,7 +99,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           onChange={(e) =>
             onFilterChange({ ...filters, district: e.target.value || null })
           }
-          className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-xs font-bold text-white focus:outline-none focus:border-emerald-400"
+          className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-xs font-bold text-white focus:outline-none focus:border-emerald-400 cursor-pointer"
         >
           <option value="" className="bg-slate-900 text-white">All 25 Sri Lankan Districts</option>
           {allDistricts.map((d) => (
@@ -126,6 +157,38 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 )}
               >
                 {grade}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Minimum Rating */}
+      <div className="space-y-2 pt-2 border-t border-white/10">
+        <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+          Buyer Rating
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Any', value: null },
+            { label: '4.0★ +', value: 4.0 },
+            { label: '4.5★ +', value: 4.5 },
+          ].map((item) => {
+            const isSelected = (filters.minRating || null) === item.value;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => onFilterChange({ ...filters, minRating: item.value })}
+                className={cn(
+                  'px-2.5 py-2 rounded-xl text-[11px] font-bold transition-all text-center cursor-pointer border',
+                  isSelected
+                    ? 'bg-amber-400 text-slate-950 border-amber-400 font-black shadow-md'
+                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                )}
+              >
+                {item.label}
               </button>
             );
           })}

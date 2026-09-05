@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/atoms/Button';
 import { QuantityStepper } from '@/components/molecules/QuantityStepper';
-import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
+import { X, Trash2, ShoppingCart, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export interface CartItem {
   productId: string;
@@ -39,6 +40,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   deliveryFeeLkr = 350,
   className,
 }) => {
+  const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
+
   if (!isOpen) return null;
 
   const total = subtotalLkr + (items.length > 0 ? deliveryFeeLkr : 0);
@@ -61,7 +64,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300 flex items-center justify-center">
-                <ShoppingBag className="w-4 h-4" />
+                <ShoppingCart className="w-4 h-4" />
               </div>
               <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
                 Your Produce Basket ({items.length})
@@ -79,7 +82,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {items.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-3 text-slate-400">
-                <ShoppingBag className="w-12 h-12 text-slate-300" />
+                <ShoppingCart className="w-12 h-12 text-slate-300" />
                 <p className="text-sm font-medium">Your basket is empty</p>
                 <p className="text-xs max-w-xs">
                   Browse the marketplace catalog to discover fresh harvest from local farms.
@@ -119,9 +122,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                   <div className="text-right space-y-2 flex flex-col items-end justify-between self-stretch">
                     <button
-                      onClick={() => onRemoveItem(item.productId)}
+                      onClick={() => setItemToDelete(item)}
                       className="text-slate-400 hover:text-rose-500 p-1 transition-colors"
                       aria-label="Remove item"
+                      title="Remove item"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -176,6 +180,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Item Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!itemToDelete}
+        title="Remove Item from Basket?"
+        description={
+          itemToDelete
+            ? `Are you sure you want to remove ${itemToDelete.title} from your produce basket?`
+            : ''
+        }
+        confirmText="Remove Item"
+        cancelText="Keep in Basket"
+        isDestructive={true}
+        onConfirm={() => {
+          if (itemToDelete) {
+            onRemoveItem(itemToDelete.productId);
+            setItemToDelete(null);
+          }
+        }}
+        onCancel={() => setItemToDelete(null)}
+      />
     </div>
   );
 };
