@@ -68,7 +68,7 @@ export function resolveNotificationPath(notification: NotificationLike, userRole
         return getDashboardPathForRole(currentRole);
 
       case 'CHAT_THREAD':
-        if (isFarmer) return '/farmer/orders';
+        if (isFarmer) return notification.relatedId ? `/farmer/messages?orderId=${notification.relatedId}` : '/farmer/messages';
         if (isDelivery) return '/delivery/active-trip';
         if (isAdmin) return '/admin/orders';
         return notification.relatedId ? `/orders/${notification.relatedId}/track` : '/customer/orders';

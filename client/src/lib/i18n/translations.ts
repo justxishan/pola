@@ -36,6 +36,8 @@ export interface Translations {
   farmOrders: string;
   hubDropoffs: string;
   earningsWallet: string;
+  wallet: string;
+  messages: string;
   settings: string;
   availableTrips: string;
   hubSchedule: string;
@@ -167,7 +169,9 @@ export const translations: Record<LanguageCode, Translations> = {
     cropListings: 'Crop Listings',
     farmOrders: 'Farm Orders',
     hubDropoffs: 'Hub Drop-offs',
-    earningsWallet: 'Earnings & Wallet',
+    earningsWallet: 'Wallet',
+    wallet: 'Wallet',
+    messages: 'Messages',
     settings: 'Profile & Settings',
     availableTrips: 'Available Trips',
     hubSchedule: 'Hub Schedule',
@@ -292,7 +296,9 @@ export const translations: Record<LanguageCode, Translations> = {
     cropListings: 'අස්වනු ලැයිස්තුව',
     farmOrders: 'ගොවි ඇණවුම්',
     hubDropoffs: 'මධ්‍යස්ථාන භාරදීම්',
-    earningsWallet: 'ඉපැයීම් සහ පසුම්බිය',
+    earningsWallet: 'පසුම්බිය',
+    wallet: 'පසුම්බිය',
+    messages: 'පණිවිඩ',
     settings: 'ගිණුම් සැකසුම්',
     availableTrips: 'ලබාගත හැකි චාරිකා',
     hubSchedule: 'මධ්‍යස්ථාන කාලසටහන',
@@ -417,7 +423,9 @@ export const translations: Record<LanguageCode, Translations> = {
     cropListings: 'பயிர் பட்டியல்',
     farmOrders: 'பண்ணை கட்டளைகள்',
     hubDropoffs: 'மையத்தில் ஒப்படைப்பு',
-    earningsWallet: 'வருமானம் & பணப்பை',
+    earningsWallet: 'பணப்பை',
+    wallet: 'பணப்பை',
+    messages: 'செய்திகள்',
     settings: 'சுயவிவரம் & அமைப்புகள்',
     availableTrips: 'கிடைக்கும் பயணங்கள்',
     hubSchedule: 'மைய அட்டவணை',

@@ -7,6 +7,8 @@ export interface IMessage extends Document {
   senderId: Types.ObjectId;
   text: string;
   attachmentUrl?: string;
+  replyToMessageId?: Types.ObjectId;
+  isDeleted?: boolean;
   readBy: Types.ObjectId[];
   createdAt: Date;
 }
@@ -18,6 +20,8 @@ const MessageSchema = new Schema<IMessage>(
     senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true, trim: true, maxlength: 2000 },
     attachmentUrl: { type: String },
+    replyToMessageId: { type: Schema.Types.ObjectId, ref: 'Message' },
+    isDeleted: { type: Boolean, default: false },
     readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: { createdAt: true, updatedAt: false } }

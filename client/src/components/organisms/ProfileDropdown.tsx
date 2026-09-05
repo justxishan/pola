@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, LanguageCode } from '@/lib/i18n';
 import { Avatar } from '@/components/atoms/Avatar';
 import { Badge } from '@/components/atoms/Badge';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
@@ -15,8 +15,10 @@ import {
   LogOut,
   ChevronRight,
   ExternalLink,
-  MessageSquare,
   HelpCircle,
+  Globe,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,12 +26,20 @@ export interface ProfileDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   className?: string;
+  currentLanguage?: LanguageCode;
+  onLanguageChange?: (lang: LanguageCode) => void;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
 }
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   isOpen,
   onClose,
   className,
+  currentLanguage,
+  onLanguageChange,
+  isDark,
+  onToggleTheme,
 }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -126,20 +136,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         <button
           onClick={() => {
             onClose();
-            navigate('/messages');
-          }}
-          className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2.5">
-            <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span>Messages & Chats</span>
-          </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        </button>
-
-        <button
-          onClick={() => {
-            onClose();
             navigate('/support');
           }}
           className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
@@ -198,6 +194,54 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
         </button>
+      </div>
+
+      {/* Preferences Section (Language & Theme) */}
+      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+        {onLanguageChange && currentLanguage && (
+          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+            <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-300">
+              <Globe className="w-4 h-4 text-slate-500" />
+              <span>Language</span>
+            </div>
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-700/80 text-[11px] font-bold">
+              {(['en', 'si', 'ta'] as const).map((lang, i) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => onLanguageChange(lang)}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer text-[10px] ${
+                    currentLanguage === lang
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-black'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {['EN', 'සිං', 'த'][i]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {onToggleTheme && (
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer font-semibold"
+          >
+            <div className="flex items-center gap-2">
+              {isDark ? (
+                <Moon className="w-4 h-4 text-indigo-400" />
+              ) : (
+                <Sun className="w-4 h-4 text-amber-500" />
+              )}
+              <span>Appearance</span>
+            </div>
+            <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono">
+              {isDark ? 'Dark Mode' : 'Light Mode'}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Sign Out Button */}

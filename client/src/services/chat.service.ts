@@ -22,8 +22,15 @@ class ChatServiceClass {
   /**
    * REST: Send message via HTTP fallback
    */
-  async sendMessageRest(orderId: string, text: string) {
-    return api.post(`/chat/conversations/order/${orderId}/messages`, { text });
+  async sendMessageRest(orderId: string, text: string, replyToMessageId?: string) {
+    return api.post(`/chat/conversations/order/${orderId}/messages`, { text, replyToMessageId });
+  }
+
+  /**
+   * REST: Soft-delete message
+   */
+  async deleteMessageRest(orderId: string, messageId: string) {
+    return api.delete(`/chat/conversations/order/${orderId}/messages/${messageId}`);
   }
 
   /**
@@ -84,15 +91,38 @@ class ChatServiceClass {
   /**
    * Emit real-time message through socket
    */
-  sendMessageSocket(orderId: string, text: string, callback?: (res: any) => void) {
+  sendMessageSocket(orderId: string, text: string, replyToMessageId?: string, callback?: (res: any) => void) {
+    // If 3rd argument is function (legacy compatibility)
+    let replyId = replyToMessageId;
+    let cb = callback;
+    if (typeof replyToMessageId === 'function') {
+      cb = replyToMessageId;
+      replyId = undefined;
+    }
+
     if (!this.socket || !this.socket.connected) {
       // Fallback to REST
-      return this.sendMessageRest(orderId, text).then((res) => {
+      return this.sendMessageRest(orderId, text, replyId).then((res) => {
+        if (cb) cb({ success: true, data: res.data });
+      });
+    }
+
+    this.socket.emit('message:send', { orderId, text, replyToMessageId: replyId }, (res: any) => {
+      if (cb) cb(res);
+    });
+  }
+
+  /**
+   * Soft-delete message via socket or REST
+   */
+  deleteMessageSocket(orderId: string, messageId: string, callback?: (res: any) => void) {
+    if (!this.socket || !this.socket.connected) {
+      return this.deleteMessageRest(orderId, messageId).then((res) => {
         if (callback) callback({ success: true, data: res.data });
       });
     }
 
-    this.socket.emit('message:send', { orderId, text }, (res: any) => {
+    this.socket.emit('message:delete', { orderId, messageId }, (res: any) => {
       if (callback) callback(res);
     });
   }
@@ -149,6 +179,14 @@ class ChatServiceClass {
   }
 
   /**
+   * Subscribe to message deletions
+   */
+  onMessageDeleted(handler: (data: { orderId: string; messageId: string }) => void) {
+    if (!this.socket) return;
+    this.socket.on('message:deleted', handler);
+  }
+
+  /**
    * Return socket instance
    */
   getSocket(): Socket | null {
@@ -163,6 +201,7 @@ class ChatServiceClass {
     this.socket.off('message:new');
     this.socket.off('conversation:read');
     this.socket.off('typing:status');
+    this.socket.off('message:deleted');
   }
 
   /**

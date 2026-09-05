@@ -117,6 +117,11 @@ export class SocketService {
           const messages = await Message.find({ orderId: new Types.ObjectId(orderId) })
             .sort({ createdAt: 1 })
             .populate('senderId', 'fullName email avatarUrl role')
+            .populate({
+              path: 'replyToMessageId',
+              select: 'text senderId isDeleted',
+              populate: { path: 'senderId', select: 'fullName role' },
+            })
             .lean();
 
           if (callback) {
@@ -146,10 +151,12 @@ export class SocketService {
         orderId,
         text,
         attachmentUrl,
+        replyToMessageId,
       }: {
         orderId: string;
         text: string;
         attachmentUrl?: string;
+        replyToMessageId?: string;
       }, callback?: Function) => {
         try {
           if (!orderId || !text?.trim()) {
@@ -197,11 +204,17 @@ export class SocketService {
             senderId: new Types.ObjectId(userId),
             text: sanitizedText,
             attachmentUrl,
+            replyToMessageId: replyToMessageId && Types.ObjectId.isValid(replyToMessageId) ? new Types.ObjectId(replyToMessageId) : undefined,
             readBy: [new Types.ObjectId(userId)],
           });
 
           const populatedMessage = await Message.findById(message._id)
             .populate('senderId', 'fullName email avatarUrl role')
+            .populate({
+              path: 'replyToMessageId',
+              select: 'text senderId isDeleted',
+              populate: { path: 'senderId', select: 'fullName role' },
+            })
             .lean();
 
           // Update conversation last message preview & unread counts
@@ -235,13 +248,13 @@ export class SocketService {
             const pid = p.userId.toString();
             if (pid !== userId) {
               let targetPortal: 'customer' | 'farmer' | 'delivery' | 'admin' = 'customer';
-              let targetDestKey: any = 'ORDER_DETAIL';
+              let targetDestKey: any = 'CHAT_THREAD';
               let targetUrl = `/orders/${order._id}/track`;
 
               if (p.role === 'farmer') {
                 targetPortal = 'farmer';
-                targetDestKey = 'FARMER_ORDERS';
-                targetUrl = '/farmer/orders';
+                targetDestKey = 'CHAT_THREAD';
+                targetUrl = `/farmer/messages?orderId=${order._id}`;
               } else if (p.role === 'driver') {
                 targetPortal = 'delivery';
                 targetDestKey = 'ACTIVE_TRIP';
@@ -296,6 +309,45 @@ export class SocketService {
           });
         } catch (err: any) {
           logger.error(`message:read error: ${err.message}`);
+        }
+      });
+
+      // ── Soft Delete Message ───────────────────────────────────────────
+      socket.on('message:delete', async ({ orderId, messageId }: { orderId: string; messageId: string }, callback?: Function) => {
+        try {
+          if (!orderId || !messageId) {
+            if (callback) callback({ error: 'Order ID and Message ID are required' });
+            return;
+          }
+
+          const message = await Message.findOne({
+            _id: new Types.ObjectId(messageId),
+            orderId: new Types.ObjectId(orderId),
+          });
+
+          if (!message) {
+            if (callback) callback({ error: 'Message not found' });
+            return;
+          }
+
+          if (message.senderId.toString() !== userId && !role?.startsWith('admin')) {
+            if (callback) callback({ error: 'Only the message author can delete this message' });
+            return;
+          }
+
+          message.isDeleted = true;
+          message.text = 'This message was deleted';
+          await message.save();
+
+          SocketService.io?.to(`order:${orderId}`).emit('message:deleted', {
+            orderId,
+            messageId,
+          });
+
+          if (callback) callback({ success: true });
+        } catch (err: any) {
+          logger.error(`message:delete error: ${err.message}`);
+          if (callback) callback({ error: err.message });
         }
       });
 

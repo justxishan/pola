@@ -94,6 +94,11 @@ export class ChatController {
       const messages = await Message.find({ orderId: new Types.ObjectId(orderId) })
         .sort({ createdAt: 1 })
         .populate('senderId', 'fullName email avatarUrl role')
+        .populate({
+          path: 'replyToMessageId',
+          select: 'text senderId isDeleted',
+          populate: { path: 'senderId', select: 'fullName role' },
+        })
         .lean();
 
       res.status(200).json({
@@ -122,7 +127,7 @@ export class ChatController {
     try {
       const userId = req.user!.userId;
       const { orderId } = req.params;
-      const { text, attachmentUrl } = req.body;
+      const { text, attachmentUrl, replyToMessageId } = req.body;
 
       if (!text?.trim()) {
         throw new AppError('Message text is required', 400);
@@ -160,6 +165,7 @@ export class ChatController {
         senderId: new Types.ObjectId(userId),
         text: sanitizedText,
         attachmentUrl,
+        replyToMessageId: replyToMessageId && Types.ObjectId.isValid(replyToMessageId) ? new Types.ObjectId(replyToMessageId) : undefined,
         readBy: [new Types.ObjectId(userId)],
       });
 
@@ -178,6 +184,11 @@ export class ChatController {
 
       const populatedMessage = await Message.findById(message._id)
         .populate('senderId', 'fullName email avatarUrl role')
+        .populate({
+          path: 'replyToMessageId',
+          select: 'text senderId isDeleted',
+          populate: { path: 'senderId', select: 'fullName role' },
+        })
         .lean();
 
       // Emit through Socket.IO
@@ -193,13 +204,13 @@ export class ChatController {
       conversation.participants.forEach(async (p) => {
         if (p.userId.toString() !== userId) {
           let targetPortal: 'customer' | 'farmer' | 'delivery' | 'admin' = 'customer';
-          let targetDestKey: any = 'ORDER_DETAIL';
+          let targetDestKey: any = 'CHAT_THREAD';
           let targetUrl = `/orders/${order._id}/track`;
 
           if (p.role === 'farmer') {
             targetPortal = 'farmer';
-            targetDestKey = 'FARMER_ORDERS';
-            targetUrl = '/farmer/orders';
+            targetDestKey = 'CHAT_THREAD';
+            targetUrl = `/farmer/messages?orderId=${order._id}`;
           } else if (p.role === 'driver') {
             targetPortal = 'delivery';
             targetDestKey = 'ACTIVE_TRIP';
@@ -260,6 +271,46 @@ export class ChatController {
       res.status(200).json({
         success: true,
         message: 'Conversation marked as read',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Soft-delete a message (only sender or admin can delete)
+   */
+  static async deleteMessage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.userId;
+      const { orderId, messageId } = req.params;
+
+      const message = await Message.findOne({
+        _id: new Types.ObjectId(messageId),
+        orderId: new Types.ObjectId(orderId),
+      });
+
+      if (!message) {
+        throw new AppError('Message not found', 404);
+      }
+
+      if (message.senderId.toString() !== userId && !req.user!.role?.startsWith('admin')) {
+        throw new AppError('You can only delete your own messages', 403);
+      }
+
+      message.isDeleted = true;
+      message.text = 'This message was deleted';
+      await message.save();
+
+      // Emit real-time notification to all room participants
+      SocketService.getIO()?.to(`order:${orderId}`).emit('message:deleted', {
+        orderId,
+        messageId,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Message deleted successfully',
       });
     } catch (error) {
       next(error);

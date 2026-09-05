@@ -5,10 +5,7 @@ import { ProfileDropdown } from '@/components/organisms/ProfileDropdown';
 import { SidebarNavItem } from '@/components/templates/DashboardLayout';
 import {
   Bell,
-  Sun,
-  Moon,
   ChevronDown,
-  LogOut,
 } from 'lucide-react';
 
 export interface TopNavProps {
@@ -29,7 +26,7 @@ export interface TopNavProps {
     avatar?: string;
     role?: string;
   };
-  onRequestSignOut: () => void;
+  onRequestSignOut?: () => void;
   theme: {
     accentBg: string;
     accentText: string;
@@ -101,20 +98,23 @@ export const TopNav: React.FC<TopNavProps> = ({
                 key={item.id}
                 onClick={() => onNavigate(item.path)}
                 className={cn(
-                  'relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer',
+                  'relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer',
                   isActive
                     ? theme.activePill
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 )}
+                title={item.label}
               >
                 <span className="w-4 h-4 shrink-0 flex items-center justify-center">
                   {item.icon}
                 </span>
-                <span>{item.label}</span>
+                <span className={cn('transition-all', isActive ? 'inline font-bold' : 'hidden xl:inline')}>
+                  {item.label}
+                </span>
                 {item.badgeCount !== undefined && item.badgeCount > 0 && (
                   <span
                     className={cn(
-                      'ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black',
+                      'ml-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black',
                       isActive
                         ? 'bg-slate-950 text-white'
                         : 'bg-red-500 text-white'
@@ -129,50 +129,14 @@ export const TopNav: React.FC<TopNavProps> = ({
         </nav>
 
         {/* Right: Actions Cluster */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Trilingual Capsule */}
-          {onLanguageChange && currentLanguage && (
-            <div className="hidden sm:flex items-center p-0.5 rounded-full bg-white/10 border border-white/10 text-[11px] font-bold">
-              {(['en', 'si', 'ta'] as const).map((lang, i) => (
-                <button
-                  key={lang}
-                  onClick={() => onLanguageChange(lang)}
-                  className={cn(
-                    'px-2 py-0.5 rounded-full transition-all cursor-pointer text-[10px]',
-                    currentLanguage === lang
-                      ? 'bg-white text-slate-950 shadow-xs font-black'
-                      : 'text-slate-400 hover:text-white'
-                  )}
-                >
-                  {['EN', 'සිං', 'த'][i]}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Theme Toggle */}
-          {onToggleTheme && (
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              className="p-2 rounded-full bg-white/10 border border-white/10 text-slate-300 hover:text-white hover:bg-white/15 transition-all cursor-pointer"
-              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {isDark ? (
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-              ) : (
-                <Moon className="w-3.5 h-3.5 text-indigo-300" />
-              )}
-            </button>
-          )}
-
+        <div className="flex items-center gap-2 shrink-0">
           {/* Notification Bell */}
           <button
             onClick={onOpenNotifications}
             className="relative p-2 rounded-full bg-white/10 border border-white/10 text-slate-300 hover:text-white hover:bg-white/15 transition-all cursor-pointer"
             aria-label="Notifications"
           >
-            <Bell className="w-3.5 h-3.5" />
+            <Bell className="w-4 h-4" />
             {displayedUnreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-3.5 px-0.5 rounded-full text-[9px] font-black text-white flex items-center justify-center leading-none ring-1 ring-slate-900 bg-red-500">
                 {displayedUnreadCount > 9 ? '9+' : displayedUnreadCount}
@@ -180,43 +144,35 @@ export const TopNav: React.FC<TopNavProps> = ({
             )}
           </button>
 
-          {/* User Profile Capsule */}
+          {/* User Profile Capsule (Icon-only Trigger) */}
           {user && (
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full bg-white/10 border border-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+                className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-white/10 border border-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+                title={user.name || user.email}
               >
                 <div
                   className={cn(
-                    'w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-slate-950',
+                    'w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-slate-950 shadow-xs',
                     theme.avatarBg
                   )}
                 >
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
-                <span className="hidden lg:inline text-xs font-bold truncate max-w-[80px]">
-                  {user.name || user.email.split('@')[0]}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 
               <ProfileDropdown
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
+                currentLanguage={currentLanguage}
+                onLanguageChange={onLanguageChange}
+                isDark={isDark}
+                onToggleTheme={onToggleTheme}
               />
             </div>
           )}
-
-          {/* Quick Sign Out Button */}
-          <button
-            onClick={onRequestSignOut}
-            className="p-2 rounded-full bg-white/10 border border-white/10 text-slate-300 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-            title="Sign Out"
-            aria-label="Sign Out"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
     </header>
