@@ -6,7 +6,14 @@ export interface CatalogQueryFilters {
   minPrice?: number;
   maxPrice?: number;
   isOrganicOnly?: boolean;
+  isOrganic?: boolean;
+  qualityGrade?: string;
+  minRating?: number;
+  requiresColdChain?: boolean;
   search?: string;
+  sort?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
@@ -16,10 +23,16 @@ export const ProductService = {
     const params = new URLSearchParams();
     if (filters.category) params.append('category', filters.category);
     if (filters.district) params.append('district', filters.district);
-    if (filters.minPrice) params.append('minPrice', String(filters.minPrice));
-    if (filters.maxPrice) params.append('maxPrice', String(filters.maxPrice));
-    if (filters.isOrganicOnly) params.append('isOrganicOnly', 'true');
+    if (filters.minPrice !== undefined) params.append('minPrice', String(filters.minPrice));
+    if (filters.maxPrice !== undefined) params.append('maxPrice', String(filters.maxPrice));
+    if (filters.isOrganicOnly || filters.isOrganic) params.append('isOrganicOnly', 'true');
+    if (filters.qualityGrade) params.append('qualityGrade', filters.qualityGrade);
+    if (filters.minRating !== undefined) params.append('minRating', String(filters.minRating));
+    if (filters.requiresColdChain !== undefined) params.append('requiresColdChain', String(filters.requiresColdChain));
     if (filters.search) params.append('search', filters.search);
+    if (filters.sort) params.append('sort', filters.sort);
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
     if (filters.page) params.append('page', String(filters.page));
     if (filters.limit) params.append('limit', String(filters.limit));
 

@@ -21,7 +21,6 @@ import { DeliveryOnboardingPage } from './pages/delivery/DeliveryOnboardingPage'
 
 // Marketplace Pages
 import { HomePage } from './pages/marketplace/HomePage';
-import { CatalogPage } from './pages/marketplace/CatalogPage';
 import { ProductDetailPage } from './pages/marketplace/ProductDetailPage';
 import { CheckoutPage } from './pages/marketplace/CheckoutPage';
 import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
@@ -156,7 +155,7 @@ export const router = createBrowserRouter([
       // /auth/login is used by the 401 interceptor — map to customer login.
       // Portal-specific 401s are handled by the interceptor reading the current path.
       { path: '/auth/login', element: <Navigate to="/customer/login" replace /> },
-      { path: '/catalog', element: <CatalogPage /> },
+      { path: '/catalog', element: <Navigate to="/" replace /> },
       { path: '/product/:id', element: <ProductDetailPage /> },
       {
         path: '/customer/onboarding',

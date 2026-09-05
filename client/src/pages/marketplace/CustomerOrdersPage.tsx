@@ -145,7 +145,7 @@ export const CustomerOrdersPage: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/catalog')}
+            onClick={() => navigate('/')}
           >
             Explore Fresh Harvest
           </Button>
@@ -199,7 +199,7 @@ export const CustomerOrdersPage: React.FC = () => {
             title="No Orders Placed Yet"
             description="Explore verified agricultural harvest listings directly from farmers across Sri Lanka."
             actionText="Start Shopping Fresh Harvest"
-            onAction={() => navigate('/catalog')}
+            onAction={() => navigate('/')}
           />
         ) : filteredOrders.length === 0 ? (
           <EmptyState
@@ -334,7 +334,7 @@ export const CustomerOrdersPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate('/catalog')}
+                          onClick={() => navigate('/')}
                           className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold"
                           rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                         >

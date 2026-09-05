@@ -106,46 +106,97 @@ export class ProductController {
         category,
         district,
         isOrganic,
+        isOrganicOnly,
+        qualityGrade,
+        minRating,
+        requiresColdChain,
         minPrice,
         maxPrice,
         season,
+        sort,
         sortBy = 'createdAt',
         sortOrder = 'desc',
       } = req.query as any;
 
-      const filter: any = { status: 'active', availableQuantity: { $gt: 0 } };
+      const andClauses: any[] = [{ status: 'active', availableQuantity: { $gt: 0 } }];
 
-      if (search) {
-        filter.$text = { $search: search };
+      if (search && search.trim()) {
+        const clean = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(clean, 'i');
+        andClauses.push({
+          $or: [
+            { productName: searchRegex },
+            { variety: searchRegex },
+            { description: searchRegex },
+          ],
+        });
       }
+
       if (category) {
-        filter.category = category;
+        andClauses.push({ category });
       }
+
       if (district) {
         const matchingFarms = await Farm.find({
-          district: { $regex: new RegExp(`^${district}$`, 'i') },
+          district: { $regex: new RegExp(`^${district.trim()}$`, 'i') },
         }).select('_id');
         const farmIds = matchingFarms.map((f) => f._id);
 
-        filter.$or = [
-          { district: { $regex: new RegExp(`^${district}$`, 'i') } },
-          { farmId: { $in: farmIds } },
-        ];
-      }
-      if (isOrganic !== undefined) {
-        filter.isOrganic = isOrganic;
-      }
-      if (season) {
-        filter.seasonTag = season;
-      }
-      if (minPrice !== undefined || maxPrice !== undefined) {
-        filter.basePricePerUnit = {};
-        if (minPrice !== undefined) filter.basePricePerUnit.$gte = minPrice;
-        if (maxPrice !== undefined) filter.basePricePerUnit.$lte = maxPrice;
+        andClauses.push({
+          $or: [
+            { district: { $regex: new RegExp(`^${district.trim()}$`, 'i') } },
+            { farmId: { $in: farmIds } },
+          ],
+        });
       }
 
+      const organicFlag = isOrganicOnly !== undefined ? isOrganicOnly : isOrganic;
+      if (organicFlag !== undefined) {
+        andClauses.push({ isOrganic: organicFlag });
+      }
+
+      if (qualityGrade) {
+        andClauses.push({ selfDeclaredGrade: qualityGrade });
+      }
+
+      if (requiresColdChain !== undefined) {
+        andClauses.push({ requiresColdChain });
+      }
+
+      if (minRating !== undefined) {
+        andClauses.push({ averageRating: { $gte: minRating } });
+      }
+
+      if (season) {
+        andClauses.push({ seasonTag: season });
+      }
+
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        const priceFilter: any = {};
+        if (minPrice !== undefined) priceFilter.$gte = minPrice;
+        if (maxPrice !== undefined) priceFilter.$lte = maxPrice;
+        andClauses.push({ basePricePerUnit: priceFilter });
+      }
+
+      const filter = andClauses.length > 1 ? { $and: andClauses } : andClauses[0];
+
       const skip = (page - 1) * limit;
-      const sortConfig: any = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+      let sortConfig: any = { createdAt: -1 };
+      const effectiveSort = sort || sortBy;
+      if (effectiveSort === 'price_asc') {
+        sortConfig = { basePricePerUnit: 1 };
+      } else if (effectiveSort === 'price_desc') {
+        sortConfig = { basePricePerUnit: -1 };
+      } else if (effectiveSort === 'rating') {
+        sortConfig = { averageRating: -1, ratingCount: -1 };
+      } else if (effectiveSort === 'newest') {
+        sortConfig = { createdAt: -1 };
+      } else if (effectiveSort === 'featured') {
+        sortConfig = { isOrganic: -1, createdAt: -1 };
+      } else if (sortBy && sortOrder) {
+        sortConfig = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+      }
 
       const [products, total] = await Promise.all([
         Product.find(filter)

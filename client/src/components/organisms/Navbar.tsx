@@ -160,11 +160,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       } else {
         params.delete('search');
       }
-      if (location.pathname === '/' || location.pathname.startsWith('/catalog')) {
-        navigate(`${location.pathname}?${params.toString()}`);
-      } else {
-        navigate(`/?${params.toString()}`);
-      }
+      navigate(`/?${params.toString()}`);
     }
   };
 

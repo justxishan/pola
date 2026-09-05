@@ -59,7 +59,7 @@ export const CheckoutPage: React.FC = () => {
       hasSettled.current = true;
       if (items.length === 0) {
         toast.error('Your produce basket is empty. Add items first.');
-        navigate('/catalog');
+        navigate('/');
       }
     }, 300);
     return () => clearTimeout(timer);
@@ -69,7 +69,7 @@ export const CheckoutPage: React.FC = () => {
   // If cart is cleared AFTER checkout page is already settled (e.g. on submit), also guard
   useEffect(() => {
     if (hasSettled.current && items.length === 0) {
-      navigate('/catalog');
+      navigate('/');
     }
   }, [items.length, navigate]);
 
@@ -223,7 +223,7 @@ export const CheckoutPage: React.FC = () => {
             <ShoppingBag className="w-12 h-12 text-slate-300 dark:text-slate-700" />
             <p className="text-base font-bold text-slate-500 dark:text-slate-400">Your produce basket is empty</p>
             <button
-              onClick={() => navigate('/catalog')}
+              onClick={() => navigate('/')}
               className="px-6 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-all cursor-pointer"
             >
               Browse Marketplace

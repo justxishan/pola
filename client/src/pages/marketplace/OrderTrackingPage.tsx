@@ -93,7 +93,7 @@ export const OrderTrackingPage: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
         <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Order not found</p>
-        <Button onClick={() => navigate('/catalog')}>Back to Marketplace</Button>
+        <Button onClick={() => navigate('/')}>Back to Marketplace</Button>
       </div>
     );
   }

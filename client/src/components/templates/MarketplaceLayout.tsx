@@ -80,10 +80,10 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
       path: '/',
     },
     {
-      id: 'catalog',
+      id: 'browse',
       label: 'Browse',
       icon: <Layers className="w-5 h-5" />,
-      path: '/catalog',
+      path: '/',
     },
     {
       id: 'wishlist',

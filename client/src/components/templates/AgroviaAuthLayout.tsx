@@ -177,7 +177,7 @@ export const AgroviaAuthLayout: React.FC<AgroviaAuthLayoutProps> = ({
             </a>
 
             <a
-              href="/catalog"
+              href="/"
               className="px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold border border-white/25 backdrop-blur-md transition-all cursor-pointer"
             >
               Browse Live Marketplace

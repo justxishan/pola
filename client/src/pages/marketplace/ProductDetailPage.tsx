@@ -84,10 +84,10 @@ export const ProductDetailPage: React.FC = () => {
       <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
         <p className="text-sm font-semibold text-white">Produce listing not found</p>
         <button
-          onClick={() => navigate('/catalog')}
-          className="px-6 py-2.5 rounded-full bg-emerald-400 text-slate-950 font-bold text-xs"
+          onClick={() => navigate('/')}
+          className="px-6 py-2.5 rounded-full bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer"
         >
-          Back to Catalog
+          Back to Marketplace
         </button>
       </div>
     );
@@ -161,9 +161,9 @@ export const ProductDetailPage: React.FC = () => {
       <div className="space-y-8">
         {/* Breadcrumb Capsules */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <button onClick={() => navigate('/')} className="hover:text-emerald-400">Home</button>
+          <button onClick={() => navigate('/')} className="hover:text-emerald-400 cursor-pointer">Home</button>
           <span>/</span>
-          <button onClick={() => navigate('/catalog')} className="hover:text-emerald-400">Produce Catalog</button>
+          <button onClick={() => navigate('/')} className="hover:text-emerald-400 cursor-pointer">Produce Marketplace</button>
           <span>/</span>
           <span className="text-white truncate max-w-xs">{product.title}</span>
         </div>
