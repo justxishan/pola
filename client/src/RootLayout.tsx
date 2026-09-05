@@ -19,7 +19,17 @@ import toast, { Toaster } from 'react-hot-toast';
  * would wipe it. Client-side navigation keeps the Zustand store alive.
  */
 export const RootLayout: React.FC = () => {
-  const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal, hydrateCartFromDb } = useCartStore();
+  const {
+    items,
+    isOpen,
+    stockIssues,
+    closeCart,
+    updateQuantity,
+    removeItem,
+    moveToWishlist,
+    getSubtotal,
+    hydrateCartFromDb,
+  } = useCartStore();
   const { isAuthenticated, token, user } = useAuthStore();
   const { isDark } = useThemeStore();
   const navigate = useNavigate();
@@ -89,7 +99,17 @@ export const RootLayout: React.FC = () => {
 
   const handleCheckout = () => {
     closeCart();
-    navigate('/checkout');
+    const sellerCount = new Set(items.map((i) => i.farmerId || i.farmerName || 'default')).size;
+    if (sellerCount > 1 || stockIssues.length > 0) {
+      navigate('/cart');
+    } else {
+      navigate('/checkout');
+    }
+  };
+
+  const handleViewCart = () => {
+    closeCart();
+    navigate('/cart');
   };
 
   return (
@@ -101,9 +121,12 @@ export const RootLayout: React.FC = () => {
         isOpen={isOpen}
         onClose={closeCart}
         items={items}
+        stockIssues={stockIssues}
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
+        onMoveToWishlist={moveToWishlist}
         onCheckout={handleCheckout}
+        onViewCart={handleViewCart}
         subtotalLkr={getSubtotal()}
       />
 

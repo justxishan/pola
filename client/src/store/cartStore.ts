@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { CartService } from '@/services/cart.service';
 import { useAuthStore } from './authStore';
+import { useWishlistStore } from './wishlistStore';
 
 export interface CartItem {
   productId: string;
+  farmerId?: string;
   title: string;
   pricePerUnit: number;
   unit: string;
@@ -12,11 +14,28 @@ export interface CartItem {
   farmerName?: string;
   minOrderQuantity?: number;
   maxOrderQuantity?: number;
+  tierPricing?: Array<{
+    minQuantity: number;
+    maxQuantity?: number;
+    unitPrice?: number;
+    pricePerUnit?: number;
+  }>;
+}
+
+export interface StockIssue {
+  productId: string;
+  issueType: 'out_of_stock' | 'insufficient_stock' | 'price_changed' | 'delisted';
+  message: string;
+  availableQuantity: number;
+  currentPrice: number;
+  previousPrice?: number;
 }
 
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
+  stockIssues: StockIssue[];
+  isValidating: boolean;
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
@@ -26,6 +45,9 @@ interface CartState {
   clearCart: () => void;
   getSubtotal: () => number;
   getItemCount: () => number;
+  validateCartStock: (deliveryDistrict?: string) => Promise<{ hasIssues: boolean; stockIssues: StockIssue[]; calculation?: any }>;
+  dismissStockIssue: (productId: string) => void;
+  moveToWishlist: (productId: string) => Promise<void>;
   hydrateCartFromDb: () => Promise<void>;
   syncCartToDb: () => Promise<void>;
 }
@@ -50,6 +72,8 @@ export const useCartStore = create<CartState>((set, get) => ({
   // Guest cart is strictly in-memory only (never written to localStorage)
   items: [],
   isOpen: false,
+  stockIssues: [],
+  isValidating: false,
 
   openCart: () => set({ isOpen: true }),
   closeCart: () => set({ isOpen: false }),
@@ -92,8 +116,9 @@ export const useCartStore = create<CartState>((set, get) => ({
   removeItem: (productId) => {
     set((state) => {
       const updatedItems = state.items.filter((item) => item.productId !== productId);
+      const updatedIssues = state.stockIssues.filter((issue) => issue.productId !== productId);
       triggerDbSync(updatedItems);
-      return { items: updatedItems };
+      return { items: updatedItems, stockIssues: updatedIssues };
     });
   },
 
@@ -102,7 +127,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (isAuthenticated) {
       CartService.clearSavedCart().catch(() => {});
     }
-    set({ items: [] });
+    set({ items: [], stockIssues: [] });
   },
 
   getSubtotal: () => {
@@ -111,6 +136,43 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   getItemCount: () => {
     return get().items.reduce((sum, item) => sum + item.quantity, 0);
+  },
+
+  validateCartStock: async (deliveryDistrict?: string) => {
+    set({ isValidating: true });
+    try {
+      const items = get().items;
+      if (!items.length) {
+        set({ stockIssues: [], isValidating: false });
+        return { hasIssues: false, stockIssues: [] };
+      }
+      const res: any = await CartService.validateCart(items, deliveryDistrict);
+      const stockIssues: StockIssue[] = res.stockIssues || [];
+      set({ stockIssues, isValidating: false });
+      return {
+        hasIssues: res.hasIssues ?? stockIssues.length > 0,
+        stockIssues,
+        calculation: res.calculation,
+      };
+    } catch (err: any) {
+      console.warn('Cart stock validation error:', err);
+      set({ isValidating: false });
+      return { hasIssues: false, stockIssues: [] };
+    }
+  },
+
+  dismissStockIssue: (productId: string) => {
+    set((state) => ({
+      stockIssues: state.stockIssues.filter((issue) => issue.productId !== productId),
+    }));
+  },
+
+  moveToWishlist: async (productId: string) => {
+    const wishlistStore = useWishlistStore.getState();
+    if (!wishlistStore.isInWishlist(productId)) {
+      await wishlistStore.toggleItem(productId);
+    }
+    get().removeItem(productId);
   },
 
   hydrateCartFromDb: async () => {
@@ -122,6 +184,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       if (res.success && res.data?.items) {
         const dbItems: CartItem[] = res.data.items.map((i: any) => ({
           productId: i.productId?._id || i.productId,
+          farmerId: i.farmerId?._id || i.farmerId,
           title: i.title || i.productName,
           pricePerUnit: i.pricePerUnit,
           unit: i.unit || 'kg',
@@ -129,34 +192,27 @@ export const useCartStore = create<CartState>((set, get) => ({
           image: i.image,
           farmerName: i.farmerName,
           minOrderQuantity: i.minOrderQuantity,
+          maxOrderQuantity: i.maxOrderQuantity,
+          tierPricing: i.tierPricing,
         }));
 
         set((state) => {
-          // Merge strategy:
-          // - If an item exists in BOTH local memory and the DB, prefer the LOCAL quantity.
-          //   Local = the user actively changed it in this session (most recent intent).
-          //   Math.max was wrong: if the user deliberately lowered qty, it would snap back up.
-          // - Items only in the DB (from a previous/other session) are imported as-is.
-          // - Items only in local memory (added as guest before login) are kept.
           const localMap = new Map(state.items.map((item) => [item.productId, item]));
 
           const merged: CartItem[] = dbItems.map((dbItem) => {
             const localItem = localMap.get(dbItem.productId);
             if (localItem) {
-              // Local wins — user's current session intent takes priority
               return { ...dbItem, quantity: localItem.quantity };
             }
             return dbItem;
           });
 
-          // Append any guest items that weren't in the DB at all
           for (const localItem of state.items) {
             if (!merged.find((m) => m.productId === localItem.productId)) {
               merged.push(localItem);
             }
           }
 
-          // Push merged back to DB
           triggerDbSync(merged);
           return { items: merged };
         });

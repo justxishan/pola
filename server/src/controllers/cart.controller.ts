@@ -47,6 +47,7 @@ export class CartController {
 
       const formattedItems = items.map((item: any) => ({
         productId: new Types.ObjectId(item.productId),
+        farmerId: item.farmerId && Types.ObjectId.isValid(item.farmerId) ? new Types.ObjectId(item.farmerId) : undefined,
         title: item.title || item.productName || 'Fresh Produce',
         pricePerUnit: item.pricePerUnit || item.basePricePerUnit || 0,
         unit: item.unit || 'kg',
@@ -55,6 +56,7 @@ export class CartController {
         farmerName: item.farmerName || '',
         minOrderQuantity: item.minOrderQuantity || 1,
         maxOrderQuantity: item.maxOrderQuantity,
+        tierPricing: item.tierPricing || [],
       }));
 
       const cart = await Cart.findOneAndUpdate(
@@ -92,31 +94,75 @@ export class CartController {
   }
 
   /**
-   * Validate Cart Items, calculate subtotal with B2B tiers & delivery breakdown
+   * Validate Cart Items, check available stock & price changes, calculate subtotal with B2B tiers & delivery breakdown
    */
   static async validateCart(req: Request, res: Response, next: NextFunction) {
     try {
       const { items, deliveryDistrict } = req.body;
 
       if (!items || items.length === 0) {
-        throw new AppError('Cart items are required', 400);
+        return res.status(200).json({
+          success: true,
+          data: {
+            hasIssues: false,
+            stockIssues: [],
+            items: [],
+            calculation: {
+              itemsTotal: 0,
+              leg1DeliveryFee: 0,
+              leg2DeliveryFee: 0,
+              totalDeliveryFee: 0,
+              grandTotal: 0,
+              totalWeightKg: 0,
+            },
+          },
+        });
       }
 
       let itemsTotal = 0;
       let totalWeightKg = 0;
       const validatedItems = [];
+      const stockIssues: Array<{
+        productId: string;
+        issueType: 'out_of_stock' | 'insufficient_stock' | 'price_changed' | 'delisted';
+        message: string;
+        availableQuantity: number;
+        currentPrice: number;
+        previousPrice?: number;
+      }> = [];
 
       for (const item of items) {
         const product = await Product.findById(item.productId).populate('farmerId farmId');
         if (!product || product.status !== 'active') {
-          throw new AppError(`Product "${item.productId}" is no longer available`, 400);
+          stockIssues.push({
+            productId: item.productId,
+            issueType: 'delisted',
+            message: 'Produce lot is no longer active or has been delisted',
+            availableQuantity: 0,
+            currentPrice: 0,
+          });
+          continue;
         }
 
-        if (item.quantity > product.availableQuantity) {
-          throw new AppError(
-            `Insufficient stock for "${product.productName}". Available: ${product.availableQuantity} ${product.unit}`,
-            400
-          );
+        let effectiveQuantity = item.quantity;
+        if (product.availableQuantity <= 0) {
+          stockIssues.push({
+            productId: item.productId,
+            issueType: 'out_of_stock',
+            message: `"${product.productName}" is currently out of stock`,
+            availableQuantity: 0,
+            currentPrice: product.basePricePerUnit,
+          });
+          effectiveQuantity = 0;
+        } else if (item.quantity > product.availableQuantity) {
+          stockIssues.push({
+            productId: item.productId,
+            issueType: 'insufficient_stock',
+            message: `Only ${product.availableQuantity} ${product.unit} left — quantity adjusted`,
+            availableQuantity: product.availableQuantity,
+            currentPrice: product.basePricePerUnit,
+          });
+          effectiveQuantity = product.availableQuantity;
         }
 
         // Determine unit price based on B2B tier
@@ -124,8 +170,8 @@ export class CartController {
         if (product.b2bPricingTiers && product.b2bPricingTiers.length > 0) {
           for (const tier of product.b2bPricingTiers) {
             if (
-              item.quantity >= tier.minQuantity &&
-              (!tier.maxQuantity || item.quantity <= tier.maxQuantity)
+              effectiveQuantity >= tier.minQuantity &&
+              (!tier.maxQuantity || effectiveQuantity <= tier.maxQuantity)
             ) {
               unitPrice = tier.unitPrice;
               break;
@@ -133,9 +179,22 @@ export class CartController {
           }
         }
 
-        const subtotal = Math.round(unitPrice * item.quantity * 100) / 100;
+        if (item.pricePerUnit !== undefined && Math.abs(item.pricePerUnit - unitPrice) > 0.01) {
+          stockIssues.push({
+            productId: item.productId,
+            issueType: 'price_changed',
+            message: `Price updated to LKR ${unitPrice}/${product.unit}`,
+            availableQuantity: product.availableQuantity,
+            currentPrice: unitPrice,
+            previousPrice: item.pricePerUnit,
+          });
+        }
+
+        if (effectiveQuantity <= 0) continue;
+
+        const subtotal = Math.round(unitPrice * effectiveQuantity * 100) / 100;
         itemsTotal += subtotal;
-        totalWeightKg += item.quantity; // approximate kg
+        totalWeightKg += effectiveQuantity; // approximate kg
 
         // Commissions
         const platformCommission =
@@ -151,11 +210,12 @@ export class CartController {
         validatedItems.push({
           productId: product._id,
           farmerId: farmer?._id,
+          farmerName: farmer?.fullName || 'Verified Farmer',
           farmId: product.farmId?._id,
           productName: product.productName,
           category: product.category,
           unit: product.unit,
-          quantityOrdered: item.quantity,
+          quantityOrdered: effectiveQuantity,
           unitPrice,
           subtotal,
           selfDeclaredGrade: product.selfDeclaredGrade,
@@ -175,14 +235,16 @@ export class CartController {
       }
 
       // Delivery Fees
-      const leg1Fee = LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR;
-      const leg2Fee = LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR;
+      const leg1Fee = totalWeightKg > 0 ? LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR : 0;
+      const leg2Fee = totalWeightKg > 0 ? LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR : 0;
       const totalDeliveryFee = leg1Fee + leg2Fee;
       const grandTotal = itemsTotal + totalDeliveryFee;
 
       res.status(200).json({
         success: true,
         data: {
+          hasIssues: stockIssues.length > 0,
+          stockIssues,
           items: validatedItems,
           assignedDc: assignedDc ? { id: assignedDc._id, name: assignedDc.name, code: assignedDc.code } : null,
           calculation: {

@@ -26,6 +26,7 @@ import { CheckoutPage } from './pages/marketplace/CheckoutPage';
 import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
 import { CustomerOrdersPage } from './pages/marketplace/CustomerOrdersPage';
 import { WishlistPage } from './pages/marketplace/WishlistPage';
+import { CartPage } from './pages/marketplace/CartPage';
 
 // Farmer Pages
 import { FarmerDashboard } from './pages/farmer/FarmerDashboard';
@@ -166,6 +167,7 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      { path: '/cart', element: <CartPage /> },
       {
         // Checkout is public so guests can browse — auth guard lives inside the page
         // (it redirects to /customer/login?redirect=/checkout on submit)

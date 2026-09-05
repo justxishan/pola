@@ -19,8 +19,37 @@ import {
   Clock,
   Lock,
   ShoppingBag,
+  Truck,
+  Store,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface SellerGroup {
+  sellerId: string;
+  sellerName: string;
+  items: any[];
+  subtotal: number;
+}
+
+function groupItemsBySeller(items: any[]): SellerGroup[] {
+  const map = new Map<string, SellerGroup>();
+  for (const item of items) {
+    const key = item.farmerId || item.farmerName || 'Verified Pola Farmer';
+    const name = item.farmerName || 'Verified Pola Farmer';
+    if (!map.has(key)) {
+      map.set(key, {
+        sellerId: key,
+        sellerName: name,
+        items: [],
+        subtotal: 0,
+      });
+    }
+    const group = map.get(key)!;
+    group.items.push(item);
+    group.subtotal += item.pricePerUnit * item.quantity;
+  }
+  return Array.from(map.values());
+}
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +59,9 @@ export const CheckoutPage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+
+  // Delivery Method State (Doorstep vs Farm/Hub Pickup)
+  const [deliveryMethod, setDeliveryMethod] = useState<'doorstep' | 'pickup'>('doorstep');
 
   // Address State
   const [isAddressDrawerOpen, setIsAddressDrawerOpen] = useState(false);
@@ -144,7 +176,8 @@ export const CheckoutPage: React.FC = () => {
         },
         recipientName: user?.fullName || 'Valued Buyer',
         recipientPhone: activeAddress.contactPhone || user?.phone || '+94771234567',
-        deliveryInstructions,
+        deliveryInstructions:
+          deliveryMethod === 'pickup' ? `[FARM_HUB_PICKUP] ${deliveryInstructions}` : deliveryInstructions,
         paymentMethod,
       };
 
@@ -166,8 +199,10 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const subtotal = validatedData?.itemsTotal ?? getSubtotal();
-  const deliveryFee = validatedData?.totalDeliveryFee ?? (items.length > 0 ? 450 : 0);
-  const totalAmount = validatedData?.grandTotal ?? (subtotal + deliveryFee);
+  const rawDeliveryFee = validatedData?.totalDeliveryFee ?? (items.length > 0 ? 450 : 0);
+  const deliveryFee = deliveryMethod === 'pickup' ? 0 : rawDeliveryFee;
+  const totalAmount = subtotal + deliveryFee;
+  const sellerGroups = groupItemsBySeller(items);
 
   const renderSlotCard = (id: string, title: string, time: string) => {
     const isSelected = deliveryInstructions === id;
@@ -233,47 +268,126 @@ export const CheckoutPage: React.FC = () => {
           <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column */}
             <div className="lg:col-span-7 space-y-6">
-              {/* 1. Address */}
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm space-y-4">
+              {/* 1. Fulfillment & Address */}
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm space-y-5">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                   <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-base">
                     <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300">
-                      <MapPin className="w-4 h-4" />
+                      <Truck className="w-4 h-4" />
                     </div>
-                    <span>1. Doorstep Delivery Address</span>
+                    <span>1. Fulfillment & Delivery Method</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddressDrawerOpen(true)}
-                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                  >
-                    {activeAddress ? 'Change' : 'Add Address'}
-                  </button>
                 </div>
 
-                {activeAddress ? (
-                  <div className="p-4 rounded-2xl border border-emerald-300 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 flex flex-col space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-sm text-emerald-900 dark:text-white">
-                        {activeAddress.label || 'Home'}
-                      </span>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                {/* Delivery Mode Toggle */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div
+                    onClick={() => setDeliveryMethod('doorstep')}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                      deliveryMethod === 'doorstep'
+                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/20 text-slate-900 dark:text-white shadow-xs'
+                        : 'border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <div
+                      className={`p-2 rounded-xl ${
+                        deliveryMethod === 'doorstep'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                      }`}
+                    >
+                      <Truck className="w-4 h-4" />
                     </div>
-                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                      {activeAddress.addressLine1 || activeAddress.streetAddress}, {activeAddress.city}
-                    </p>
-                    <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                      {activeAddress.district} District, {activeAddress.province} Province
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-extrabold text-xs block">Standard Doorstep</span>
+                      <span className="text-[11px] text-slate-400">Direct courier dispatch</span>
+                    </div>
+                    {deliveryMethod === 'doorstep' && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    )}
+                  </div>
+
+                  <div
+                    onClick={() => setDeliveryMethod('pickup')}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                      deliveryMethod === 'pickup'
+                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/20 text-slate-900 dark:text-white shadow-xs'
+                        : 'border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <div
+                      className={`p-2 rounded-xl ${
+                        deliveryMethod === 'pickup'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                      }`}
+                    >
+                      <Store className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-extrabold text-xs block">Farm / Hub Pickup</span>
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                        LKR 0 Delivery Fee
+                      </span>
+                    </div>
+                    {deliveryMethod === 'pickup' && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    )}
+                  </div>
+                </div>
+
+                {deliveryMethod === 'doorstep' ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <span>Recipient Address</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddressDrawerOpen(true)}
+                        className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        {activeAddress ? 'Change Address' : 'Add Address'}
+                      </button>
+                    </div>
+
+                    {activeAddress ? (
+                      <div className="p-4 rounded-2xl border border-emerald-300 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 flex flex-col space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-emerald-900 dark:text-white">
+                            {activeAddress.label || 'Home'}
+                          </span>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {activeAddress.addressLine1 || activeAddress.streetAddress}, {activeAddress.city}
+                        </p>
+                        <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                          {activeAddress.district} District, {activeAddress.province} Province
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => setIsAddressDrawerOpen(true)}
+                        className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/20 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <MapPin className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                          Tap to add delivery address
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div
-                    onClick={() => setIsAddressDrawerOpen(true)}
-                    className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/20 text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <MapPin className="w-6 h-6 mx-auto mb-2 text-slate-400" />
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                      Tap to add delivery address
+                  <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 space-y-1.5 text-xs">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold">
+                      <Store className="w-4 h-4" />
+                      <span>Direct Hub Collection Point</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300">
+                      Your produce will be pre-sorted and ready for inspection at the regional Pola Hub (
+                      {activeAddress?.district || 'Western District'} Central Distribution Hub).
+                    </p>
+                    <span className="text-[11px] text-slate-400 block pt-1">
+                      Operating hours: Daily 7:00 AM – 7:00 PM • Free temperature-monitored holding until pickup
                     </span>
                   </div>
                 )}
@@ -285,7 +399,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300">
                     <Package className="w-4 h-4" />
                   </div>
-                  <span>2. Delivery Preferences</span>
+                  <span>2. Delivery & Inspection Window</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {renderSlotCard('morning_8_12', 'Morning', '8 AM – 12 PM')}
@@ -349,33 +463,59 @@ export const CheckoutPage: React.FC = () => {
 
             {/* Right Column: Order Summary */}
             <div className="lg:col-span-5">
-              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm space-y-6 sticky top-24">
+              <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm space-y-5 sticky top-24">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                   <h3 className="font-black text-slate-900 dark:text-white text-base">Produce Crate Summary</h3>
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-bold font-mono">
-                    {items.length} item{items.length !== 1 ? 's' : ''}
+                    {items.length} item{items.length !== 1 ? 's' : ''} across {sellerGroups.length} farm{sellerGroups.length !== 1 ? 's' : ''}
                   </span>
                 </div>
 
-                {/* Items List */}
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                  {items.map((item) => (
-                    <div key={item.productId} className="flex justify-between items-start text-xs gap-2">
-                      <div className="min-w-0">
-                        <span className="font-bold text-slate-900 dark:text-white block truncate">{item.title}</span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                          {item.quantity} {item.unit || 'kg'} × LKR {item.pricePerUnit?.toLocaleString()}
+                {/* Seller Grouped Items List */}
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {sellerGroups.map((group) => (
+                    <div
+                      key={group.sellerId}
+                      className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300 pb-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                        <div className="flex items-center gap-1.5">
+                          <Store className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="truncate max-w-[170px]">{group.sellerName}</span>
+                        </div>
+                        <span className="text-slate-400">
+                          {group.items.length} item{group.items.length > 1 ? 's' : ''}
                         </span>
                       </div>
-                      <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono shrink-0">
-                        LKR {(item.quantity * item.pricePerUnit).toLocaleString()}
-                      </span>
+
+                      <div className="space-y-2">
+                        {group.items.map((item) => (
+                          <div key={item.productId} className="flex justify-between items-start text-xs gap-2">
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-900 dark:text-white block truncate">{item.title}</span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {item.quantity} {item.unit || 'kg'} × LKR {item.pricePerUnit?.toLocaleString()}
+                              </span>
+                            </div>
+                            <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono shrink-0">
+                              LKR {(item.quantity * item.pricePerUnit).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-1.5 border-t border-slate-200/40 dark:border-slate-700/40 flex justify-between text-[11px]">
+                        <span className="text-slate-400">Seller Subtotal</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">
+                          LKR {group.subtotal.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Cost Breakdown */}
-                <div className="pt-4 border-t border-slate-100 dark:border-white/10 space-y-2 text-xs">
+                <div className="pt-3 border-t border-slate-100 dark:border-white/10 space-y-2 text-xs">
                   <div className="flex justify-between text-slate-600 dark:text-slate-300">
                     <span>Harvest Subtotal</span>
                     <span className="font-bold font-mono text-slate-900 dark:text-white">
@@ -383,12 +523,18 @@ export const CheckoutPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex justify-between text-slate-600 dark:text-slate-300 items-center">
-                    <span>Regional Courier Dispatch</span>
+                    <span>
+                      {deliveryMethod === 'pickup' ? 'Hub Collection' : 'Regional Courier Dispatch'}
+                    </span>
                     {isValidating ? (
                       <span className="inline-block animate-pulse h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded-full" />
                     ) : (
                       <span className="font-bold font-mono text-slate-900 dark:text-white">
-                        LKR {deliveryFee.toLocaleString()}.00
+                        {deliveryMethod === 'pickup' ? (
+                          <span className="text-emerald-600 font-black">FREE (LKR 0)</span>
+                        ) : (
+                          `LKR ${deliveryFee.toLocaleString()}.00`
+                        )}
                       </span>
                     )}
                   </div>
@@ -402,6 +548,17 @@ export const CheckoutPage: React.FC = () => {
                       </span>
                     )}
                   </div>
+                </div>
+
+                {/* 6-Digit OTP Delivery Verification Card */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-900 dark:text-emerald-200">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>6-Digit OTP Delivery Verification</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300/80 leading-relaxed">
+                    Funds remain protected in Pola Escrow. You will release payment to the seller only by sharing your unique 6-digit OTP after physically inspecting harvest freshness upon receipt.
+                  </p>
                 </div>
 
                 {/* Place Order Button */}
