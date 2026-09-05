@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/cn';
-import { Sprout, MapPin, Star, ShoppingBag, ShieldCheck, Zap, Image as ImageIcon } from 'lucide-react';
+import { Sprout, MapPin, Star, Heart, ShieldCheck, Zap, Image as ImageIcon } from 'lucide-react';
+import { useWishlistStore } from '@/store/wishlistStore';
 
 export interface ProductCardProps {
   id: string;
@@ -16,7 +17,6 @@ export interface ProductCardProps {
   minOrderQuantity?: number;
   ratingAverage?: number;
   farmerName?: string;
-  onAddToCart?: (e: React.MouseEvent) => void;
   onClick?: () => void;
   className?: string;
 }
@@ -35,10 +35,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   minOrderQuantity = 1,
   ratingAverage = 0,
   farmerName,
-  onAddToCart,
   onClick,
   className,
 }) => {
+  const isWishlisted = useWishlistStore((state) => state.itemIds.includes(id));
+  const toggleWishlist = useWishlistStore((state) => state.toggleItem);
+
   const hasImage = images && images.length > 0;
   const imageUrl = hasImage ? images[0] : null;
 
@@ -114,7 +116,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        {/* Price & Add to Cart Pill Action */}
+        {/* Price & Wishlist Heart Action */}
         <div className="pt-2 border-t border-slate-100 dark:border-white/10 flex items-center justify-between gap-2">
           <div className="leading-tight">
             <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight block">
@@ -127,13 +129,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (onAddToCart) onAddToCart(e);
+              toggleWishlist(id);
             }}
-            className="p-2.5 sm:px-4 sm:py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 dark:bg-emerald-400 dark:hover:bg-emerald-300 text-white dark:text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-            title="Add to Basket"
+            className={cn(
+              'p-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center border',
+              isWishlisted
+                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-500 border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-slate-200/60 dark:border-white/10'
+            )}
+            title={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+            aria-label={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Add</span>
+            <Heart
+              className={cn(
+                'w-4 h-4 transition-transform duration-200',
+                isWishlisted ? 'fill-rose-500 text-rose-500 scale-110' : 'hover:scale-110'
+              )}
+            />
           </button>
         </div>
       </div>

@@ -422,7 +422,6 @@ export const ProductDetailPage: React.FC = () => {
                   minOrderQuantity={p.minOrderQuantity || 1}
                   ratingAverage={p.ratingAverage || 4.9}
                   farmerName={p.farmerId?.fullName || 'Verified Pola Grower'}
-                  onAddToCart={() => handleAddToCart(p, 1)}
                   onClick={() => navigate(`/product/${p._id}`)}
                 />
               ))}

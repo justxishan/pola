@@ -43,7 +43,7 @@ export const HomePage: React.FC = () => {
   // Flash Deals Countdown State
   const [timeLeft, setTimeLeft] = useState({ hours: 4, minutes: 28, seconds: 15 });
 
-  const { items, openCart, addItem } = useCartStore();
+  const { items, openCart } = useCartStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { user } = useAuthStore();
   const { t } = useTranslation();
@@ -234,19 +234,6 @@ export const HomePage: React.FC = () => {
     setSearchParams(params);
   };
 
-  const handleAddToCart = (product: any, quantity: number = 1) => {
-    addItem({
-      productId: product._id,
-      title: product.title,
-      pricePerUnit: product.pricePerUnit,
-      unit: product.unit,
-      quantity,
-      image: product.images?.[0],
-      farmerName: product.farmerId?.fullName || 'Verified Farmer',
-      minOrderQuantity: product.minOrderQuantity || 1,
-    });
-    toast.success(`Added ${quantity} ${product.unit || 'kg'} of ${product.title} to your basket!`);
-  };
 
   const dbDeals = products.filter((p) => p.isOrganic || (p.pricingTiers && p.pricingTiers.length > 0)).slice(0, 4);
   const activeDeals = dbDeals.length > 0 ? dbDeals : products.slice(0, 4);
@@ -528,7 +515,6 @@ export const HomePage: React.FC = () => {
                   minOrderQuantity={product.minOrderQuantity || 1}
                   ratingAverage={product.ratingAverage || 4.9}
                   farmerName={product.farmerId?.fullName || 'Verified Pola Grower'}
-                  onAddToCart={() => handleAddToCart(product)}
                   onClick={() => navigate(`/product/${product._id}`)}
                 />
               ))}
