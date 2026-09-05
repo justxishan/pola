@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MarketplaceLayout } from '@/components/templates/MarketplaceLayout';
 import { ProductCard } from '@/components/molecules/ProductCard';
-import { CategoryRibbon } from '@/components/organisms/CategoryRibbon';
 import { FilterModal, FilterState } from '@/components/organisms/FilterModal';
 import { ProductService } from '@/services/product.service';
 import { useCartStore } from '@/store/cartStore';
@@ -26,6 +25,9 @@ import {
   SlidersHorizontal,
   Star,
   Snowflake,
+  Heart,
+  Package,
+  Wallet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -36,6 +38,7 @@ export const HomePage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [stats, setStats] = useState<{ totalListings: number; totalFarmers: number; totalDistricts: number } | null>(null);
 
   // Flash Deals Countdown State
   const [timeLeft, setTimeLeft] = useState({ hours: 4, minutes: 28, seconds: 15 });
@@ -103,6 +106,40 @@ export const HomePage: React.FC = () => {
     window.addEventListener('pola:open-filter', handleOpenFilterEvent);
     return () => window.removeEventListener('pola:open-filter', handleOpenFilterEvent);
   }, []);
+
+  // Fetch live stats for logged-out hero
+  useEffect(() => {
+    if (!user) {
+      ProductService.getStats()
+        .then((data) => setStats(data))
+        .catch((err) => console.error('Failed to load catalog stats:', err));
+    }
+  }, [user]);
+
+  // Pre-open filter modal if b2b query param is present on mount
+  useEffect(() => {
+    if (searchParams.get('b2b') === 'true') {
+      setIsFilterModalOpen(true);
+    }
+  }, []);
+
+  const handleExploreLots = () => {
+    const gridEl = document.getElementById('produce-grid');
+    if (gridEl) {
+      gridEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleB2bClick = () => {
+    const params = new URLSearchParams(searchParams);
+    if (isB2b) {
+      params.delete('b2b');
+    } else {
+      params.set('b2b', 'true');
+      setIsFilterModalOpen(true);
+    }
+    setSearchParams(params);
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -234,67 +271,93 @@ export const HomePage: React.FC = () => {
       user={user}
     >
       <div className="space-y-8 pb-16">
-        <section className="glass-terminal p-5 sm:p-7 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors">
-          <div className="space-y-2 max-w-2xl text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold font-mono">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Direct Agritech Sourcing • 25 Districts</span>
+        {/* 1. Sleek Compact Hero Header (Logged-out visitors only) */}
+        {!user && (
+          <section className="glass-terminal p-5 sm:p-7 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col gap-6 transition-colors">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold font-mono">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>
+                    Direct Agritech Sourcing •{' '}
+                    {stats && stats.totalDistricts > 0 ? `${stats.totalDistricts} Active Districts` : '25 Districts'}
+                    {stats && stats.totalFarmers > 0 ? ` • ${stats.totalFarmers}+ Verified Farmers` : ''}
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                  Farm-Gate Fresh Produce,{' '}
+                  <span className="font-serif-accent italic font-normal text-emerald-600 dark:text-emerald-400">
+                    Direct to Your Doorstep
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                  Eliminate middlemen and buy farm-graded produce straight from verified Sri Lankan growers with 100% Escrow protection
+                  {stats && stats.totalListings > 0 ? ` across ${stats.totalListings} live harvest listings.` : '.'}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 w-full md:w-auto">
+                <button
+                  type="button"
+                  onClick={handleB2bClick}
+                  className={cn(
+                    'px-5 py-3 rounded-full border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer',
+                    isB2b
+                      ? 'bg-purple-500 text-white border-purple-500 shadow-md font-black'
+                      : 'bg-slate-200/60 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 border-slate-300/80 dark:border-white/15 text-slate-900 dark:text-white'
+                  )}
+                >
+                  <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>{isB2b ? t.viewingB2bWholesale : t.b2bWholesale}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExploreLots}
+                  className="px-6 py-3 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
+                >
+                  <Sprout className="w-4 h-4 text-slate-950" />
+                  <span>{t.exploreAllLots}</span>
+                </button>
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-              Farm-Gate Fresh Produce,{' '}
-              <span className="font-serif-accent italic font-normal text-emerald-600 dark:text-emerald-400">
-                Direct to Your Doorstep
+
+            {/* Compact "Sign in to unlock" Row */}
+            <div className="pt-4 border-t border-slate-200/60 dark:border-white/10 flex flex-wrap items-center gap-3 text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                {t.signInToUnlock}:
               </span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-              Eliminate middlemen and buy farm-graded produce straight from verified Sri Lankan growers with 100% Escrow protection.
-            </p>
-          </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/customer/login?redirect=/wishlist')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/50 dark:bg-white/5 hover:bg-emerald-500/15 dark:hover:bg-emerald-500/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-300/60 dark:border-white/10 transition-colors font-medium text-[11px] cursor-pointer"
+                >
+                  <Heart className="w-3 h-3 text-rose-500" />
+                  <span>{t.savedWishlist}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/customer/login?redirect=/orders')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/50 dark:bg-white/5 hover:bg-emerald-500/15 dark:hover:bg-emerald-500/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-300/60 dark:border-white/10 transition-colors font-medium text-[11px] cursor-pointer"
+                >
+                  <Package className="w-3 h-3 text-emerald-500" />
+                  <span>{t.liveOrderTracking}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/customer/login?redirect=/wallet')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/50 dark:bg-white/5 hover:bg-emerald-500/15 dark:hover:bg-emerald-500/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-300/60 dark:border-white/10 transition-colors font-medium text-[11px] cursor-pointer"
+                >
+                  <Wallet className="w-3 h-3 text-amber-500" />
+                  <span>{t.escrowWallet}</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 w-full md:w-auto">
-            <button
-              type="button"
-              onClick={() => {
-                const params = new URLSearchParams(searchParams);
-                if (isB2b) params.delete('b2b');
-                else params.set('b2b', 'true');
-                setSearchParams(params);
-              }}
-              className={cn(
-                'px-5 py-3 rounded-full border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer',
-                isB2b
-                  ? 'bg-purple-500 text-white border-purple-500 shadow-md font-black'
-                  : 'bg-slate-200/60 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 border-slate-300/80 dark:border-white/15 text-slate-900 dark:text-white'
-              )}
-            >
-              <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <span>{isB2b ? 'Viewing B2B Wholesale' : 'B2B Wholesale'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsFilterModalOpen(true)}
-              className="px-6 py-3 rounded-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
-            >
-              <SlidersHorizontal className="w-4 h-4 text-slate-950" />
-              <span>Filter Produce</span>
-            </button>
-          </div>
-        </section>
-
-        <section className="text-left space-y-2">
-          <CategoryRibbon
-            selectedCategory={selectedCategory}
-            onSelectCategory={(cat) => {
-              const params = new URLSearchParams(searchParams);
-              if (cat) params.set('category', cat);
-              else params.delete('category');
-              setSearchParams(params);
-            }}
-          />
-        </section>
-
-        <section className="space-y-4 text-left">
+        <section id="produce-grid" className="space-y-4 text-left">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">

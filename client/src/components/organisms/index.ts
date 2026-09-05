@@ -1,7 +1,6 @@
 export * from './Navbar';
 export * from './Sidebar';
 export * from './MobileBottomNav';
-export * from './CategoryRibbon';
 export * from './ProductGrid';
 export * from './CartDrawer';
 export * from './OrderTimeline';

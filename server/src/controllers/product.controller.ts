@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { Product } from '../models/Product.model.js';
 import { Farm } from '../models/Farm.model.js';
+import { User } from '../models/User.model.js';
+import { Role, VerificationStatus } from '@pola/shared';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 
@@ -302,6 +304,43 @@ export class ProductController {
         success: true,
         message: 'Images uploaded successfully',
         data: { imageUrls },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Public catalog statistics for Hero & Discovery
+   * GET /api/products/stats
+   */
+  static async getPublicStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const [totalActiveListings, verifiedFarmers, activeDistricts] = await Promise.all([
+        Product.countDocuments({ status: 'active', availableQuantity: { $gt: 0 } }),
+        User.countDocuments({
+          role: Role.FARMER,
+          kycStatus: VerificationStatus.VERIFIED,
+        }),
+        Product.distinct('district', { status: 'active', availableQuantity: { $gt: 0 } }),
+      ]);
+
+      const validDistricts = activeDistricts.filter(
+        (d: any) => typeof d === 'string' && d.trim().length > 0
+      );
+
+      let farmerCount = verifiedFarmers;
+      if (farmerCount === 0) {
+        farmerCount = await User.countDocuments({ role: Role.FARMER });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          totalListings: totalActiveListings,
+          totalFarmers: farmerCount,
+          totalDistricts: validDistricts.length,
+        },
       });
     } catch (error) {
       next(error);

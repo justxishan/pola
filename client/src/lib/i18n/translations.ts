@@ -139,6 +139,15 @@ export interface Translations {
   wishlist: string;
   filters: string;
   searchPlaceholder: string;
+
+  // Hero & Discovery
+  exploreAllLots: string;
+  b2bWholesale: string;
+  viewingB2bWholesale: string;
+  signInToUnlock: string;
+  savedWishlist: string;
+  liveOrderTracking: string;
+  escrowWallet: string;
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -273,6 +282,15 @@ export const translations: Record<LanguageCode, Translations> = {
     wishlist: 'Wishlist',
     filters: 'Filters',
     searchPlaceholder: 'Search fresh harvest, crops...',
+
+    // Hero & Discovery
+    exploreAllLots: 'Explore All Lots',
+    b2bWholesale: 'B2B Wholesale',
+    viewingB2bWholesale: 'Viewing B2B Wholesale',
+    signInToUnlock: 'Sign in to unlock',
+    savedWishlist: 'Saved Wishlist',
+    liveOrderTracking: 'Live Order Tracking',
+    escrowWallet: 'Escrow Wallet',
   },
 
   si: {
@@ -406,6 +424,15 @@ export const translations: Record<LanguageCode, Translations> = {
     wishlist: 'පැතුම් ලැයිස්තුව',
     filters: 'පෙරහන්',
     searchPlaceholder: 'නැවුම් අස්වනු සොයන්න...',
+
+    // Hero & Discovery
+    exploreAllLots: 'සියලු අස්වනු බලන්න',
+    b2bWholesale: 'තොග වෙළඳාම (B2B)',
+    viewingB2bWholesale: 'තොග වෙළඳාම බලමින්',
+    signInToUnlock: 'ප්‍රවේශ වී ලබාගන්න',
+    savedWishlist: 'කැමති ලැයිස්තුව',
+    liveOrderTracking: 'සජීවී ඇණවුම් නිරීක්ෂණය',
+    escrowWallet: 'පොලා පසුම්බිය',
   },
 
   ta: {
@@ -539,5 +566,14 @@ export const translations: Record<LanguageCode, Translations> = {
     wishlist: 'விருப்பப்பட்டியல்',
     filters: 'வடிகட்டிகள்',
     searchPlaceholder: 'புதிய விளைச்சலைத் தேடுக...',
+
+    // Hero & Discovery
+    exploreAllLots: 'அனைத்து விளைச்சல்களையும் காண்க',
+    b2bWholesale: 'மொத்த வர்த்தகம் (B2B)',
+    viewingB2bWholesale: 'மொத்த வர்த்தகத்தை பார்க்கிறீர்கள்',
+    signInToUnlock: 'அணுக உள்நுழைக',
+    savedWishlist: 'விருப்பப்பட்டியல்',
+    liveOrderTracking: 'நேரடி ஆர்டர் கண்காணிப்பு',
+    escrowWallet: 'பாதுகாப்பான பணப்பை',
   },
 };

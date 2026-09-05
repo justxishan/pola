@@ -43,6 +43,16 @@ export const ProductService = {
     return api.get(`/products/${id}`);
   },
 
+  /** Public aggregate stats for hero header */
+  getStats: async (): Promise<{
+    totalListings: number;
+    totalFarmers: number;
+    totalDistricts: number;
+  }> => {
+    const res: any = await api.get('/products/stats');
+    return res.data || res;
+  },
+
   /** Create product with image file uploads via multipart/form-data */
   createProduct: async (formData: FormData) => {
     return api.post('/products', formData, {

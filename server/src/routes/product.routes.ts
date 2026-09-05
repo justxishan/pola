@@ -10,6 +10,7 @@ import { Role } from '@pola/shared';
 const router = Router();
 
 // Public Catalog Endpoints
+router.get('/stats', ProductController.getPublicStats);
 router.get('/catalog', validateRequest(ProductQuerySchema), ProductController.getPublicCatalog);
 router.get('/:id', ProductController.getProductById);
 
