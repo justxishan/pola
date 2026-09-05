@@ -133,6 +133,12 @@ export interface Translations {
   kycBannerTitle: string;
   kycBannerDesc: string;
   completeKycNow: string;
+
+  // Customer Shell
+  chats: string;
+  wishlist: string;
+  filters: string;
+  searchPlaceholder: string;
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -261,6 +267,12 @@ export const translations: Record<LanguageCode, Translations> = {
     kycBannerTitle: 'Identity Verification Incomplete',
     kycBannerDesc: 'Your account is pending verification. Submit your National Identity Card (NIC) to activate marketplace listings and payouts.',
     completeKycNow: 'Complete Verification Now →',
+
+    // Customer Shell
+    chats: 'Chats',
+    wishlist: 'Wishlist',
+    filters: 'Filters',
+    searchPlaceholder: 'Search fresh harvest, crops...',
   },
 
   si: {
@@ -388,6 +400,12 @@ export const translations: Record<LanguageCode, Translations> = {
     kycBannerTitle: 'හැඳුනුම්පත් තහවුරු කිරීම අසම්පූර්ණයි',
     kycBannerDesc: 'ඔබගේ ගිණුම තවමත් තහවුරු කර නොමැත. අස්වනු විකිණීම සහ මුදල් ලබාගැනීම සක්‍රිය කිරීමට ඔබගේ ජාතික හැඳුනුම්පත (NIC) ඉදිරිපත් කරන්න.',
     completeKycNow: 'දැන්ම තහවුරු කරන්න →',
+
+    // Customer Shell
+    chats: 'සංවාද',
+    wishlist: 'පැතුම් ලැයිස්තුව',
+    filters: 'පෙරහන්',
+    searchPlaceholder: 'නැවුම් අස්වනු සොයන්න...',
   },
 
   ta: {
@@ -515,5 +533,11 @@ export const translations: Record<LanguageCode, Translations> = {
     kycBannerTitle: 'அடையாள சரிபார்ப்பு முழுமையடையவில்லை',
     kycBannerDesc: 'உங்கள் கணக்கு சரிபார்க்கப்படாமல் உள்ளது. விற்பனை மற்றும் பணம் பெறுவதை செயல்படுத்த உங்கள் தேசிய அடையாள அட்டையை (NIC) சமர்ப்பிக்கவும்.',
     completeKycNow: 'இப்போதே சரிபார்க்கவும் →',
+
+    // Customer Shell
+    chats: 'உரையாடல்கள்',
+    wishlist: 'விருப்பப்பட்டியல்',
+    filters: 'வடிகட்டிகள்',
+    searchPlaceholder: 'புதிய விளைச்சலைத் தேடுக...',
   },
 };

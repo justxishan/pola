@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 import { Navbar, NavbarProps } from '@/components/organisms/Navbar';
 import { MobileBottomNav } from '@/components/organisms/MobileBottomNav';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
-import { Sprout, ShieldCheck, Home, Layers, ShoppingCart, Package, User } from 'lucide-react';
+import { useWishlistStore } from '@/store/wishlistStore';
+import { ChatService } from '@/services/chat.service';
+import {
+  Sprout,
+  ShieldCheck,
+  Home,
+  Layers,
+  ShoppingBag,
+  Package,
+  User,
+  Heart,
+  MessageSquare,
+} from 'lucide-react';
 import { usePortalThemeStore } from '@/store/portalThemeStore';
 
 export interface MarketplaceLayoutProps extends Omit<NavbarProps, 'className'> {
@@ -26,8 +38,39 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
   const location = useLocation();
   const bgImage = themes.customer?.bgImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=2400&q=85';
 
-  // Cart item count from store for the mobile badge
+  // Cart & Wishlist counts from store for the mobile badge
   const cartItemCount = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
+  const wishlistCount = useWishlistStore((s) => s.itemIds.length);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) {
+      setChatUnreadCount(0);
+      return;
+    }
+
+    const fetchChatCount = async () => {
+      try {
+        const res: any = await ChatService.getMyConversations();
+        if (res?.data?.conversations) {
+          const myId = user._id || (user as any).id;
+          let total = 0;
+          for (const conv of res.data.conversations) {
+            if (conv.unreadCounts && myId && conv.unreadCounts[myId]) {
+              total += Number(conv.unreadCounts[myId]) || 0;
+            }
+          }
+          setChatUnreadCount(total);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+
+    fetchChatCount();
+    const interval = setInterval(fetchChatCount, 30_000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const mobileNavItems = [
     {
@@ -43,9 +86,23 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
       path: '/catalog',
     },
     {
+      id: 'wishlist',
+      label: 'Wishlist',
+      icon: <Heart className="w-5 h-5" />,
+      path: user ? '/wishlist' : '/customer/login?redirect=/wishlist',
+      badgeCount: wishlistCount,
+    },
+    {
+      id: 'chat',
+      label: 'Chats',
+      icon: <MessageSquare className="w-5 h-5" />,
+      path: user ? '/messages' : '/customer/login?redirect=/messages',
+      badgeCount: chatUnreadCount,
+    },
+    {
       id: 'cart',
       label: 'Cart',
-      icon: <ShoppingCart className="w-5 h-5" />,
+      icon: <ShoppingBag className="w-5 h-5" />,
       path: '__cart__',
       badgeCount: cartItemCount,
     },
@@ -66,7 +123,6 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
   const handleMobileNavigate = (path: string) => {
     if (path === '__cart__') {
       if (onOpenCart) onOpenCart();
-      // Also try the navbar's onOpenCart from navbarProps
       else if (navbarProps.onOpenCart) navbarProps.onOpenCart();
       return;
     }
@@ -74,7 +130,7 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950 relative overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between selection:bg-emerald-400 selection:text-slate-950 relative overflow-x-clip transition-colors duration-300">
       {/* 1. Fullscreen Cinematic Bokeh Backdrop with Light/Dark adaptivity */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img
@@ -94,12 +150,12 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
         {children}
       </main>
 
-      {/* 4. Luxury Frosted Glass Footer */}
-      <footer className="relative z-10 border-t border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-black/60 backdrop-blur-2xl py-10 mt-16 mb-16 sm:mb-0 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-600 dark:text-slate-300">
+      {/* 4. Luxury Frosted Glass Footer with Brand and Escrow Guarantee */}
+      <footer className="relative z-10 border-t border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-black/60 backdrop-blur-2xl py-8 mt-16 mb-16 sm:mb-0 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-300">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-400 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/20">
-              <Sprout className="w-5 h-5 text-slate-950" />
+            <div className="w-9 h-9 rounded-2xl bg-emerald-400 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/20">
+              <Sprout className="w-4 h-4 text-slate-950" />
             </div>
             <div>
               <p className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
@@ -109,14 +165,8 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 font-semibold">
-            <a href="/catalog" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-slate-300/60 dark:hover:bg-white/15 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all">
-              Catalog
-            </a>
-            <a href="/help" className="px-3.5 py-1.5 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 hover:bg-slate-300/60 dark:hover:bg-white/15 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all">
-              Help & Support
-            </a>
-            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30">
+          <div className="flex items-center gap-3 font-semibold">
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-400/30">
               <ShieldCheck className="w-4 h-4" /> 100% Escrow Protected
             </span>
           </div>
@@ -132,3 +182,4 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
     </div>
   );
 };
+

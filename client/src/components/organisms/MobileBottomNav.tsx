@@ -37,7 +37,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             key={item.id}
             onClick={() => onNavigate(item.path)}
             className={cn(
-              'flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer relative',
+              'flex flex-col items-center justify-center py-1 px-1.5 sm:px-2.5 rounded-xl transition-all duration-200 cursor-pointer relative',
               isActive
                 ? 'text-emerald-600 dark:text-emerald-400 font-bold'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
