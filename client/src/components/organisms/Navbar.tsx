@@ -8,6 +8,8 @@ import { ProfileDropdown } from '@/components/organisms/ProfileDropdown';
 import { AddressDrawer } from '@/components/organisms/AddressDrawer';
 import { NotificationDrawer } from '@/components/organisms/NotificationDrawer';
 import { NotificationService } from '@/services/notification.service';
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
+import toast from 'react-hot-toast';
 import {
   ShoppingBag,
   Sprout,
@@ -60,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const { isDark, toggleTheme } = useThemeStore();
-  const { user: storeUser } = useAuthStore();
+  const { user: storeUser, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -70,6 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentPath = location.pathname;
@@ -365,6 +368,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <ProfileDropdown
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
+                onRequestSignOut={() => {
+                  setIsProfileOpen(false);
+                  setIsSignOutConfirmOpen(true);
+                }}
               />
             </div>
           ) : (
@@ -395,6 +402,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           setIsNotificationsOpen(false);
           fetchUnreadCount(); // refresh badge after marking items read
         }}
+      />
+
+      {/* ── Centered Sign Out Confirmation Dialog ───────────────────── */}
+      <ConfirmDialog
+        isOpen={isSignOutConfirmOpen}
+        title="Sign Out of Pola?"
+        description="Are you sure you want to end your active session? You will need your login credentials to sign back in."
+        confirmText="Sign Out"
+        cancelText="Stay Logged In"
+        isDestructive={true}
+        onConfirm={() => {
+          setIsSignOutConfirmOpen(false);
+          logout();
+          toast.success('Signed out successfully');
+          navigate('/');
+        }}
+        onCancel={() => setIsSignOutConfirmOpen(false)}
       />
     </header>
   );

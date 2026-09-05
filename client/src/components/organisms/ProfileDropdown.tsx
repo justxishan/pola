@@ -30,6 +30,7 @@ export interface ProfileDropdownProps {
   onLanguageChange?: (lang: LanguageCode) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  onRequestSignOut?: () => void;
 }
 
 export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
@@ -40,6 +41,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   onLanguageChange,
   isDark,
   onToggleTheme,
+  onRequestSignOut,
 }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -247,7 +249,14 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       {/* Sign Out Button */}
       <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
         <button
-          onClick={() => setIsSignOutConfirmOpen(true)}
+          onClick={() => {
+            if (onRequestSignOut) {
+              onClose();
+              onRequestSignOut();
+            } else {
+              setIsSignOutConfirmOpen(true);
+            }
+          }}
           className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors text-xs font-bold cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
@@ -259,10 +268,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         isOpen={isSignOutConfirmOpen}
         onCancel={() => setIsSignOutConfirmOpen(false)}
         onConfirm={handleSignOut}
-        title="Sign Out"
-        description="Are you sure you want to end your active session and sign out of Pola?"
+        title="Sign Out of Pola?"
+        description="Are you sure you want to end your active session? You will need your login credentials to sign back in."
         confirmText="Sign Out"
-        cancelText="Cancel"
+        cancelText="Stay Logged In"
         isDestructive={true}
       />
     </div>

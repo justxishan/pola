@@ -170,6 +170,14 @@ export const TopNav: React.FC<TopNavProps> = ({
                 onLanguageChange={onLanguageChange}
                 isDark={isDark}
                 onToggleTheme={onToggleTheme}
+                onRequestSignOut={
+                  onRequestSignOut
+                    ? () => {
+                        setIsProfileOpen(false);
+                        onRequestSignOut();
+                      }
+                    : undefined
+                }
               />
             </div>
           )}
