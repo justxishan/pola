@@ -17,6 +17,10 @@ export const CreateProductSchema = z.object({
       (val) => val === 'true' || val === true,
       z.boolean().default(false)
     ),
+    saveAsDraft: z.preprocess(
+      (val) => val === 'true' || val === true,
+      z.boolean().default(false)
+    ),
     b2bPricingTiers: z.preprocess(
       (val) => {
         if (typeof val === 'string') {
@@ -50,7 +54,7 @@ export const CreateProductSchema = z.object({
     ),
     description: z.string().optional(),
   }).superRefine((data, ctx) => {
-    const isDraftSubmission = data.isDraft || data.status === 'draft';
+    const isDraftSubmission = data.isDraft || data.saveAsDraft || data.status === 'draft';
     if (!isDraftSubmission) {
       if (data.basePricePerUnit <= 0) {
         ctx.addIssue({

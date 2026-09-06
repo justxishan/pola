@@ -15,7 +15,9 @@ import {
   Power,
   Package,
   X,
+  FileText,
 } from 'lucide-react';
+import { cn } from '@/lib/cn';
 import toast from 'react-hot-toast';
 
 export const MyProductsPage: React.FC = () => {
@@ -29,8 +31,25 @@ export const MyProductsPage: React.FC = () => {
 
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft'>('all');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<any | null>(null);
+
+  const totalCount = products.length;
+  const activeCount = products.filter(
+    (p) => p.status === 'active' || (p.isActive && p.status !== 'draft')
+  ).length;
+  const draftCount = products.filter((p) => p.status === 'draft').length;
+
+  const filteredProducts = products.filter((p) => {
+    if (statusFilter === 'active') {
+      return p.status === 'active' || (p.isActive && p.status !== 'draft');
+    }
+    if (statusFilter === 'draft') {
+      return p.status === 'draft';
+    }
+    return true;
+  });
 
   const navItems = getFarmerNavItems(t);
 
@@ -146,31 +165,104 @@ export const MyProductsPage: React.FC = () => {
           </div>
         )}
 
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-white/5">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={cn(
+              'px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0',
+              statusFilter === 'all'
+                ? 'bg-lime-400 text-slate-950 shadow-md shadow-lime-500/20'
+                : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+            )}
+          >
+            <span>All Lots</span>
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] font-mono',
+                statusFilter === 'all'
+                  ? 'bg-slate-950/20 text-slate-950 font-black'
+                  : 'bg-white/10 text-slate-300'
+              )}
+            >
+              {totalCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter('active')}
+            className={cn(
+              'px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0',
+              statusFilter === 'active'
+                ? 'bg-lime-400 text-slate-950 shadow-md shadow-lime-500/20'
+                : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+            )}
+          >
+            <span>Active</span>
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] font-mono',
+                statusFilter === 'active'
+                  ? 'bg-slate-950/20 text-slate-950 font-black'
+                  : 'bg-white/10 text-slate-300'
+              )}
+            >
+              {activeCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter('draft')}
+            className={cn(
+              'px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0',
+              statusFilter === 'draft'
+                ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+            )}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Drafts</span>
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] font-mono',
+                statusFilter === 'draft'
+                  ? 'bg-slate-950/20 text-slate-950 font-black'
+                  : 'bg-white/10 text-slate-300'
+              )}
+            >
+              {draftCount}
+            </span>
+          </button>
+        </div>
+
         {/* Listings Grid */}
         {isLoading ? (
           <div className="py-24 flex flex-col items-center justify-center space-y-2">
             <Spinner size="lg" />
             <span className="text-xs font-mono text-slate-400">Loading crop lots...</span>
           </div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="glass-terminal p-12 rounded-3xl border border-white/10 text-center space-y-4">
-            <div className="w-14 h-14 rounded-3xl bg-lime-500/20 text-lime-300 border border-lime-500/30 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-3xl bg-white/5 text-slate-400 border border-white/10 flex items-center justify-center mx-auto">
               <Package className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-black text-white">No Harvest Listings Published</h3>
+            <h3 className="text-lg font-black text-white">No Listings Found</h3>
             <p className="text-xs text-slate-300 max-w-sm mx-auto">
-              Publish your first fresh crop harvest lot to receive direct buyer orders and guaranteed Escrow payouts.
+              {statusFilter === 'draft'
+                ? 'You currently have no draft listings saved. Incomplete listings can be saved as drafts from the add listing form.'
+                : 'No listings match the selected filter.'}
             </p>
             <button
-              onClick={() => navigate('/farmer/products/new')}
-              className="px-6 py-3 rounded-full bg-lime-400 text-slate-950 font-black text-xs cursor-pointer shadow-lg shadow-lime-500/20"
+              onClick={() => setStatusFilter('all')}
+              className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
             >
-              Publish First Harvest Lot
+              View All Lots
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => {
+            {filteredProducts.map((product) => {
+              const isDraft = product.status === 'draft';
               const isActiveListing = product.status === 'active' || product.isActive;
               const displayTitle = product.productName || product.title;
               const displayPrice = product.basePricePerUnit ?? product.pricePerUnit;
@@ -179,7 +271,8 @@ export const MyProductsPage: React.FC = () => {
               return (
                 <div
                   key={product._id}
-                  className="glass-terminal p-5 rounded-3xl border border-white/10 hover:border-lime-400/40 shadow-2xl transition-all flex flex-col justify-between space-y-4"
+                  className="glass-terminal p-5 rounded-3xl border border-white/10 hover:border-lime-400/40 shadow-2xl transition-all flex flex-col justify-between space-y-4 cursor-pointer"
+                  onClick={() => navigate(`/farmer/products/${product._id}/edit`)}
                 >
                   <div className="space-y-3">
                     <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black/40">
@@ -197,16 +290,20 @@ export const MyProductsPage: React.FC = () => {
                       <div className="absolute top-2.5 right-2.5">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                            product.status === 'pending_verification'
+                            isDraft
+                              ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                              : product.status === 'pending_verification'
                               ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
                               : product.status === 'out_of_stock'
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                               : isActiveListing
                               ? 'bg-lime-400 text-slate-950 shadow-md'
                               : 'bg-white/20 text-slate-300'
                           }`}
                         >
-                          {product.status === 'pending_verification'
+                          {isDraft
+                            ? 'Draft'
+                            : product.status === 'pending_verification'
                             ? 'Pending Verification'
                             : product.status === 'out_of_stock'
                             ? 'Out of Stock'
@@ -226,26 +323,43 @@ export const MyProductsPage: React.FC = () => {
                       <div>
                         <span className="text-slate-400 block text-[10px] font-mono uppercase">Unit Price</span>
                         <span className="font-black text-lime-400 font-mono text-sm">
-                          LKR {displayPrice} / {product.unit}
+                          {isDraft && (!displayPrice || displayPrice === 0)
+                            ? 'Not set'
+                            : `LKR ${displayPrice} / ${product.unit}`}
                         </span>
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px] font-mono uppercase">Available Stock</span>
                         <span className="font-bold text-white font-mono">
-                          {product.availableQuantity} {product.unit}
+                          {isDraft && (!product.availableQuantity || product.availableQuantity === 0)
+                            ? 'Not set'
+                            : `${product.availableQuantity} ${product.unit}`}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => handleToggleActive(product)}
-                    className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Power className="w-3.5 h-3.5" />
-                    <span>{product.isActive ? 'Pause' : 'Activate'}</span>
-                  </button>
+                <div
+                  className="pt-3 border-t border-white/10 flex items-center justify-between gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isDraft ? (
+                    <button
+                      onClick={() => navigate(`/farmer/products/${product._id}/edit`)}
+                      className="px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/30 text-[11px] font-bold text-amber-300 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>Resume Draft</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleActive(product)}
+                      className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Power className="w-3.5 h-3.5" />
+                      <span>{product.isActive ? 'Pause' : 'Activate'}</span>
+                    </button>
+                  )}
 
                   <div className="flex gap-1.5">
                     <button

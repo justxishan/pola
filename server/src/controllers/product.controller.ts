@@ -38,6 +38,7 @@ export class ProductController {
         description,
         status: requestedStatus,
         isDraft,
+        saveAsDraft,
       } = req.body;
 
       const farm = await Farm.findOne({ _id: farmId, farmerId });
@@ -57,7 +58,12 @@ export class ProductController {
         finalImages.push(images.trim());
       }
 
-      const isDraftSubmission = isDraft === true || isDraft === 'true' || requestedStatus === 'draft';
+      const isDraftSubmission =
+        isDraft === true ||
+        isDraft === 'true' ||
+        saveAsDraft === true ||
+        saveAsDraft === 'true' ||
+        requestedStatus === 'draft';
       const initialStatus = isDraftSubmission
         ? 'draft'
         : farm.verificationStatus === 'verified'
@@ -302,6 +308,26 @@ export class ProductController {
       if (updates.pricingTiers && !updates.b2bPricingTiers) updates.b2bPricingTiers = updates.pricingTiers;
       if (updates.isActive !== undefined && !updates.status) {
         updates.status = updates.isActive ? 'active' : 'delisted';
+      }
+
+      if (
+        updates.isDraft === true ||
+        updates.isDraft === 'true' ||
+        updates.saveAsDraft === true ||
+        updates.saveAsDraft === 'true' ||
+        updates.status === 'draft'
+      ) {
+        updates.status = 'draft';
+      } else if (
+        updates.publish === true ||
+        updates.publish === 'true' ||
+        updates.status === 'active' ||
+        (product.status === 'draft' && (updates.isDraft === false || updates.saveAsDraft === false))
+      ) {
+        const farm = await Farm.findById(updates.farmId || product.farmId);
+        updates.status = farm && farm.verificationStatus === 'verified'
+          ? 'active'
+          : 'pending_verification';
       }
 
       const oldPrice = product.basePricePerUnit;

@@ -17,15 +17,35 @@ import {
   ArrowLeft,
   Navigation,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import toast from 'react-hot-toast';
+
+function formatRelativeTime(timestamp: number): string {
+  const diffMs = Date.now() - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin === 1) return '1 minute ago';
+  if (diffMin < 60) return `${diffMin} minutes ago`;
+  if (diffHour === 1) return '1 hour ago';
+  if (diffHour < 24) return `${diffHour} hours ago`;
+  if (diffDay === 1) return 'yesterday';
+  return `${diffDay} days ago`;
+}
 
 export const AddFarmPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
+
+  const farmerId = user?._id || user?.id || 'anonymous';
+  const DRAFT_STORAGE_KEY = `pola:draft:farm:new:${farmerId}`;
 
   const [farmName, setFarmName] = useState('');
   const [province, setProvince] = useState('Central');
@@ -44,7 +64,131 @@ export const AddFarmPage: React.FC = () => {
   const [certFiles, setCertFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Autosave and Recovery state
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<{
+    data: any;
+    savedAt: number;
+  } | null>(null);
+
   const navItems = getFarmerNavItems(t);
+
+  // Mount effect: check for an unsubmitted local draft (< 48h)
+  useEffect(() => {
+    checkExistingDraft();
+  }, []);
+
+  const checkExistingDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const savedAt = parsed.savedAt || 0;
+        const isFresh = Date.now() - savedAt < 48 * 60 * 60 * 1000;
+        const hasContent = Boolean(
+          (parsed.farmName && parsed.farmName.trim()) ||
+          (parsed.nearestVillage && parsed.nearestVillage.trim()) ||
+          (parsed.addressLine && parsed.addressLine.trim()) ||
+          (parsed.landExtent !== undefined && parsed.landExtent !== '')
+        );
+
+        if (isFresh && hasContent) {
+          setPendingDraft({ data: parsed, savedAt });
+        } else {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        }
+      }
+    } catch (err) {
+      console.warn('Error checking farm draft storage', err);
+    } finally {
+      setIsInitialized(true);
+    }
+  };
+
+  // Autosave debouncer: writes form state to localStorage after 1.5s of inactivity
+  useEffect(() => {
+    if (!isInitialized || pendingDraft) return;
+
+    const hasContent = Boolean(
+      farmName.trim() ||
+      nearestVillage.trim() ||
+      addressLine.trim() ||
+      landExtent !== ''
+    );
+
+    if (!hasContent) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          farmName,
+          province,
+          district,
+          nearestVillage,
+          addressLine,
+          latitude,
+          longitude,
+          landExtent,
+          extentUnit,
+          ownershipType,
+          irrigationSource,
+          isOrganicCertified,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.warn('Failed to autosave farm registration to localStorage', err);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    isInitialized,
+    pendingDraft,
+    farmName,
+    province,
+    district,
+    nearestVillage,
+    addressLine,
+    latitude,
+    longitude,
+    landExtent,
+    extentUnit,
+    ownershipType,
+    irrigationSource,
+    isOrganicCertified,
+    DRAFT_STORAGE_KEY,
+  ]);
+
+  const handleResumeDraft = () => {
+    if (!pendingDraft?.data) return;
+    const d = pendingDraft.data;
+    if (d.farmName) setFarmName(d.farmName);
+    if (d.province) setProvince(d.province);
+    if (d.district) setDistrict(d.district);
+    if (d.nearestVillage) setNearestVillage(d.nearestVillage);
+    if (d.addressLine) setAddressLine(d.addressLine);
+    if (d.latitude !== undefined) setLatitude(d.latitude);
+    if (d.longitude !== undefined) setLongitude(d.longitude);
+    if (d.landExtent !== undefined) setLandExtent(d.landExtent);
+    if (d.extentUnit) setExtentUnit(d.extentUnit);
+    if (d.ownershipType) setOwnershipType(d.ownershipType);
+    if (d.irrigationSource) setIrrigationSource(d.irrigationSource);
+    if (d.isOrganicCertified !== undefined) setIsOrganicCertified(d.isOrganicCertified);
+
+    setPendingDraft(null);
+    toast.success('Restored unfinished farm registration from autosave');
+  };
+
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {
+      console.warn(e);
+    }
+    setPendingDraft(null);
+    toast('Autosaved draft discarded');
+  };
 
   const handleGetLocation = () => {
     if (navigator.geolocation) {
@@ -130,6 +274,12 @@ export const AddFarmPage: React.FC = () => {
         await FarmService.createFarmJson(payload);
       }
 
+      try {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch (e) {
+        console.warn(e);
+      }
+
       toast.success('Farm registered successfully!');
       navigate('/farmer/farms');
     } catch (err: any) {
@@ -181,6 +331,44 @@ export const AddFarmPage: React.FC = () => {
             Enter land acreage, irrigation, and optional GPS pin for village hub collection routing
           </p>
         </div>
+
+        {/* Reconnect Recovery Banner */}
+        {pendingDraft && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-slate-800 dark:text-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 mt-0.5">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                  Unfinished farm registration found
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  You have an unfinished farm registration from {formatRelativeTime(pendingDraft.savedAt)}.{' '}
+                  <span className="text-amber-600 dark:text-amber-400 font-medium">
+                    (Certificate document must be re-attached upon resuming)
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleResumeDraft}
+                className="px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors cursor-pointer shadow-xs"
+              >
+                Resume Registration
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
           {/* Progress Indicator matching 01 */}

@@ -24,11 +24,30 @@ import {
 import { cn } from '@/lib/cn';
 import toast from 'react-hot-toast';
 
+function formatRelativeTime(timestamp: number): string {
+  const diffMs = Date.now() - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffMin < 1) return 'just now';
+  if (diffMin === 1) return '1 minute ago';
+  if (diffMin < 60) return `${diffMin} minutes ago`;
+  if (diffHour === 1) return '1 hour ago';
+  if (diffHour < 24) return `${diffHour} hours ago`;
+  if (diffDay === 1) return 'yesterday';
+  return `${diffDay} days ago`;
+}
+
 export const AddProductPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
+
+  const farmerId = user?._id || user?.id || 'anonymous';
+  const DRAFT_STORAGE_KEY = `pola:draft:product:new:${farmerId}`;
 
   const [farms, setFarms] = useState<any[]>([]);
   const [farmId, setFarmId] = useState('');
@@ -54,12 +73,132 @@ export const AddProductPage: React.FC = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
+  // Autosave and Recovery state
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<{
+    data: any;
+    savedAt: number;
+  } | null>(null);
+
   const navItems = getFarmerNavItems(t);
   const unitDisplay = UNIT_LABELS[unit as keyof typeof UNIT_LABELS] || unit;
 
+  // Mount effect: fetch farms and check for an unsubmitted local draft (< 48h)
   useEffect(() => {
     fetchFarms();
+    checkExistingDraft();
   }, []);
+
+  const checkExistingDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const savedAt = parsed.savedAt || 0;
+        const isFresh = Date.now() - savedAt < 48 * 60 * 60 * 1000;
+        const hasContent = Boolean(
+          (parsed.title && parsed.title.trim()) ||
+          (parsed.pricePerUnit !== undefined && parsed.pricePerUnit !== '') ||
+          (parsed.availableQuantity !== undefined && parsed.availableQuantity !== '') ||
+          (parsed.description && parsed.description.trim()) ||
+          (parsed.pricingTiers && parsed.pricingTiers.length > 0)
+        );
+
+        if (isFresh && hasContent) {
+          setPendingDraft({ data: parsed, savedAt });
+        } else {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        }
+      }
+    } catch (err) {
+      console.warn('Error checking draft storage', err);
+    } finally {
+      setIsInitialized(true);
+    }
+  };
+
+  // Autosave debouncer: writes form state to localStorage after 1.5s of inactivity
+  useEffect(() => {
+    if (!isInitialized || pendingDraft) return;
+
+    const hasContent = Boolean(
+      title.trim() ||
+      pricePerUnit !== '' ||
+      availableQuantity !== '' ||
+      description.trim() ||
+      pricingTiers.length > 0
+    );
+
+    if (!hasContent) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          title,
+          farmId,
+          category,
+          unit,
+          pricePerUnit,
+          availableQuantity,
+          minOrderQuantity,
+          description,
+          harvestSeason,
+          isOrganic,
+          pricingTiers,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.warn('Failed to autosave crop listing to localStorage', err);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    isInitialized,
+    pendingDraft,
+    title,
+    farmId,
+    category,
+    unit,
+    pricePerUnit,
+    availableQuantity,
+    minOrderQuantity,
+    description,
+    harvestSeason,
+    isOrganic,
+    pricingTiers,
+    DRAFT_STORAGE_KEY,
+  ]);
+
+  const handleResumeDraft = () => {
+    if (!pendingDraft?.data) return;
+    const d = pendingDraft.data;
+    if (d.title) setTitle(d.title);
+    if (d.farmId) setFarmId(d.farmId);
+    if (d.category) setCategory(d.category);
+    if (d.unit) setUnit(d.unit);
+    if (d.pricePerUnit !== undefined) setPricePerUnit(d.pricePerUnit);
+    if (d.availableQuantity !== undefined) setAvailableQuantity(d.availableQuantity);
+    if (d.minOrderQuantity !== undefined) setMinOrderQuantity(d.minOrderQuantity);
+    if (d.description) setDescription(d.description);
+    if (d.harvestSeason) setHarvestSeason(d.harvestSeason);
+    if (d.isOrganic !== undefined) setIsOrganic(d.isOrganic);
+    if (d.pricingTiers && Array.isArray(d.pricingTiers)) setPricingTiers(d.pricingTiers);
+
+    setPendingDraft(null);
+    toast.success('Restored unfinished crop listing from autosave');
+  };
+
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {
+      console.warn(e);
+    }
+    setPendingDraft(null);
+    toast('Autosaved draft discarded');
+  };
 
   const fetchFarms = async () => {
     try {
@@ -172,6 +311,11 @@ export const AddProductPage: React.FC = () => {
 
       const res: any = await ProductService.createProduct(formData);
       if (res.success) {
+        try {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        } catch (e) {
+          console.warn(e);
+        }
         toast.success(isDraft ? 'Crop listing saved as draft!' : 'Crop harvest listed on marketplace!');
         navigate('/farmer/products');
       }
@@ -225,6 +369,44 @@ export const AddProductPage: React.FC = () => {
             List fresh produce available for pickup during upcoming village collection schedules
           </p>
         </div>
+
+        {/* Reconnect Recovery Banner */}
+        {pendingDraft && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-slate-800 dark:text-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 mt-0.5">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                  Unfinished crop listing found
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  You have an unfinished crop listing from {formatRelativeTime(pendingDraft.savedAt)}.{' '}
+                  <span className="text-amber-600 dark:text-amber-400 font-medium">
+                    (Photos must be re-attached upon resuming)
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleResumeDraft}
+                className="px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors cursor-pointer shadow-xs"
+              >
+                Resume Listing
+              </button>
+            </div>
+          </div>
+        )}
 
         <form
           onSubmit={(e) => {
