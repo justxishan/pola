@@ -3,9 +3,11 @@ import { cn } from '@/lib/cn';
 import { LanguageCode } from '@/lib/i18n';
 import { ProfileDropdown } from '@/components/organisms/ProfileDropdown';
 import { SidebarNavItem } from '@/components/templates/DashboardLayout';
+import { Avatar } from '@/components/atoms/Avatar';
 import {
   Bell,
   ChevronDown,
+  HelpCircle,
 } from 'lucide-react';
 
 export interface TopNavProps {
@@ -20,10 +22,13 @@ export interface TopNavProps {
   onToggleTheme?: () => void;
   displayedUnreadCount: number;
   onOpenNotifications: () => void;
+  onOpenHelp?: () => void;
   user?: {
     name?: string;
+    fullName?: string;
     email: string;
     avatar?: string;
+    avatarUrl?: string;
     role?: string;
   };
   onRequestSignOut?: () => void;
@@ -50,6 +55,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onToggleTheme,
   displayedUnreadCount,
   onOpenNotifications,
+  onOpenHelp,
   user,
   onRequestSignOut,
   theme,
@@ -130,6 +136,18 @@ export const TopNav: React.FC<TopNavProps> = ({
 
         {/* Right: Actions Cluster */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Help & Support */}
+          {onOpenHelp && (
+            <button
+              onClick={onOpenHelp}
+              className="p-2 rounded-full bg-white/10 border border-white/10 text-slate-300 hover:text-white hover:bg-white/15 transition-all cursor-pointer"
+              aria-label="Help & Support"
+              title="Help & Support"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Notification Bell */}
           <button
             onClick={onOpenNotifications}
@@ -150,16 +168,13 @@ export const TopNav: React.FC<TopNavProps> = ({
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-white/10 border border-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
-                title={user.name || user.email}
+                title={user.fullName || user.name || user.email}
               >
-                <div
-                  className={cn(
-                    'w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-slate-950 shadow-xs',
-                    theme.avatarBg
-                  )}
-                >
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </div>
+                <Avatar
+                  src={user.avatarUrl || user.avatar}
+                  name={user.fullName || user.name || user.email}
+                  size="xs"
+                />
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 

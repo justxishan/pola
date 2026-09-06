@@ -28,4 +28,8 @@ export const AuthService = {
   updateProfile: async (data: any) => {
     return api.patch('/auth/profile', data);
   },
+
+  deleteAccount: async (reason: string, details?: string) => {
+    return api.delete('/auth/account', { data: { reason, details } });
+  },
 };

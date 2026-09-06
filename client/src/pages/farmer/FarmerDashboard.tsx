@@ -10,6 +10,7 @@ import { getFarmerNavItems } from '@/lib/navItems';
 import { api } from '@/services/api';
 import { RatingService } from '@/services/rating.service';
 import { ReviewCard } from '@/components/molecules/ReviewCard';
+import { cn } from '@/lib/cn';
 import {
   Plus,
   ArrowRight,
@@ -99,7 +100,7 @@ export const FarmerDashboard: React.FC = () => {
   };
 
   const isKycVerified = user?.kycStatus === 'verified';
-  const hasBank = !!(user as any)?.bankDetails?.accountNumber || !!(user as any)?.bankAccount?.accountNumber;
+  const hasBank = !!user?.bankDetails?.accountNumber;
   const hasFarms = (stats.registeredFarms || 0) > 0;
 
   const completedSteps = 1 + (hasBank ? 1 : 0) + (isKycVerified ? 1 : 0) + (hasFarms ? 1 : 0);
@@ -139,7 +140,7 @@ export const FarmerDashboard: React.FC = () => {
               {t.dashboard || 'Dashboard'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300">
-              Direct marketplace orders, LankaPay wallet balance, and village hub intake logistics
+              Direct marketplace orders, wallet balance, and village hub intake logistics
             </p>
           </div>
 
@@ -190,100 +191,105 @@ export const FarmerDashboard: React.FC = () => {
         </div>
 
         {/* Activation Checklist & Quick Actions Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className={cn(
+          "grid grid-cols-1 gap-6",
+          completionPercentage < 100 ? "lg:grid-cols-12" : "sm:grid-cols-2"
+        )}>
           {/* Left: Complete Your Profile Checklist */}
-          <div className="lg:col-span-7 glass-terminal p-6 sm:p-8 rounded-3xl border border-white/15 space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-lime-400/20 text-lime-300">
-                  <Sparkles className="w-5 h-5" />
+          {completionPercentage < 100 && (
+            <div className="lg:col-span-7 glass-terminal p-6 sm:p-8 rounded-3xl border border-white/15 space-y-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-lime-400/20 text-lime-300">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base text-white">
+                      Complete Your Profile
+                    </h3>
+                    <p className="text-xs text-slate-300">Complete setup to unlock automatic bulk dispatch matching</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-extrabold text-base text-white">
-                    Complete Your Profile
-                  </h3>
-                  <p className="text-xs text-slate-300">Complete setup to unlock automatic bulk dispatch matching</p>
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-black bg-lime-400/20 text-lime-300 border border-lime-400/30">
+                  {completionPercentage}% Completed
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {/* Task 1 */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-xs text-white">Farmer Account Activated</h4>
+                      <p className="text-[11px] text-slate-400">Authenticated via email OTP security</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-lime-300">Ready</span>
+                </div>
+
+                {/* Task 2 */}
+                <div
+                  onClick={() => navigate('/wallet')}
+                  className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-lime-400/50 transition-all flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    {hasBank ? (
+                      <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-slate-500 shrink-0" />
+                    )}
+                    <div>
+                      <h4 className="font-bold text-xs text-white">Bank Account Setup</h4>
+                      <p className="text-[11px] text-slate-400">For guaranteed 24-hour sale payouts</p>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-slate-400" />
+                </div>
+
+                {/* Task 3 */}
+                <div
+                  onClick={() => navigate('/auth/kyc')}
+                  className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-lime-400/50 transition-all flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    {isKycVerified ? (
+                      <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-slate-500 shrink-0" />
+                    )}
+                    <div>
+                      <h4 className="font-bold text-xs text-white">NIC & Agrarian Land Verification</h4>
+                      <p className="text-[11px] text-slate-400">Unlocks Verified Producer green badge</p>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-slate-400" />
+                </div>
+
+                {/* Task 4 */}
+                <div
+                  onClick={() => navigate(hasFarms ? '/farmer/farms' : '/farmer/farms/new')}
+                  className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-lime-400/50 transition-all flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    {hasFarms ? (
+                      <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-slate-500 shrink-0" />
+                    )}
+                    <div>
+                      <h4 className="font-bold text-xs text-white">Registered Farm Parcel</h4>
+                      <p className="text-[11px] text-slate-400">Plot extent, soil, and irrigation setup</p>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-slate-400" />
                 </div>
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-mono font-black bg-lime-400/20 text-lime-300 border border-lime-400/30">
-                {completionPercentage}% Completed
-              </span>
             </div>
-
-            <div className="space-y-3">
-              {/* Task 1 */}
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
-                  <div>
-                    <h4 className="font-bold text-xs text-white">Farmer Account Activated</h4>
-                    <p className="text-[11px] text-slate-400">Authenticated via email OTP security</p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-bold text-lime-300">Ready</span>
-              </div>
-
-              {/* Task 2 */}
-              <div
-                onClick={() => navigate('/wallet')}
-                className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-lime-400/50 transition-all flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  {hasBank ? (
-                    <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-slate-500 shrink-0" />
-                  )}
-                  <div>
-                    <h4 className="font-bold text-xs text-white">LankaPay Bank Account Setup</h4>
-                    <p className="text-[11px] text-slate-400">For guaranteed 24-hour sale payouts</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-slate-400" />
-              </div>
-
-              {/* Task 3 */}
-              <div
-                onClick={() => navigate('/auth/kyc')}
-                className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-lime-400/50 transition-all flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  {isKycVerified ? (
-                    <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-slate-500 shrink-0" />
-                  )}
-                  <div>
-                    <h4 className="font-bold text-xs text-white">NIC & Agrarian Land Verification</h4>
-                    <p className="text-[11px] text-slate-400">Unlocks Verified Producer green badge</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-slate-400" />
-              </div>
-
-              {/* Task 4 */}
-              <div
-                onClick={() => navigate(hasFarms ? '/farmer/farms' : '/farmer/farms/new')}
-                className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-lime-400/50 transition-all flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  {hasFarms ? (
-                    <CheckCircle2 className="w-5 h-5 text-lime-400 shrink-0" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-slate-500 shrink-0" />
-                  )}
-                  <div>
-                    <h4 className="font-bold text-xs text-white">Registered Farm Parcel</h4>
-                    <p className="text-[11px] text-slate-400">Plot extent, soil, and irrigation setup</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-slate-400" />
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Right: Quick Action Tiles */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className={completionPercentage < 100 ? "lg:col-span-5 space-y-4" : "contents"}>
             <div
               onClick={() => navigate('/farmer/farms')}
               className="glass-terminal p-6 rounded-3xl border border-white/15 hover:border-lime-400/50 transition-all cursor-pointer space-y-3"

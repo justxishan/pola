@@ -38,8 +38,10 @@ export interface DashboardLayoutProps {
   unreadNotificationsCount?: number;
   user?: {
     name?: string;
+    fullName?: string;
     email: string;
     avatar?: string;
+    avatarUrl?: string;
     role?: string;
   };
   onLogout?: () => void;
@@ -182,6 +184,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         onToggleTheme={propToggleTheme || toggleTheme}
         displayedUnreadCount={displayedUnreadCount}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onOpenHelp={() => onNavigate('/support')}
         user={user}
         onRequestSignOut={() => setIsSignOutConfirmOpen(true)}
         theme={theme}

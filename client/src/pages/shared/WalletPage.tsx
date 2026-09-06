@@ -83,7 +83,22 @@ export const WalletPage: React.FC = () => {
     try {
       const res: any = await BankAccountService.getMyBankAccounts();
       if (res.success && res.data) {
-        setBankAccounts(res.data.bankAccounts || []);
+        const accounts = res.data.bankAccounts || [];
+        setBankAccounts(accounts);
+
+        // Keep the cached profile in sync — FarmerDashboard's checklist reads
+        // user.bankDetails and never refetches it otherwise.
+        const primary = accounts.find((a: any) => a.isDefault) || accounts[0];
+        useAuthStore.getState().updateUser({
+          bankDetails: primary
+            ? {
+                bankName: primary.bankName,
+                branchName: primary.branchName,
+                accountNumber: primary.accountNumber,
+                accountHolderName: primary.accountHolderName,
+              }
+            : undefined,
+        });
       }
     } catch {
       // silently fail
@@ -201,7 +216,7 @@ export const WalletPage: React.FC = () => {
       setIsProcessingWithdrawal(true);
       const res: any = await WalletService.requestWithdrawal(amount);
       if (res.success) {
-        toast.success(res.message || 'Withdrawal request submitted for LankaPay batch processing');
+        toast.success(res.message || 'Withdrawal request submitted for bank transfer processing');
         setIsWithdrawOpen(false);
         setWithdrawAmount('');
         fetchWalletData(meta.page || 1);
@@ -221,7 +236,7 @@ export const WalletPage: React.FC = () => {
           <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
             Escrow Wallet &{' '}
             <span className="font-serif-accent italic font-normal text-emerald-300">
-              LankaPay Desk
+              Bank Payouts
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-300">
@@ -272,7 +287,7 @@ export const WalletPage: React.FC = () => {
             .filter((e: any) => e.withdrawalStatus === 'pending')
             .reduce((sum: number, e: any) => sum + Math.abs(e.amountLkr ?? e.amount ?? 0), 0)
             .toLocaleString()}.00`}
-          subtitle="In LankaPay clearing queue"
+          subtitle="In bank transfer queue"
           icon={<ArrowUpRight className="w-6 h-6 text-amber-400" />}
           iconBgColor="bg-amber-500/20 text-amber-300 border border-amber-400/30"
         />
@@ -289,7 +304,7 @@ export const WalletPage: React.FC = () => {
               <div>
                 <h3 className="font-extrabold text-base text-white">Settlement Bank Accounts</h3>
                 <p className="text-xs text-slate-300">
-                  LankaPay registered commercial bank accounts for wallet earnings withdrawal
+                  Commercial bank accounts registered for wallet earnings withdrawal
                 </p>
               </div>
             </div>
@@ -314,7 +329,7 @@ export const WalletPage: React.FC = () => {
               <div>
                 <p className="text-xs font-bold text-white">No Bank Accounts Linked Yet</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Add your Sri Lankan bank account details to enable one-tap LankaPay earnings withdrawals.
+                  Add your Sri Lankan bank account details to enable one-tap earnings withdrawals.
                 </p>
               </div>
               <Button
@@ -499,7 +514,7 @@ export const WalletPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl">
             <div className="flex items-center justify-between border-slate-800 pb-3 border-b">
-              <h3 className="font-extrabold text-base text-white">LankaPay Bank Withdrawal</h3>
+              <h3 className="font-extrabold text-base text-white">Bank Withdrawal</h3>
               <button
                 onClick={() => setIsWithdrawOpen(false)}
                 className="text-slate-400 hover:text-white"
@@ -646,7 +661,7 @@ export const WalletPage: React.FC = () => {
                   className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-800 border-slate-700"
                 />
                 <label htmlFor="isDefaultAccount" className="text-xs text-slate-300 cursor-pointer">
-                  Set as primary payout account for LankaPay withdrawals
+                  Set as primary payout account for bank withdrawals
                 </label>
               </div>
 

@@ -94,6 +94,8 @@ export interface IUser extends Document {
   isPhoneVerified: boolean;
   onboardingCompleted: boolean;
   isActive: boolean;
+  deactivationReason?: string;
+  deactivatedAt?: Date;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -203,6 +205,8 @@ const UserSchema = new Schema<IUser>(
     isPhoneVerified: { type: Boolean, default: false },
     onboardingCompleted: { type: Boolean, default: false, index: true },
     isActive: { type: Boolean, default: true },
+    deactivationReason: { type: String },
+    deactivatedAt: { type: Date },
     lastLoginAt: { type: Date },
   },
   {

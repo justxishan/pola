@@ -79,8 +79,8 @@ export const HelpSupportPage: React.FC = () => {
       a: 'Inspectors grade crops into Grade A (100% payout), Grade B (90% payout), and Grade C (80% salvage/processing). If produce does not meet specifications, you may contest or take it back.',
     },
     {
-      q: 'When do I receive payment in my LankaPay bank account?',
-      a: 'Payments are held securely in Escrow and released to your wallet upon confirmed hub/DC intake. Withdrawals via LankaPay CEFT are credited within 24 business hours.',
+      q: 'When do I receive payment in my bank account?',
+      a: 'Payments are held securely in Escrow and released to your wallet upon confirmed hub/DC intake. Withdrawals via bank transfer (CEFT) are credited within 24 business hours.',
     },
     {
       q: 'How do I return reusable plastic crates?',
@@ -152,7 +152,7 @@ export const HelpSupportPage: React.FC = () => {
           </a>
 
           <a
-            href="tel:+94112868920"
+            href="tel:+94764711882"
             className="p-5 rounded-3xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 flex items-start gap-4 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="p-3 rounded-2xl bg-sky-600 text-white group-hover:scale-105 transition-transform">
@@ -163,7 +163,7 @@ export const HelpSupportPage: React.FC = () => {
                 Pola Support Operations
               </span>
               <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                011 286 8920
+                076 471 1882
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Logistics & Village Hub intake issues
@@ -172,7 +172,7 @@ export const HelpSupportPage: React.FC = () => {
           </a>
 
           <a
-            href="https://wa.me/94771234567"
+            href="https://wa.me/94773113140"
             target="_blank"
             rel="noopener noreferrer"
             className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-4 hover:shadow-md transition-all cursor-pointer group"
@@ -185,7 +185,7 @@ export const HelpSupportPage: React.FC = () => {
                 WhatsApp Live Chat
               </span>
               <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                +94 77 123 4567
+                +94 77 311 3140
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Immediate photographic grading disputes
@@ -198,10 +198,10 @@ export const HelpSupportPage: React.FC = () => {
         <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
-              Submit Support Ticket or Hub Inquiry
+              Submit Operational Ticket
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Our regional field team typically responds within 2 hours during intake periods
+              Logged directly into Colombo Command Center dispatch queue
             </p>
           </div>
 
@@ -213,7 +213,7 @@ export const HelpSupportPage: React.FC = () => {
                 onChange={(e) => setCategory(e.target.value)}
               >
                 <option value="hub_grading">Hub Grading / Weight Discrepancy</option>
-                <option value="payout_delay">LankaPay Settlement / Escrow Delay</option>
+                <option value="payout_delay">Bank Settlement / Escrow Delay</option>
                 <option value="transport_pickup">Transport Vehicle Missed Pickup</option>
                 <option value="crates">Crate Deposit or Replacement</option>
                 <option value="technical">Mobile App or Listing Issue</option>

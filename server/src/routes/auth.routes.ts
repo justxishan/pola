@@ -10,6 +10,7 @@ import {
   GoogleAuthSchema,
   SelectRoleSchema,
   UpdateProfileSchema,
+  DeleteAccountSchema,
 } from '../validators/auth.validator.js';
 
 const router = Router();
@@ -29,6 +30,7 @@ router.get('/me', authenticate, AuthController.getProfile);
 
 router.patch('/profile', authenticate, validateRequest(UpdateProfileSchema), AuthController.updateProfile);
 router.post('/select-role', authenticate, validateRequest(SelectRoleSchema), AuthController.selectRole);
+router.delete('/account', authenticate, validateRequest(DeleteAccountSchema), AuthController.deleteAccount);
 
 router.post(
   '/kyc/submit',

@@ -73,16 +73,19 @@ export const MyProductsPage: React.FC = () => {
 
   const handleToggleActive = async (product: any) => {
     try {
-      const isCurrentlyActive = product.status === 'active' || product.isActive;
-      const nextStatus = !isCurrentlyActive;
-      await ProductService.updateProduct(product._id, {
-        status: nextStatus ? 'active' : 'delisted',
-        isActive: nextStatus,
-      });
-      toast.success(`Listing ${nextStatus ? 'activated' : 'paused'}`);
+      const isCurrentlyActive = product.status === 'active';
+      const nextStatus = isCurrentlyActive ? 'delisted' : 'active';
+      const res: any = await ProductService.updateProduct(product._id, { status: nextStatus });
+      const updated = res?.data?.product;
+
+      if (!isCurrentlyActive && updated?.status === 'pending_verification') {
+        toast.error('This listing needs your farm to be verified by Pola admin before it can go live.');
+      } else {
+        toast.success(nextStatus === 'active' ? 'Listing is now live on the marketplace' : 'Listing deactivated');
+      }
       fetchProducts();
     } catch (err: any) {
-      toast.error('Failed to toggle status');
+      toast.error(err.response?.data?.message || err.message || 'Failed to update listing status');
     }
   };
 
@@ -367,13 +370,22 @@ export const MyProductsPage: React.FC = () => {
                       <Edit className="w-3.5 h-3.5" />
                       <span>Resume Draft</span>
                     </button>
+                  ) : product.status === 'pending_verification' ? (
+                    <span className="px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-[11px] font-bold text-amber-300">
+                      Awaiting Farm Verification
+                    </span>
                   ) : (
                     <button
                       onClick={() => handleToggleActive(product)}
-                      className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
+                      className={cn(
+                        'px-3.5 py-1.5 rounded-full border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer',
+                        isActiveListing
+                          ? 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-400/30 text-rose-300'
+                          : 'bg-lime-400/10 hover:bg-lime-400/20 border-lime-400/30 text-lime-300'
+                      )}
                     >
                       <Power className="w-3.5 h-3.5" />
-                      <span>{product.isActive ? 'Pause' : 'Activate'}</span>
+                      <span>{isActiveListing ? 'Deactivate' : 'Go Live'}</span>
                     </button>
                   )}
 
@@ -407,9 +419,9 @@ export const MyProductsPage: React.FC = () => {
         description={`Are you sure you want to permanently remove "${productToDelete?.productName || productToDelete?.title || 'this listing'}"? This cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
-        variant="danger"
+        isDestructive={true}
         onConfirm={() => productToDelete && executeDelete(productToDelete._id)}
-        onClose={() => {
+        onCancel={() => {
           setIsConfirmOpen(false);
           setProductToDelete(null);
         }}

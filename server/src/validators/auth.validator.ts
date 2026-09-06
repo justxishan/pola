@@ -61,3 +61,10 @@ export const UpdateProfileSchema = z.object({
       .optional(),
   }),
 });
+
+export const DeleteAccountSchema = z.object({
+  body: z.object({
+    reason: z.string().min(1, 'Please select a reason'),
+    details: z.string().optional(),
+  }),
+});

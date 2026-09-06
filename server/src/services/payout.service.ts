@@ -59,7 +59,7 @@ export class PayoutService {
       previousBalanceLkr: prevBal,
       newBalanceLkr: wallet.availableBalanceLkr,
       withdrawalStatus: WithdrawalStatus.REQUESTED,
-      description: `LankaPay withdrawal request of LKR ${amountLkr.toFixed(2)} to ${defaultAccount.bankName} (${maskedAcc})`,
+      description: `Bank withdrawal request of LKR ${amountLkr.toFixed(2)} to ${defaultAccount.bankName} (${maskedAcc})`,
     });
 
     logger.info(`💸 Withdrawal requested: LKR ${amountLkr} by user ${userId} to ${defaultAccount.bankName} (${maskedAcc})`);

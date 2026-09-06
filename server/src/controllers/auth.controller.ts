@@ -88,6 +88,10 @@ export class AuthController {
         throw new AppError('User not found. Please request a new OTP.', 404);
       }
 
+      if (user.isActive === false) {
+        throw new AppError('This account has been deactivated. Contact Pola support to reactivate it.', 403);
+      }
+
       if (!user.otpCode || !user.otpExpiresAt) {
         throw new AppError('No OTP request found. Please request a new OTP.', 400);
       }
@@ -170,6 +174,9 @@ export class AuthController {
           kycStatus: VerificationStatus.UNVERIFIED,
         });
       } else {
+        if (user.isActive === false) {
+          throw new AppError('This account has been deactivated. Contact Pola support to reactivate it.', 403);
+        }
         user.googleId = payload.sub;
         user.isEmailVerified = true;
         user.lastLoginAt = new Date();
@@ -386,6 +393,31 @@ export class AuthController {
         success: true,
         message: 'Profile updated successfully',
         data: { user: updatedUser },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete / Deactivate Account
+   */
+  static async deleteAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const { reason, details } = req.body;
+
+      const user = await User.findById(userId);
+      if (!user) throw new AppError('User not found', 404);
+
+      user.isActive = false;
+      user.deactivationReason = details ? `${reason}: ${details}` : reason;
+      user.deactivatedAt = new Date();
+      await user.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Your account has been deactivated.',
       });
     } catch (error) {
       next(error);

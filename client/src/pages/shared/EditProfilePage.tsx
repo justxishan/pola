@@ -13,6 +13,7 @@ import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems, getDeliveryNavItems } from '@/lib/navItems';
 import { DISTRICTS } from '@pola/shared';
 import { ArrowLeft, User, Building, ShieldCheck, Save, MapPin, Home } from 'lucide-react';
+import { DeleteAccountModal } from '@/components/organisms/DeleteAccountModal';
 import toast from 'react-hot-toast';
 
 export const EditProfilePage: React.FC = () => {
@@ -20,6 +21,8 @@ export const EditProfilePage: React.FC = () => {
   const { user, updateUser, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -320,10 +323,27 @@ export const EditProfilePage: React.FC = () => {
                 </Button>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                LankaPay settlement bank accounts are managed directly inside your <strong>Earnings & Wallet</strong> section. You can register multiple accounts, set a primary payout destination, and securely update bank details.
+                Your settlement bank accounts are managed directly inside your <strong>Earnings & Wallet</strong> section. You can register multiple accounts, set a primary payout destination, and securely update bank details.
               </p>
             </div>
           )}
+
+          {/* Danger Zone */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/50 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-rose-600 dark:text-rose-400">Danger Zone</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Deleting your account will delist all your crop listings and sign you out immediately.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="text-rose-600 border-rose-300 dark:border-rose-800"
+            >
+              Delete My Account
+            </Button>
+          </div>
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-2">
@@ -348,6 +368,8 @@ export const EditProfilePage: React.FC = () => {
           </div>
         </form>
       </div>
+
+      <DeleteAccountModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} />
     </DashboardLayout>
   );
 };

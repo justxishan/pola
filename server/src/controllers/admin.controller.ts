@@ -7,6 +7,7 @@ import { Product } from '../models/Product.model.js';
 import { LedgerEntry } from '../models/LedgerEntry.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
 import { PayoutService } from '../services/payout.service.js';
+import { NotificationService } from '../services/notification.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { VerificationStatus, WithdrawalStatus, OrderStatus, Role } from '@pola/shared';
 
@@ -121,6 +122,22 @@ export class AdminController {
         details: { status, rejectionReason },
       });
 
+      const portal =
+        user.role?.toString().startsWith('farmer') || user.role === Role.COLLECTOR ? 'farmer' :
+        user.role?.toString().startsWith('delivery') ? 'delivery' :
+        user.role?.toString().startsWith('admin') ? 'admin' : 'customer';
+
+      await NotificationService.sendNotification({
+        userId: user._id,
+        title: status === VerificationStatus.VERIFIED ? 'KYC Verification Approved ✅' : 'KYC Verification Rejected',
+        message: status === VerificationStatus.VERIFIED
+          ? 'Your identity verification has been approved. You now have the Verified Producer badge.'
+          : `Your KYC submission was rejected: ${user.kycRejectionReason}`,
+        type: 'kyc',
+        portal,
+        destinationKey: 'KYC',
+      });
+
       res.status(200).json({
         success: true,
         message: `KYC status updated to ${status}`,
@@ -184,6 +201,16 @@ export class AdminController {
         details: { bankReferenceNumber, amount: entry.amountLkr },
       });
 
+      const withdrawUser = await User.findById(entry.userId).select('role');
+      await NotificationService.sendNotification({
+        userId: entry.userId,
+        title: 'Bank Withdrawal Processed 💸',
+        message: `Your withdrawal of LKR ${Math.abs(entry.amountLkr).toLocaleString()} has been sent to your bank (Ref: ${bankReferenceNumber}).`,
+        type: 'wallet',
+        portal: withdrawUser?.role?.toString().startsWith('delivery') ? 'delivery' : 'farmer',
+        destinationKey: 'WALLET',
+      });
+
       res.status(200).json({
         success: true,
         message: 'Withdrawal marked as processed',
@@ -213,6 +240,16 @@ export class AdminController {
         targetEntity: 'LedgerEntry',
         targetId: id,
         details: { rejectionReason, amount: entry.amountLkr },
+      });
+
+      const withdrawUser = await User.findById(entry.userId).select('role');
+      await NotificationService.sendNotification({
+        userId: entry.userId,
+        title: 'Bank Withdrawal Rejected',
+        message: `Your withdrawal request was rejected: ${rejectionReason}. The amount has been returned to your available balance.`,
+        type: 'wallet',
+        portal: withdrawUser?.role?.toString().startsWith('delivery') ? 'delivery' : 'farmer',
+        destinationKey: 'WALLET',
       });
 
       res.status(200).json({
@@ -400,6 +437,15 @@ export class AdminController {
         details: { farmName: farm.farmName, district: farm.district, productsActivated: modifiedCount, notes },
       });
 
+      await NotificationService.sendNotification({
+        userId: farm.farmerId,
+        title: 'Farm Approved ✅',
+        message: `Your farm "${farm.farmName}" has been verified. ${modifiedCount} pending crop listing(s) are now live on the marketplace.`,
+        type: 'kyc',
+        portal: 'farmer',
+        linkUrl: '/farmer/farms',
+      });
+
       res.status(200).json({
         success: true,
         message: `Farm "${farm.farmName}" approved. ${modifiedCount} product(s) activated on the marketplace.`,
@@ -436,6 +482,15 @@ export class AdminController {
         targetEntity: 'Farm',
         targetId: farm._id.toString(),
         details: { farmName: farm.farmName, district: farm.district, reason },
+      });
+
+      await NotificationService.sendNotification({
+        userId: farm.farmerId,
+        title: 'Farm Verification Rejected',
+        message: `Your farm "${farm.farmName}" was rejected: ${reason}`,
+        type: 'kyc',
+        portal: 'farmer',
+        linkUrl: '/farmer/farms',
       });
 
       res.status(200).json({
