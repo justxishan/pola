@@ -18,6 +18,7 @@ import {
   Navigation,
   CheckCircle2,
 } from 'lucide-react';
+import { cn } from '@/lib/cn';
 import toast from 'react-hot-toast';
 
 export const AddFarmPage: React.FC = () => {
@@ -33,7 +34,9 @@ export const AddFarmPage: React.FC = () => {
   const [addressLine, setAddressLine] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
-  const [landExtent, setLandExtent] = useState(2.5);
+  
+  // Clean empty default for numeric farm size (Bug 6 class)
+  const [landExtent, setLandExtent] = useState<number | ''>('');
   const [extentUnit, setExtentUnit] = useState<'acres' | 'perches' | 'hectares'>('acres');
   const [ownershipType, setOwnershipType] = useState('owned');
   const [irrigationSource, setIrrigationSource] = useState('well');
@@ -56,15 +59,32 @@ export const AddFarmPage: React.FC = () => {
     }
   };
 
+  // 8 Core fields for completeness tracking
+  const completedFieldsCount = [
+    Boolean(farmName.trim()),
+    Boolean(province),
+    Boolean(district),
+    Boolean(nearestVillage.trim() || addressLine.trim()),
+    typeof landExtent === 'number' && landExtent > 0,
+    Boolean(extentUnit),
+    Boolean(ownershipType),
+    Boolean(irrigationSource),
+  ].filter(Boolean).length;
+  const progressPercent = Math.round((completedFieldsCount / 8) * 100);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!farmName.trim()) {
-      toast.error('Please enter your farm field name');
+      toast.error('Please enter your farm name');
       return;
     }
     if (!addressLine.trim() && !nearestVillage.trim()) {
-      toast.error('Please enter an address or nearest village');
+      toast.error('Please enter a village or street address');
+      return;
+    }
+    if (landExtent === '' || landExtent <= 0) {
+      toast.error('Please enter a valid farm size');
       return;
     }
 
@@ -110,7 +130,7 @@ export const AddFarmPage: React.FC = () => {
         await FarmService.createFarmJson(payload);
       }
 
-      toast.success('Farm field registered successfully!');
+      toast.success('Farm registered successfully!');
       navigate('/farmer/farms');
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to register farm');
@@ -155,7 +175,7 @@ export const AddFarmPage: React.FC = () => {
 
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
-            Register Farm Parcel
+            Register Farm Plot
           </h1>
           <p className="text-xs text-slate-400">
             Enter land acreage, irrigation, and optional GPS pin for village hub collection routing
@@ -163,134 +183,179 @@ export const AddFarmPage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
-          <Input
-            label="Farm / Field Name"
-            placeholder="e.g. Green Valley Farm - Parcel 01"
-            value={farmName}
-            onChange={(e) => setFarmName(e.target.value)}
-            required
-          />
+          {/* Progress Indicator matching 01 */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className={cn('w-4 h-4', progressPercent === 100 ? 'text-emerald-500' : 'text-slate-400')} />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Registration Completeness: {completedFieldsCount} of 8 required fields
+              </span>
+            </div>
+            <div className="w-28 bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select
-              label="Province"
-              value={province}
-              onChange={(e) => {
-                setProvince(e.target.value);
-                const newDists = PROVINCES_DISTRICTS[e.target.value] || [];
-                if (newDists.length > 0) setDistrict(newDists[0]);
-              }}
-              options={Object.keys(PROVINCES_DISTRICTS).map((p) => ({
-                value: p,
-                label: `${p} Province`,
-              }))}
-            />
-
-            <Select
-              label="District"
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              options={availableDistricts.map((d) => ({
-                value: d,
-                label: `${d} District`,
-              }))}
+          {/* Section: Farm Identity */}
+          <div className="space-y-4">
+            <Input
+              label="Farm Name"
+              placeholder="e.g. Green Valley Farm - Parcel 01"
+              value={farmName}
+              onChange={(e) => setFarmName(e.target.value)}
+              required
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Nearest Village / Suburb"
-              placeholder="e.g. Galewela or Kandapola"
-              value={nearestVillage}
-              onChange={(e) => setNearestVillage(e.target.value)}
-            />
-            <Input
-              label="Farm Road / Access Address"
-              placeholder="e.g. Near Tank Bund Road"
-              value={addressLine}
-              onChange={(e) => setAddressLine(e.target.value)}
-            />
-          </div>
-
-          {/* GPS Coordinates (Optional) */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  GPS Coordinates (Optional)
-                </span>
-                <p className="text-[11px] text-slate-400">
-                  Used for nearest village hub routing. You can skip this or capture with one tap.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleGetLocation}
-                leftIcon={<Navigation className="w-3.5 h-3.5" />}
-              >
-                Use My Current Location
-              </Button>
+          {/* Section: Location & Hub Routing */}
+          <div className="space-y-4 pt-2">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Location & Hub Routing
+              </span>
             </div>
 
-            {latitude !== null && longitude !== null && (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Detected Location: {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Province"
+                value={province}
+                onChange={(e) => {
+                  setProvince(e.target.value);
+                  const newDists = PROVINCES_DISTRICTS[e.target.value] || [];
+                  if (newDists.length > 0) setDistrict(newDists[0]);
+                }}
+                options={Object.keys(PROVINCES_DISTRICTS).map((p) => ({
+                  value: p,
+                  label: `${p} Province`,
+                }))}
+              />
+
+              <Select
+                label="District"
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                options={availableDistricts.map((d) => ({
+                  value: d,
+                  label: `${d} District`,
+                }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Village / Town"
+                placeholder="e.g. Galewela or Kandapola"
+                value={nearestVillage}
+                onChange={(e) => setNearestVillage(e.target.value)}
+              />
+              <Input
+                label="Street / Access Address (optional)"
+                placeholder="e.g. Near Tank Bund Road"
+                value={addressLine}
+                onChange={(e) => setAddressLine(e.target.value)}
+              />
+            </div>
+
+            {/* GPS Coordinates (Optional) */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    GPS Coordinates (Optional)
+                  </span>
+                  <p className="text-[11px] text-slate-400">
+                    Used for nearest village hub routing. You can skip this or capture with one tap.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGetLocation}
+                  leftIcon={<Navigation className="w-3.5 h-3.5" />}
+                >
+                  Use My Current Location
+                </Button>
               </div>
-            )}
+
+              {latitude !== null && longitude !== null && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Detected Location: {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Agronomy Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                label="Land Extent"
-                type="number"
-                step="0.1"
-                value={landExtent}
-                onChange={(e) => setLandExtent(parseFloat(e.target.value))}
-              />
+          {/* Section: Land & Agronomy */}
+          <div className="space-y-4 pt-2">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Land & Agronomy
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label={`Farm Size (${extentUnit})`}
+                  type="number"
+                  step="0.1"
+                  placeholder="e.g. 2.5"
+                  value={landExtent}
+                  onChange={(e) => setLandExtent(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  required
+                />
+                <Select
+                  label="Unit"
+                  value={extentUnit}
+                  onChange={(e) => setExtentUnit(e.target.value as any)}
+                >
+                  <option value="acres">Acres</option>
+                  <option value="perches">Perches</option>
+                  <option value="hectares">Hectares</option>
+                </Select>
+              </div>
+
               <Select
-                label="Unit"
-                value={extentUnit}
-                onChange={(e) => setExtentUnit(e.target.value as any)}
+                label="Ownership"
+                value={ownershipType}
+                onChange={(e) => setOwnershipType(e.target.value)}
               >
-                <option value="acres">Acres</option>
-                <option value="perches">Perches</option>
-                <option value="hectares">Hectares</option>
+                <option value="owned">Owned / Freehold</option>
+                <option value="leased">Leased Land</option>
+                <option value="rented">Rented / Tenant</option>
+              </Select>
+
+              <Select
+                label="Irrigation"
+                value={irrigationSource}
+                onChange={(e) => setIrrigationSource(e.target.value)}
+              >
+                <option value="well">Agro Well</option>
+                <option value="canal">Irrigation Canal / Tank</option>
+                <option value="rain_fed">Rain-fed / Monsoon</option>
+                <option value="drip">Drip Irrigation</option>
+                <option value="irrigated">Irrigated / Other</option>
               </Select>
             </div>
-
-            <Select
-              label="Ownership Type"
-              value={ownershipType}
-              onChange={(e) => setOwnershipType(e.target.value)}
-            >
-              <option value="owned">Owned Land</option>
-              <option value="leased">Leased Land</option>
-              <option value="state_permit">State Permit</option>
-            </Select>
-
-            <Select
-              label="Irrigation Source"
-              value={irrigationSource}
-              onChange={(e) => setIrrigationSource(e.target.value)}
-            >
-              <option value="well">Agro Well</option>
-              <option value="canal">Irrigation Canal / Tank</option>
-              <option value="rainfed">Rainfed / Monsoon</option>
-              <option value="river">River / Stream</option>
-            </Select>
           </div>
 
-          {/* Organic Certificate */}
-          <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+          {/* Section: Certification */}
+          <div className="space-y-4 pt-2">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Certification
+              </span>
+            </div>
+
             <Toggle
-              label="Certified Organic Farm"
-              description="Check this if you hold a Sri Lanka Organic Standard (SLS) certification"
+              label="Organic Certified"
+              description="Check this if you hold a Sri Lanka Organic Standard (SLS) or PGS certification"
               checked={isOrganicCertified}
               onChange={setIsOrganicCertified}
             />
@@ -298,6 +363,7 @@ export const AddFarmPage: React.FC = () => {
             {isOrganicCertified && (
               <FileDropzone
                 label="Upload Organic Certificate Document"
+                helperText="PDF or image up to 10MB"
                 files={certFiles}
                 onFilesChange={setCertFiles}
                 maxFiles={1}
@@ -305,12 +371,13 @@ export const AddFarmPage: React.FC = () => {
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <Button
               type="button"
               variant="outline"
               size="md"
               onClick={() => navigate('/farmer/farms')}
+              disabled={isLoading}
             >
               Cancel
             </Button>
@@ -319,8 +386,9 @@ export const AddFarmPage: React.FC = () => {
               variant="primary"
               size="md"
               isLoading={isLoading}
+              disabled={isLoading}
             >
-              Save Farm Field
+              {isLoading && certFiles.length > 0 ? 'Uploading certificate...' : isLoading ? 'Registering farm...' : 'Register Farm'}
             </Button>
           </div>
         </form>
@@ -328,3 +396,4 @@ export const AddFarmPage: React.FC = () => {
     </DashboardLayout>
   );
 };
+
