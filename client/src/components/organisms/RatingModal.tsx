@@ -10,8 +10,12 @@ export interface RatingModalProps {
   isOpen: boolean;
   onClose: () => void;
   orderId: string;
+  farmerId?: string;
   farmerName?: string;
+  driverId?: string;
   driverName?: string;
+  productId?: string;
+  productName?: string;
   onSubmitSuccess: () => void;
 }
 
@@ -19,8 +23,12 @@ export const RatingModal: React.FC<RatingModalProps> = ({
   isOpen,
   onClose,
   orderId,
+  farmerId,
   farmerName = 'Farmer Partner',
+  driverId,
   driverName = 'Delivery Partner',
+  productId,
+  productName,
   onSubmitSuccess,
 }) => {
   const [produceRating, setProduceRating] = useState(5);
@@ -54,25 +62,28 @@ export const RatingModal: React.FC<RatingModalProps> = ({
     try {
       setIsLoading(true);
 
-      // Submit Produce/Farmer Rating
+      // Submit Produce/Farmer Rating with real farmerId and productId
       await RatingService.submitRating({
         orderId,
         targetType: 'farmer',
-        targetUserId: null, // Depending on backend schema, might need actual IDs. For now assuming backend resolves if missing or handles orderId context
+        targetUserId: farmerId || undefined,
+        productId: productId || undefined,
         ratingScore: produceRating,
         reviewText: produceComment,
         tags: selectedTags,
       });
 
-      // Submit Delivery Rating
-      await RatingService.submitRating({
-        orderId,
-        targetType: 'driver',
-        targetUserId: null,
-        ratingScore: deliveryRating,
-        reviewText: deliveryComment,
-        tags: selectedTags,
-      });
+      // Submit Delivery Rating if driver exists on the order
+      if (driverId) {
+        await RatingService.submitRating({
+          orderId,
+          targetType: 'driver',
+          targetUserId: driverId,
+          ratingScore: deliveryRating,
+          reviewText: deliveryComment,
+          tags: selectedTags,
+        });
+      }
 
       toast.success('Thank you for your feedback!');
       onSubmitSuccess();

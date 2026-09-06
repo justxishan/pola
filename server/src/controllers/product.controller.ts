@@ -5,6 +5,7 @@ import { Farm } from '../models/Farm.model.js';
 import { User } from '../models/User.model.js';
 import { Role, VerificationStatus } from '@pola/shared';
 import { CloudinaryService } from '../services/cloudinary.service.js';
+import { uploadFilesToCloudinary } from '../utils/uploadFiles.util.js';
 import { Wishlist } from '../models/Wishlist.model.js';
 import { NotificationService } from '../services/notification.service.js';
 import { logger } from '../utils/logger.util.js';
@@ -35,12 +36,33 @@ export class ProductController {
         shelfLifeDays,
         images,
         description,
+        status: requestedStatus,
+        isDraft,
       } = req.body;
 
       const farm = await Farm.findOne({ _id: farmId, farmerId });
       if (!farm) {
         throw new AppError('Farm not found or does not belong to you', 404);
       }
+
+      // Upload any multipart image files sent via Multer
+      const files = req.files as Express.Multer.File[];
+      const uploadedUrls = await uploadFilesToCloudinary(files, 'pola/products');
+
+      // Merge newly uploaded Cloudinary URLs with any pre-uploaded/existing image URLs
+      let finalImages: string[] = [...uploadedUrls];
+      if (Array.isArray(images)) {
+        finalImages = [...finalImages, ...images.filter((img) => typeof img === 'string' && img.trim().length > 0)];
+      } else if (typeof images === 'string' && images.trim().length > 0) {
+        finalImages.push(images.trim());
+      }
+
+      const isDraftSubmission = isDraft === true || isDraft === 'true' || requestedStatus === 'draft';
+      const initialStatus = isDraftSubmission
+        ? 'draft'
+        : farm.verificationStatus === 'verified'
+        ? 'active'
+        : 'pending_verification';
 
       const product = await Product.create({
         farmerId,
@@ -49,9 +71,9 @@ export class ProductController {
         productName,
         category,
         variety,
-        unit,
-        basePricePerUnit,
-        availableQuantity,
+        unit: unit || 'kg',
+        basePricePerUnit: basePricePerUnit !== undefined ? Number(basePricePerUnit) : 0,
+        availableQuantity: availableQuantity !== undefined ? Number(availableQuantity) : 0,
         minOrderQuantity: minOrderQuantity || 1,
         b2bPricingTiers: b2bPricingTiers || [],
         selfDeclaredGrade: selfDeclaredGrade || 'grade_a',
@@ -60,14 +82,16 @@ export class ProductController {
         seasonTag: seasonTag || 'year_round',
         harvestDate,
         shelfLifeDays,
-        images: images || [],
+        images: finalImages,
         description,
-        status: farm.verificationStatus === 'verified' ? 'active' : 'pending_verification',
+        status: initialStatus,
       });
 
       res.status(201).json({
         success: true,
-        message: 'Product listed successfully on Pola Marketplace',
+        message: isDraftSubmission
+          ? 'Draft crop listing saved successfully'
+          : 'Product listed successfully on Pola Marketplace',
         data: { product },
       });
     } catch (error) {

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Farm } from '../models/Farm.model.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
+import { uploadSingleFileToCloudinary } from '../utils/uploadFiles.util.js';
 import { AppError } from '../middleware/error.middleware.js';
 
 export class FarmController {
@@ -26,6 +27,20 @@ export class FarmController {
         notes,
       } = req.body;
 
+      let organicCertificateDoc: string | undefined = undefined;
+      let organicFlag = isOrganicCertified === 'true' || isOrganicCertified === true;
+
+      if (req.file) {
+        organicCertificateDoc = await uploadSingleFileToCloudinary(
+          req.file,
+          'pola/organic_certs',
+          'raw'
+        );
+        if (organicCertificateDoc) {
+          organicFlag = true;
+        }
+      }
+
       const farm = await Farm.create({
         farmerId: req.user!.userId,
         farmName,
@@ -39,7 +54,8 @@ export class FarmController {
         ownershipType,
         irrigationType,
         primaryCrops,
-        isOrganicCertified,
+        isOrganicCertified: organicFlag,
+        organicCertificateDoc,
         notes,
       });
 

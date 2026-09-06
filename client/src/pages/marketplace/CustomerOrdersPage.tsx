@@ -365,8 +365,32 @@ export const CustomerOrdersPage: React.FC = () => {
             isOpen={!!ratingOrder}
             onClose={() => setRatingOrder(null)}
             orderId={ratingOrder._id}
-            farmerName={ratingOrder.farmerId?.fullName || 'Farmer Partner'}
+            farmerId={
+              ratingOrder.farmerId?._id ||
+              ratingOrder.farmerId ||
+              ratingOrder.items?.[0]?.farmerId?._id ||
+              ratingOrder.items?.[0]?.farmerId
+            }
+            farmerName={
+              ratingOrder.farmerId?.fullName ||
+              ratingOrder.items?.[0]?.farmerName ||
+              'Farmer Partner'
+            }
+            driverId={
+              ratingOrder.leg2DriverId?._id ||
+              ratingOrder.leg2DriverId ||
+              ratingOrder.leg1DriverId?._id ||
+              ratingOrder.leg1DriverId
+            }
             driverName={ratingOrder.leg2DriverId?.fullName || 'Delivery Partner'}
+            productId={
+              ratingOrder.items?.[0]?.productId?._id ||
+              ratingOrder.items?.[0]?.productId
+            }
+            productName={
+              ratingOrder.items?.[0]?.productName ||
+              ratingOrder.items?.[0]?.title
+            }
             onSubmitSuccess={fetchOrders}
           />
         )}

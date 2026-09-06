@@ -18,22 +18,57 @@ export class RatingController {
       const order = await Order.findById(orderId);
       if (!order) throw new AppError('Order not found', 404);
 
+      // Resolve targetUserId and productId if missing, null, or invalid
+      let resolvedTargetUserId = targetUserId;
+      let resolvedProductId = productId;
+
+      if (!resolvedTargetUserId || !Types.ObjectId.isValid(resolvedTargetUserId)) {
+        if (targetType === 'farmer') {
+          if (resolvedProductId && Types.ObjectId.isValid(resolvedProductId)) {
+            const matchingItem = order.items.find(
+              (i) => (i.productId?._id || i.productId)?.toString() === resolvedProductId.toString()
+            );
+            resolvedTargetUserId = matchingItem?.farmerId?._id || matchingItem?.farmerId;
+          }
+          if (!resolvedTargetUserId && order.items.length > 0) {
+            resolvedTargetUserId = order.items[0]?.farmerId?._id || order.items[0]?.farmerId;
+          }
+        } else if (targetType === 'driver') {
+          resolvedTargetUserId =
+            order.leg2DriverId?._id ||
+            order.leg2DriverId ||
+            order.leg1DriverId?._id ||
+            order.leg1DriverId;
+        }
+      }
+
+      if (!resolvedProductId && targetType === 'farmer' && order.items.length > 0) {
+        resolvedProductId = order.items[0]?.productId?._id || order.items[0]?.productId;
+      }
+
+      if (!resolvedTargetUserId || !Types.ObjectId.isValid(resolvedTargetUserId)) {
+        throw new AppError(
+          `Unable to attribute ${targetType} rating: no matching partner assigned to this order`,
+          400
+        );
+      }
+
       const rating = await Rating.create({
         orderId: new Types.ObjectId(orderId),
         raterUserId: new Types.ObjectId(raterUserId),
         targetType,
-        targetUserId: new Types.ObjectId(targetUserId),
-        productId: productId ? new Types.ObjectId(productId) : undefined,
-        ratingScore,
-        reviewText,
+        targetUserId: new Types.ObjectId(resolvedTargetUserId),
+        productId: resolvedProductId && Types.ObjectId.isValid(resolvedProductId) ? new Types.ObjectId(resolvedProductId) : undefined,
+        ratingScore: Number(ratingScore) || 5,
+        reviewText: reviewText || '',
         tags: tags || [],
         photos: photos || [],
       });
 
       // Update product rating aggregate if product rated
-      if (productId) {
+      if (resolvedProductId && Types.ObjectId.isValid(resolvedProductId)) {
         const stats = await Rating.aggregate([
-          { $match: { productId: new Types.ObjectId(productId) } },
+          { $match: { productId: new Types.ObjectId(resolvedProductId), isPublic: true } },
           {
             $group: {
               _id: '$productId',
@@ -44,7 +79,7 @@ export class RatingController {
         ]);
 
         if (stats.length > 0) {
-          await Product.findByIdAndUpdate(productId, {
+          await Product.findByIdAndUpdate(resolvedProductId, {
             averageRating: Math.round(stats[0].avgRating * 10) / 10,
             ratingCount: stats[0].count,
           });

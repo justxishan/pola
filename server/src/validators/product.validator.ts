@@ -5,13 +5,18 @@ export const CreateProductSchema = z.object({
   body: z.object({
     farmId: z.string().min(1, 'Farm ID is required'),
     productName: z.string().min(2, 'Product name is required'),
-    category: z.nativeEnum(ProductCategory),
+    category: z.nativeEnum(ProductCategory).default(ProductCategory.VEGETABLE),
     variety: z.string().optional(),
     unit: z.nativeEnum(UnitOfSale).default(UnitOfSale.KG),
     // z.coerce handles FormData strings AND proper JSON numbers
-    basePricePerUnit: z.coerce.number().min(1, 'Price must be greater than 0'),
-    availableQuantity: z.coerce.number().min(0.1, 'Available quantity must be greater than 0'),
+    basePricePerUnit: z.coerce.number().min(0).default(0),
+    availableQuantity: z.coerce.number().min(0).default(0),
     minOrderQuantity: z.coerce.number().min(1).default(1),
+    status: z.enum(['draft', 'pending_verification', 'active', 'out_of_stock', 'delisted']).optional(),
+    isDraft: z.preprocess(
+      (val) => val === 'true' || val === true,
+      z.boolean().default(false)
+    ),
     b2bPricingTiers: z.preprocess(
       (val) => {
         if (typeof val === 'string') {
@@ -44,9 +49,31 @@ export const CreateProductSchema = z.object({
       z.array(z.string()).default([])
     ),
     description: z.string().optional(),
-  }).refine((data) => data.minOrderQuantity <= data.availableQuantity, {
-    message: 'Minimum order quantity cannot exceed available quantity',
-    path: ['minOrderQuantity'],
+  }).superRefine((data, ctx) => {
+    const isDraftSubmission = data.isDraft || data.status === 'draft';
+    if (!isDraftSubmission) {
+      if (data.basePricePerUnit <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Price must be greater than 0',
+          path: ['basePricePerUnit'],
+        });
+      }
+      if (data.availableQuantity <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Available quantity must be greater than 0',
+          path: ['availableQuantity'],
+        });
+      }
+      if (data.minOrderQuantity > data.availableQuantity) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Minimum order quantity cannot exceed available quantity',
+          path: ['minOrderQuantity'],
+        });
+      }
+    }
   }),
 });
 
