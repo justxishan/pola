@@ -62,6 +62,7 @@ export const AddFarmPage: React.FC = () => {
   const [irrigationSource, setIrrigationSource] = useState('well');
   const [isOrganicCertified, setIsOrganicCertified] = useState(false);
   const [certFiles, setCertFiles] = useState<File[]>([]);
+  const [verificationDocFiles, setVerificationDocFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Autosave and Recovery state
@@ -231,48 +232,34 @@ export const AddFarmPage: React.FC = () => {
       toast.error('Please enter a valid farm size');
       return;
     }
+    if (!verificationDocFiles[0]) {
+      toast.error('Please upload a land ownership document, permit, or other proof for farm verification');
+      return;
+    }
 
     try {
       setIsLoading(true);
 
-      // If organic cert file needs uploading, use FormData; otherwise JSON
-      if (certFiles[0]) {
-        const formData = new FormData();
-        formData.append('farmName', farmName.trim());
-        formData.append('province', province);
-        formData.append('district', district);
-        formData.append('addressLine', addressLine.trim() || nearestVillage.trim());
-        formData.append('city', nearestVillage.trim() || addressLine.trim());
-        if (latitude !== null && longitude !== null) {
-          formData.append('latitude', String(latitude));
-          formData.append('longitude', String(longitude));
-        }
-        formData.append('extentValue', String(landExtent));
-        formData.append('extentUnit', extentUnit);
-        formData.append('ownershipType', ownershipType);
-        formData.append('irrigationType', irrigationSource);
-        formData.append('isOrganicCertified', String(isOrganicCertified));
-        formData.append('organicCertificate', certFiles[0]);
-        await FarmService.createFarm(formData);
-      } else {
-        const payload: any = {
-          farmName: farmName.trim(),
-          province,
-          district,
-          addressLine: addressLine.trim() || nearestVillage.trim(),
-          city: nearestVillage.trim() || addressLine.trim(),
-          extentValue: landExtent,
-          extentUnit,
-          ownershipType,
-          irrigationType: irrigationSource,
-          isOrganicCertified,
-        };
-        if (latitude !== null && longitude !== null) {
-          payload.latitude = latitude;
-          payload.longitude = longitude;
-        }
-        await FarmService.createFarmJson(payload);
+      const formData = new FormData();
+      formData.append('farmName', farmName.trim());
+      formData.append('province', province);
+      formData.append('district', district);
+      formData.append('addressLine', addressLine.trim() || nearestVillage.trim());
+      formData.append('city', nearestVillage.trim() || addressLine.trim());
+      if (latitude !== null && longitude !== null) {
+        formData.append('latitude', String(latitude));
+        formData.append('longitude', String(longitude));
       }
+      formData.append('extentValue', String(landExtent));
+      formData.append('extentUnit', extentUnit);
+      formData.append('ownershipType', ownershipType);
+      formData.append('irrigationType', irrigationSource);
+      formData.append('isOrganicCertified', String(isOrganicCertified));
+      formData.append('verificationDoc', verificationDocFiles[0]);
+      if (certFiles[0]) {
+        formData.append('organicCertificate', certFiles[0]);
+      }
+      await FarmService.createFarm(formData);
 
       try {
         localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -531,6 +518,22 @@ export const AddFarmPage: React.FC = () => {
                 <option value="irrigated">Irrigated / Other</option>
               </Select>
             </div>
+          </div>
+
+          {/* Section: Ownership Verification */}
+          <div className="space-y-4 pt-2">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Ownership Verification (required)
+              </span>
+            </div>
+            <FileDropzone
+              label="Upload Land Permit / Deed / Ownership Proof"
+              helperText="PDF or image up to 10MB. Reviewed by Pola admin before this farm can go live."
+              files={verificationDocFiles}
+              onFilesChange={setVerificationDocFiles}
+              maxFiles={1}
+            />
           </div>
 
           {/* Section: Certification */}

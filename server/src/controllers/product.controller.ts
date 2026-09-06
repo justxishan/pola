@@ -45,6 +45,9 @@ export class ProductController {
       if (!farm) {
         throw new AppError('Farm not found or does not belong to you', 404);
       }
+      if (!farm.isActive) {
+        throw new AppError('This farm is deactivated. Reactivate it before adding new crop listings.', 400);
+      }
 
       // Upload any multipart image files sent via Multer
       const files = req.files as Express.Multer.File[];
@@ -118,7 +121,7 @@ export class ProductController {
       if (farmId) filter.farmId = farmId;
 
       const products = await Product.find(filter)
-        .populate('farmId', 'farmName district province verificationStatus')
+        .populate('farmId', 'farmName district province verificationStatus isActive')
         .sort({ createdAt: -1 });
 
       res.status(200).json({
@@ -156,6 +159,11 @@ export class ProductController {
       } = req.query as any;
 
       const andClauses: any[] = [{ status: 'active', availableQuantity: { $gt: 0 } }];
+
+      const inactiveFarms = await Farm.find({ isActive: false }).select('_id');
+      if (inactiveFarms.length > 0) {
+        andClauses.push({ farmId: { $nin: inactiveFarms.map((f) => f._id) } });
+      }
 
       if (farmerId && Types.ObjectId.isValid(farmerId)) {
         andClauses.push({ farmerId: new Types.ObjectId(farmerId) });
@@ -277,7 +285,7 @@ export class ProductController {
         { new: true }
       )
         .populate('farmerId', 'fullName profileImage phone kycStatus rating')
-        .populate('farmId', 'farmName addressLine city district province gps isOrganicCertified');
+        .populate('farmId', 'farmName addressLine city district province gps isOrganicCertified isActive');
 
       if (!product) throw new AppError('Product not found', 404);
 

@@ -38,6 +38,14 @@ export const FarmService = {
     return api.patch(`/farms/${id}`, data);
   },
 
+  deactivateFarm: async (id: string) => {
+    return api.patch(`/farms/${id}/deactivate`, {});
+  },
+
+  reactivateFarm: async (id: string) => {
+    return api.patch(`/farms/${id}/reactivate`, {});
+  },
+
   deleteFarm: async (id: string) => {
     return api.delete(`/farms/${id}`);
   },

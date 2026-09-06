@@ -65,7 +65,7 @@ export const EditProductPage: React.FC = () => {
       ]);
 
       if (farmsRes.success && farmsRes.data) {
-        setFarms(farmsRes.data.farms || []);
+        setFarms((farmsRes.data.farms || []).filter((f: any) => f.isActive !== false));
       }
 
       if (productRes && productRes.success && productRes.data) {

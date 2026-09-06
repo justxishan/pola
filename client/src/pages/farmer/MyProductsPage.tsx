@@ -286,6 +286,7 @@ export const MyProductsPage: React.FC = () => {
               const displayTitle = product.productName || product.title;
               const displayPrice = product.basePricePerUnit ?? product.pricePerUnit;
               const farmDisplayName = product.farmId?.farmName || product.farmId?.name || 'Verified Farm';
+              const isFarmUnavailable = product.farmId && product.farmId.isActive === false;
 
               return (
                 <div
@@ -309,7 +310,9 @@ export const MyProductsPage: React.FC = () => {
                       <div className="absolute top-2.5 right-2.5">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                            isDraft
+                            isFarmUnavailable
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : isDraft
                               ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
                               : product.status === 'pending_verification'
                               ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
@@ -320,7 +323,9 @@ export const MyProductsPage: React.FC = () => {
                               : 'bg-white/20 text-slate-300'
                           }`}
                         >
-                          {isDraft
+                          {isFarmUnavailable
+                            ? 'Farm Unavailable'
+                            : isDraft
                             ? 'Draft'
                             : product.status === 'pending_verification'
                             ? 'Pending Verification'
@@ -362,7 +367,11 @@ export const MyProductsPage: React.FC = () => {
                   className="pt-3 border-t border-white/10 flex items-center justify-between gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {isDraft ? (
+                  {isFarmUnavailable ? (
+                    <span className="px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-[11px] font-bold text-rose-300">
+                      Farm Deactivated
+                    </span>
+                  ) : isDraft ? (
                     <button
                       onClick={() => navigate(`/farmer/products/${product._id}/edit`)}
                       className="px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/30 text-[11px] font-bold text-amber-300 flex items-center gap-1.5 transition-all cursor-pointer"

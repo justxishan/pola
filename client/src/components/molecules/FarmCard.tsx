@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/cn';
 import { useTranslation } from '@/lib/i18n';
-import { MapPin, CheckCircle2, Sprout, Edit, Power, Package, ArrowUpRight } from 'lucide-react';
+import { MapPin, CheckCircle2, Sprout, Edit, Package, ArrowUpRight } from 'lucide-react';
 
 export interface FarmCardProps {
   id: string;
@@ -17,7 +17,7 @@ export interface FarmCardProps {
   verificationStatus?: string;
   onEdit?: () => void;
   onViewListings?: () => void;
-  onToggleActive?: () => void;
+  onOpenDetails?: () => void;
   className?: string;
 }
 
@@ -34,15 +34,16 @@ export const FarmCard: React.FC<FarmCardProps> = ({
   verificationStatus = 'pending',
   onEdit,
   onViewListings,
-  onToggleActive,
+  onOpenDetails,
   className,
 }) => {
   const { t } = useTranslation();
 
   return (
     <div
+      onClick={onOpenDetails}
       className={cn(
-        'glass-terminal p-6 rounded-3xl border border-white/10 hover:border-lime-400/40 shadow-2xl transition-all duration-300 space-y-4 flex flex-col justify-between text-left',
+        'glass-terminal p-6 rounded-3xl border border-white/10 hover:border-lime-400/40 shadow-2xl transition-all duration-300 space-y-4 flex flex-col justify-between text-left cursor-pointer',
         className
       )}
     >
@@ -121,19 +122,10 @@ export const FarmCard: React.FC<FarmCardProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+      <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2">
         <button
           type="button"
-          onClick={onToggleActive}
-          className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
-        >
-          <Power className="w-3.5 h-3.5" />
-          <span>{isActive ? 'Deactivate' : 'Activate'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onViewListings}
+          onClick={(e) => { e.stopPropagation(); onViewListings?.(); }}
           className="px-4 py-1.5 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md shadow-lime-500/20 transition-all cursor-pointer"
         >
           <Package className="w-3.5 h-3.5" />

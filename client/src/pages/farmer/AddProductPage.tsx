@@ -203,9 +203,10 @@ export const AddProductPage: React.FC = () => {
   const fetchFarms = async () => {
     try {
       const res: any = await FarmService.getMyFarms();
-      if (res.success && res.data && res.data.farms.length > 0) {
-        setFarms(res.data.farms);
-        setFarmId(res.data.farms[0]._id);
+      if (res.success && res.data) {
+        const activeFarms = (res.data.farms || []).filter((f: any) => f.isActive !== false);
+        setFarms(activeFarms);
+        if (activeFarms.length > 0) setFarmId(activeFarms[0]._id);
       }
     } catch (err: any) {
       console.error(err);
