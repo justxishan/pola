@@ -18,11 +18,7 @@ export const AuthService = {
   },
 
   uploadKyc: async (formData: FormData) => {
-    return api.post('/auth/kyc', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    return api.post('/auth/kyc', formData);
   },
 
   getMe: async () => {

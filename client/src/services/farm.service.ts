@@ -5,11 +5,9 @@ export const FarmService = {
     return api.get('/farms/my-farms');
   },
 
-  /** Create farm with a file attachment (organic cert) — multipart/form-data */
+  /** Create farm with a file attachment (organic cert) — multipart FormData */
   createFarm: async (formData: FormData) => {
-    return api.post('/farms', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return api.post('/farms', formData);
   },
 
   /** Create farm without file — plain JSON so Zod number() validation works */

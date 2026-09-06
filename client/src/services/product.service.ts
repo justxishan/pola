@@ -55,11 +55,9 @@ export const ProductService = {
     return res.data || res;
   },
 
-  /** Create product with image file uploads via multipart/form-data */
+  /** Create product with image file uploads via multipart FormData */
   createProduct: async (formData: FormData) => {
-    return api.post('/products', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return api.post('/products', formData);
   },
 
   /** Create product without direct file upload via JSON */
