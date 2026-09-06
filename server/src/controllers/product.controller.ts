@@ -49,6 +49,10 @@ export class ProductController {
         throw new AppError('This farm is deactivated. Reactivate it before adding new crop listings.', 400);
       }
 
+      const farmerUser = await User.findById(farmerId).select('kycStatus');
+      const isFarmVerified = farm.verificationStatus === 'verified';
+      const isFarmerVerified = farmerUser?.kycStatus === 'verified';
+
       // Upload any multipart image files sent via Multer
       const files = req.files as Express.Multer.File[];
       const uploadedUrls = await uploadFilesToCloudinary(files, 'pola/products');
@@ -69,7 +73,7 @@ export class ProductController {
         requestedStatus === 'draft';
       const initialStatus = isDraftSubmission
         ? 'draft'
-        : farm.verificationStatus === 'verified'
+        : (isFarmVerified && isFarmerVerified)
         ? 'active'
         : 'pending_verification';
 
@@ -96,11 +100,20 @@ export class ProductController {
         status: initialStatus,
       });
 
+      let statusMessage = 'Product listed successfully on Pola Marketplace';
+      if (!isDraftSubmission && initialStatus === 'pending_verification') {
+        if (!isFarmVerified && !isFarmerVerified) {
+          statusMessage = 'Listing saved. It will go live once your farm and your own KYC are both verified by Pola admin.';
+        } else if (!isFarmVerified) {
+          statusMessage = 'Listing saved. It will go live once your farm is verified by Pola admin.';
+        } else {
+          statusMessage = 'Listing saved. It will go live once your own KYC verification is approved by Pola admin.';
+        }
+      }
+
       res.status(201).json({
         success: true,
-        message: isDraftSubmission
-          ? 'Draft crop listing saved successfully'
-          : 'Product listed successfully on Pola Marketplace',
+        message: isDraftSubmission ? 'Draft crop listing saved successfully' : statusMessage,
         data: { product },
       });
     } catch (error) {
@@ -333,9 +346,10 @@ export class ProductController {
         (product.status === 'draft' && (updates.isDraft === false || updates.saveAsDraft === false))
       ) {
         const farm = await Farm.findById(updates.farmId || product.farmId);
-        updates.status = farm && farm.verificationStatus === 'verified'
-          ? 'active'
-          : 'pending_verification';
+        const farmerUser = await User.findById(product.farmerId).select('kycStatus');
+        const isFarmVerified = !!farm && farm.verificationStatus === 'verified';
+        const isFarmerVerified = farmerUser?.kycStatus === 'verified';
+        updates.status = (isFarmVerified && isFarmerVerified) ? 'active' : 'pending_verification';
       }
 
       const oldPrice = product.basePricePerUnit;

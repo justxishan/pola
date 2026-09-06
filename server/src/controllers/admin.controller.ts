@@ -111,6 +111,21 @@ export class AdminController {
 
       await user.save();
 
+      let productsActivated = 0;
+      if (status === VerificationStatus.VERIFIED) {
+        const verifiedFarmIds = (
+          await Farm.find({ farmerId: user._id, verificationStatus: VerificationStatus.VERIFIED }).select('_id')
+        ).map((f) => f._id);
+
+        if (verifiedFarmIds.length > 0) {
+          const result = await Product.updateMany(
+            { farmerId: user._id, farmId: { $in: verifiedFarmIds }, status: 'pending_verification' },
+            { $set: { status: 'active' } }
+          );
+          productsActivated = result.modifiedCount;
+        }
+      }
+
       // Log Audit Trail
       await AuditLog.create({
         adminId: new Types.ObjectId(adminId),
@@ -140,8 +155,10 @@ export class AdminController {
 
       res.status(200).json({
         success: true,
-        message: `KYC status updated to ${status}`,
-        data: { user },
+        message: productsActivated > 0
+          ? `KYC status updated to ${status}. ${productsActivated} crop listing(s) activated on the marketplace.`
+          : `KYC status updated to ${status}`,
+        data: { user, productsActivated },
       });
     } catch (error) {
       next(error);
@@ -422,10 +439,17 @@ export class AdminController {
       if (notes) farm.notes = `[Admin Approved]: ${notes}`;
       await farm.save();
 
-      const { modifiedCount } = await Product.updateMany(
-        { farmId: farm._id, status: 'pending_verification' },
-        { $set: { status: 'active' } }
-      );
+      const farmerUser = await User.findById(farm.farmerId).select('kycStatus');
+      const isFarmerVerified = farmerUser?.kycStatus === VerificationStatus.VERIFIED;
+
+      let modifiedCount = 0;
+      if (isFarmerVerified) {
+        const result = await Product.updateMany(
+          { farmId: farm._id, status: 'pending_verification' },
+          { $set: { status: 'active' } }
+        );
+        modifiedCount = result.modifiedCount;
+      }
 
       await AuditLog.create({
         adminId: new Types.ObjectId(adminId),
@@ -440,7 +464,9 @@ export class AdminController {
       await NotificationService.sendNotification({
         userId: farm.farmerId,
         title: 'Farm Approved ✅',
-        message: `Your farm "${farm.farmName}" has been verified. ${modifiedCount} pending crop listing(s) are now live on the marketplace.`,
+        message: isFarmerVerified
+          ? `Your farm "${farm.farmName}" has been verified. ${modifiedCount} pending crop listing(s) are now live on the marketplace.`
+          : `Your farm "${farm.farmName}" has been verified. Crop listings will go live once your own KYC verification is also approved.`,
         type: 'kyc',
         portal: 'farmer',
         linkUrl: '/farmer/farms',
@@ -448,8 +474,10 @@ export class AdminController {
 
       res.status(200).json({
         success: true,
-        message: `Farm "${farm.farmName}" approved. ${modifiedCount} product(s) activated on the marketplace.`,
-        data: { farm, productsActivated: modifiedCount },
+        message: isFarmerVerified
+          ? `Farm "${farm.farmName}" approved. ${modifiedCount} product(s) activated on the marketplace.`
+          : `Farm "${farm.farmName}" approved. Crop listings will go live once the farmer's own KYC verification is also approved.`,
+        data: { farm, productsActivated: modifiedCount, farmerKycVerified: isFarmerVerified },
       });
     } catch (error) {
       next(error);

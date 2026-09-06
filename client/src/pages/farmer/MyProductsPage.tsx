@@ -79,7 +79,7 @@ export const MyProductsPage: React.FC = () => {
       const updated = res?.data?.product;
 
       if (!isCurrentlyActive && updated?.status === 'pending_verification') {
-        toast.error('This listing needs your farm to be verified by Pola admin before it can go live.');
+        toast.error('This listing needs your farm and your own KYC to both be verified by Pola admin before it can go live.');
       } else {
         toast.success(nextStatus === 'active' ? 'Listing is now live on the marketplace' : 'Listing deactivated');
       }
@@ -381,7 +381,7 @@ export const MyProductsPage: React.FC = () => {
                     </button>
                   ) : product.status === 'pending_verification' ? (
                     <span className="px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 text-[11px] font-bold text-amber-300">
-                      Awaiting Farm Verification
+                      Awaiting Farm/KYC Verification
                     </span>
                   ) : (
                     <button

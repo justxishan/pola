@@ -146,7 +146,7 @@ export const FarmVerificationQueuePage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">Farm Plot Verification Queue</h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Approving a farm sets it to Verified and automatically activates all its pending crop listings on the marketplace.
+              Approving a farm sets it to Verified. Its pending crop listings only go live once the farmer's own KYC is also verified — check the KYC badge below before approving, or approve both from their respective queues.
             </p>
           </div>
           <Badge variant="warning" size="md">{farms.length} Pending</Badge>
