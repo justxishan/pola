@@ -231,8 +231,8 @@ export const FarmerOnboardingPage: React.FC = () => {
           if (farmRes.success && farmRes.data?.farm) {
             createdFarmId = farmRes.data.farm._id;
           }
-        } catch (e) {
-          console.warn('Farm creation warning:', e);
+        } catch (e: any) {
+          toast.error(e?.response?.data?.message || e?.message || 'Farm could not be registered — you can add it from My Farms.');
         }
       }
 

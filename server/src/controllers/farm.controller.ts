@@ -21,11 +21,9 @@ export class FarmController {
       const verificationDocFile = files?.verificationDoc?.[0];
       const organicCertFile = files?.organicCertificate?.[0];
 
-      if (!verificationDocFile) {
-        throw new AppError('A land ownership / permit verification document is required to register a farm', 400);
-      }
-
-      const verificationDoc = await uploadSingleFileToCloudinary(verificationDocFile, 'pola/farm_verification_docs', 'raw');
+      const verificationDoc = verificationDocFile
+        ? await uploadSingleFileToCloudinary(verificationDocFile, 'pola/farm_verification_docs', 'raw')
+        : undefined;
 
       let organicCertificateDoc: string | undefined;
       let organicFlag = isOrganicCertified === 'true' || isOrganicCertified === true;
