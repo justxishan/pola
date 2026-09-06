@@ -4,6 +4,7 @@ import { authenticate, optionalAuthenticate } from '../middleware/auth.middlewar
 
 const router = Router();
 
+router.get('/check', authenticate, RatingController.checkOrderRating);
 router.get('/', optionalAuthenticate, RatingController.getTargetRatings);
 router.post('/', authenticate, RatingController.submitRating);
 

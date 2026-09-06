@@ -10,6 +10,7 @@ import { RatingModal } from '@/components/organisms/RatingModal';
 import { DisputeModal } from '@/components/organisms/DisputeModal';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { OrderService } from '@/services/order.service';
+import { RatingService } from '@/services/rating.service';
 import { useCartStore } from '@/store/cartStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
@@ -47,6 +48,7 @@ export const CustomerOrdersPage: React.FC = () => {
   const [disputeOrder, setDisputeOrder] = useState<any | null>(null);
   const [cancelOrderTarget, setCancelOrderTarget] = useState<any | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [ratedOrders, setRatedOrders] = useState<Record<string, { isRated: boolean; averageScore: number }>>({});
 
   useEffect(() => {
     fetchOrders();
@@ -57,7 +59,23 @@ export const CustomerOrdersPage: React.FC = () => {
       setIsLoading(true);
       const res: any = await OrderService.getCustomerOrders();
       if (res.success && res.data) {
-        setOrders(res.data.orders || []);
+        const orderList = res.data.orders || [];
+        setOrders(orderList);
+
+        const completedIds = orderList
+          .filter((o: any) => o.status === 'completed' || o.status === 'delivered')
+          .map((o: any) => o._id);
+
+        if (completedIds.length > 0) {
+          try {
+            const checkRes: any = await RatingService.checkOrderRating(undefined, completedIds);
+            if (checkRes.success && checkRes.data?.ratedOrders) {
+              setRatedOrders(checkRes.data.ratedOrders);
+            }
+          } catch (ratingErr) {
+            console.error('Failed to batch check ratings for completed orders:', ratingErr);
+          }
+        }
       }
     } catch (err: any) {
       console.error('Failed to load customer orders:', err);
@@ -319,14 +337,21 @@ export const CustomerOrdersPage: React.FC = () => {
                             Report Issue
                           </Button>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRatingOrder(order)}
-                            leftIcon={<Star className="w-3.5 h-3.5 text-amber-400" />}
-                          >
-                            Review Produce
-                          </Button>
+                          {ratedOrders[order._id]?.isRated ? (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/50">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>You rated this order ★{ratedOrders[order._id].averageScore}</span>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setRatingOrder(order)}
+                              leftIcon={<Star className="w-3.5 h-3.5 text-amber-400" />}
+                            >
+                              Rate This Order
+                            </Button>
+                          )}
                         </>
                       ) : null}
 
@@ -364,33 +389,7 @@ export const CustomerOrdersPage: React.FC = () => {
           <RatingModal
             isOpen={!!ratingOrder}
             onClose={() => setRatingOrder(null)}
-            orderId={ratingOrder._id}
-            farmerId={
-              ratingOrder.farmerId?._id ||
-              ratingOrder.farmerId ||
-              ratingOrder.items?.[0]?.farmerId?._id ||
-              ratingOrder.items?.[0]?.farmerId
-            }
-            farmerName={
-              ratingOrder.farmerId?.fullName ||
-              ratingOrder.items?.[0]?.farmerName ||
-              'Farmer Partner'
-            }
-            driverId={
-              ratingOrder.leg2DriverId?._id ||
-              ratingOrder.leg2DriverId ||
-              ratingOrder.leg1DriverId?._id ||
-              ratingOrder.leg1DriverId
-            }
-            driverName={ratingOrder.leg2DriverId?.fullName || 'Delivery Partner'}
-            productId={
-              ratingOrder.items?.[0]?.productId?._id ||
-              ratingOrder.items?.[0]?.productId
-            }
-            productName={
-              ratingOrder.items?.[0]?.productName ||
-              ratingOrder.items?.[0]?.title
-            }
+            order={ratingOrder}
             onSubmitSuccess={fetchOrders}
           />
         )}

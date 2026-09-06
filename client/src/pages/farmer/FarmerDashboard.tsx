@@ -8,6 +8,8 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems } from '@/lib/navItems';
 import { api } from '@/services/api';
+import { RatingService } from '@/services/rating.service';
+import { ReviewCard } from '@/components/molecules/ReviewCard';
 import {
   Plus,
   ArrowRight,
@@ -20,6 +22,7 @@ import {
   Sprout,
   Package,
   ShoppingBag,
+  Star,
 } from 'lucide-react';
 
 export const FarmerDashboard: React.FC = () => {
@@ -40,12 +43,19 @@ export const FarmerDashboard: React.FC = () => {
     recentOrders: [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [farmerRatings, setFarmerRatings] = useState<any[]>([]);
+  const [ratingStats, setRatingStats] = useState<{ average: number; count: number }>({
+    average: 0,
+    count: 0,
+  });
+  const [isLoadingRatings, setIsLoadingRatings] = useState(false);
 
   const navItems = getFarmerNavItems(t);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    fetchFarmerRatings();
+  }, [user]);
 
   const fetchDashboardData = async () => {
     try {
@@ -58,6 +68,33 @@ export const FarmerDashboard: React.FC = () => {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchFarmerRatings = async () => {
+    const farmerId = user?._id || (user as any)?.id;
+    if (!farmerId) return;
+    try {
+      setIsLoadingRatings(true);
+      const res: any = await RatingService.getTargetRatings(farmerId);
+      if (res.success && res.data?.ratings) {
+        const list = res.data.ratings;
+        setFarmerRatings(list);
+        if (list.length > 0) {
+          const avg =
+            list.reduce((acc: number, r: any) => acc + (r.ratingScore || 0), 0) / list.length;
+          setRatingStats({
+            average: Math.round(avg * 10) / 10,
+            count: list.length,
+          });
+        } else {
+          setRatingStats({ average: 0, count: 0 });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load farmer ratings:', err);
+    } finally {
+      setIsLoadingRatings(false);
     }
   };
 
@@ -341,6 +378,58 @@ export const FarmerDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Ratings & Buyer Reviews Section */}
+        <div className="glass-terminal p-6 sm:p-8 rounded-3xl border border-white/15 space-y-6 text-left">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-amber-400/20 text-amber-300">
+                <Star className="w-5 h-5 fill-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-white">Ratings & Buyer Reviews</h3>
+                <p className="text-xs text-slate-300">Direct quality feedback from buyers on verified deliveries</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-2xl">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span className="text-base font-black text-amber-300">
+                {ratingStats.count > 0 ? `${ratingStats.average.toFixed(1)} / 5.0` : 'New Producer'}
+              </span>
+              <span className="text-xs text-slate-400">
+                ({ratingStats.count} {ratingStats.count === 1 ? 'review' : 'reviews'})
+              </span>
+            </div>
+          </div>
+
+          {isLoadingRatings ? (
+            <div className="py-8 text-center text-slate-400 text-xs">Loading buyer reviews...</div>
+          ) : farmerRatings.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {farmerRatings.map((rev: any) => (
+                <ReviewCard
+                  key={rev._id}
+                  userName={rev.raterUserId?.fullName || 'Verified Buyer'}
+                  userAvatar={rev.raterUserId?.profileImage}
+                  rating={rev.ratingScore || 5}
+                  createdAt={rev.createdAt}
+                  comment={rev.reviewText}
+                  isVerifiedBuyer={true}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center space-y-2">
+              <p className="text-xs text-slate-300 font-medium">
+                No buyer reviews have been submitted for your produce yet.
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Ratings are recorded automatically when buyers verify and complete delivered orders.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

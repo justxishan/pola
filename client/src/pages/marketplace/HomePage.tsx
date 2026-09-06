@@ -515,7 +515,7 @@ export const HomePage: React.FC = () => {
                   isOrganic={product.isOrganic}
                   qualityGrade={product.qualityGrade || 'Grade A'}
                   minOrderQuantity={product.minOrderQuantity || 1}
-                  ratingAverage={product.ratingAverage || 4.9}
+                  ratingAverage={product.averageRating || product.ratingAverage || 4.9}
                   farmerName={product.farmerId?.fullName || 'Verified Pola Grower'}
                   onClick={() => navigate(`/product/${product._id}`)}
                 />

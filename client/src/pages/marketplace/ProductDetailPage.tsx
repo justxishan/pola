@@ -52,6 +52,13 @@ export const ProductDetailPage: React.FC = () => {
   const isWishlisted = useWishlistStore((state) => (id ? state.itemIds.includes(id) : false));
   const toggleWishlist = useWishlistStore((state) => state.toggleItem);
 
+  const effectiveRating =
+    product?.averageRating && product.averageRating > 0
+      ? product.averageRating
+      : reviews.length > 0
+      ? reviews.reduce((acc: number, r: any) => acc + (r.ratingScore || 0), 0) / reviews.length
+      : 4.9;
+
   useEffect(() => {
     if (id) {
       window.scrollTo(0, 0);
@@ -453,7 +460,7 @@ export const ProductDetailPage: React.FC = () => {
                     className="flex items-center gap-1.5 font-bold text-amber-500 hover:text-amber-600 transition-colors"
                   >
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span>{(product.averageRating || 4.9).toFixed(1)}</span>
+                    <span>{effectiveRating.toFixed(1)}</span>
                     <span className="text-slate-400 font-normal">
                       ({product.ratingCount || reviews.length} reviews)
                     </span>
@@ -672,7 +679,7 @@ export const ProductDetailPage: React.FC = () => {
             <div className="flex items-center gap-2 bg-amber-500/10 dark:bg-amber-500/15 px-3.5 py-1.5 rounded-2xl border border-amber-500/20">
               <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
               <span className="font-black text-sm text-amber-600 dark:text-amber-400">
-                {(product.averageRating || 4.9).toFixed(1)} / 5.0
+                {effectiveRating.toFixed(1)} / 5.0
               </span>
               <span className="text-xs text-slate-400 ml-1">
                 ({product.ratingCount || reviews.length} verified ratings)

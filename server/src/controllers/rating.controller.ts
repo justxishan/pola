@@ -119,4 +119,74 @@ export class RatingController {
       next(error);
     }
   }
+
+  /**
+   * Check whether an order (or batch of orders) has already been rated by the authenticated user
+   */
+  static async checkOrderRating(req: Request, res: Response, next: NextFunction) {
+    try {
+      const raterUserId = req.user!.userId;
+      const { orderId, orderIds } = req.query;
+
+      if (orderId && typeof orderId === 'string' && Types.ObjectId.isValid(orderId)) {
+        const ratings = await Rating.find({
+          orderId: new Types.ObjectId(orderId),
+          raterUserId: new Types.ObjectId(raterUserId),
+        });
+        const isRated = ratings.length > 0;
+        const averageScore = isRated
+          ? Math.round((ratings.reduce((acc, r) => acc + r.ratingScore, 0) / ratings.length) * 10) / 10
+          : 0;
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            isRated,
+            averageScore,
+            ratingsCount: ratings.length,
+          },
+        });
+      }
+
+      // Batch check for orders
+      let queryOrderIds: Types.ObjectId[] = [];
+      if (orderIds && typeof orderIds === 'string') {
+        queryOrderIds = orderIds
+          .split(',')
+          .map((id) => id.trim())
+          .filter((id) => Types.ObjectId.isValid(id))
+          .map((id) => new Types.ObjectId(id));
+      }
+
+      const matchStage: any = { raterUserId: new Types.ObjectId(raterUserId) };
+      if (queryOrderIds.length > 0) {
+        matchStage.orderId = { $in: queryOrderIds };
+      }
+
+      const ratings = await Rating.find(matchStage);
+      const ratedOrders: Record<string, { isRated: boolean; averageScore: number }> = {};
+
+      const orderGroups: Record<string, number[]> = {};
+      for (const r of ratings) {
+        const oId = r.orderId.toString();
+        if (!orderGroups[oId]) orderGroups[oId] = [];
+        orderGroups[oId].push(r.ratingScore);
+      }
+
+      for (const [oId, scores] of Object.entries(orderGroups)) {
+        const avg = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
+        ratedOrders[oId] = {
+          isRated: true,
+          averageScore: avg,
+        };
+      }
+
+      res.status(200).json({
+        success: true,
+        data: { ratedOrders },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
