@@ -259,7 +259,7 @@ export const FarmerDashboard: React.FC = () => {
                       <Circle className="w-5 h-5 text-slate-500 shrink-0" />
                     )}
                     <div>
-                      <h4 className="font-bold text-xs text-white">NIC & Agrarian Land Verification</h4>
+                      <h4 className="font-bold text-xs text-white">Identity Verification (NIC)</h4>
                       <p className="text-[11px] text-slate-400">Unlocks Verified Producer green badge</p>
                     </div>
                   </div>
