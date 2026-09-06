@@ -57,7 +57,16 @@ export const AdminDashboard: React.FC = () => {
       setIsLoading(true);
       const res: any = await AdminService.getExecutiveDashboardKpis();
       if (res.success && res.data) {
-        setKpis(res.data.kpis);
+        const d = res.data;
+        setKpis({
+          totalUsersCount: d.totalUsers,
+          totalOrdersCount: d.activeOrdersCount,
+          totalGmvLkr: d.gmv,
+          platformRevenueLkr: d.platformRevenue,
+          pendingKycCount: d.pendingKycCount,
+          pendingPayoutsCount: d.pendingWithdrawalsCount,
+          pendingFarmsCount: d.pendingFarmsCount,
+        });
       }
     } catch (err: any) {
       console.error(err);
