@@ -9,3 +9,4 @@ export * from './DataTable';
 export * from './Breadcrumbs';
 export * from './RatingModal';
 export * from './KycReviewPanel';
+export * from './ErrorBoundary';

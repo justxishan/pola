@@ -63,6 +63,7 @@ import { EditProfilePage } from './pages/shared/EditProfilePage';
 import { HelpSupportPage } from './pages/shared/HelpSupportPage';
 import { MessagesPage } from './pages/shared/MessagesPage';
 import { NotFoundPage } from './pages/shared/NotFoundPage';
+import { RouteErrorBoundary } from './components/organisms/ErrorBoundary';
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
     // It lives INSIDE the router context, so useNavigate() is safe inside it.
     // This is where the CartDrawer, Toaster, theme sync, and cart hydration live.
     element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       // Universal Multi-Portal Hub
       { path: '/portals', element: <PortalSelectPage /> },

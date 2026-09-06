@@ -139,16 +139,13 @@ export const MyProductsPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Only render header CTA when products exist */}
-          {products.length > 0 && (
-            <button
-              onClick={() => navigate('/farmer/products/new')}
-              className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>List New Crop Harvest</span>
-            </button>
-          )}
+          <button
+            onClick={() => navigate('/farmer/products/new')}
+            className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>List New Crop Harvest</span>
+          </button>
         </div>
 
         {/* Farm Filter Tag */}
@@ -242,22 +239,41 @@ export const MyProductsPage: React.FC = () => {
             <span className="text-xs font-mono text-slate-400">Loading crop lots...</span>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="glass-terminal p-12 rounded-3xl border border-white/10 text-center space-y-4">
-            <div className="w-14 h-14 rounded-3xl bg-white/5 text-slate-400 border border-white/10 flex items-center justify-center mx-auto">
-              <Package className="w-7 h-7" />
+          <div className="glass-terminal p-12 rounded-3xl border border-white/10 text-center space-y-4 max-w-lg mx-auto">
+            <div className="w-16 h-16 rounded-3xl bg-lime-400/10 text-lime-400 border border-lime-400/20 flex items-center justify-center mx-auto">
+              <Package className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-black text-white">No Listings Found</h3>
-            <p className="text-xs text-slate-300 max-w-sm mx-auto">
-              {statusFilter === 'draft'
-                ? 'You currently have no draft listings saved. Incomplete listings can be saved as drafts from the add listing form.'
-                : 'No listings match the selected filter.'}
+            <h3 className="text-xl font-black text-white">
+              {products.length === 0
+                ? 'No Crop Listings Yet'
+                : statusFilter === 'draft'
+                ? 'No Draft Listings'
+                : 'No Matching Lots'}
+            </h3>
+            <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+              {products.length === 0
+                ? 'You have not listed any crop harvests yet. List your harvested produce directly to buyers across Sri Lanka with guaranteed 24-hour escrow payouts.'
+                : statusFilter === 'draft'
+                ? 'You currently have no saved drafts. Incomplete listings can be saved as drafts at any time.'
+                : 'No listings match your selected status filter.'}
             </p>
-            <button
-              onClick={() => setStatusFilter('all')}
-              className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
-            >
-              View All Lots
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => navigate('/farmer/products/new')}
+                className="px-6 py-3 rounded-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-lime-500/25 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>List New Crop Harvest</span>
+              </button>
+              {statusFilter !== 'all' && products.length > 0 && (
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className="px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
+                >
+                  View All Lots
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

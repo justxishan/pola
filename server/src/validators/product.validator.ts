@@ -23,10 +23,18 @@ export const CreateProductSchema = z.object({
     ),
     b2bPricingTiers: z.preprocess(
       (val) => {
+        let list = val;
         if (typeof val === 'string') {
-          try { return JSON.parse(val); } catch { return []; }
+          try { list = JSON.parse(val); } catch { list = []; }
         }
-        return val ?? [];
+        if (Array.isArray(list)) {
+          return list.map((t: any) => ({
+            minQuantity: t.minQuantity,
+            maxQuantity: t.maxQuantity,
+            unitPrice: t.unitPrice !== undefined ? t.unitPrice : t.pricePerUnit,
+          }));
+        }
+        return [];
       },
       z.array(
         z.object({

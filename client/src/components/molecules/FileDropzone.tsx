@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/cn';
 import { UploadCloud, X, FileText, Check } from 'lucide-react';
 

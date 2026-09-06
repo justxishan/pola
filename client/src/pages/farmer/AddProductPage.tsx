@@ -304,7 +304,17 @@ export const AddProductPage: React.FC = () => {
       }
 
       if (pricingTiers.length > 0) {
-        formData.append('b2bPricingTiers', JSON.stringify(pricingTiers));
+        formData.append(
+          'b2bPricingTiers',
+          JSON.stringify(
+            pricingTiers.map((t) => ({
+              minQuantity: Number(t.minQuantity),
+              maxQuantity: t.maxQuantity ? Number(t.maxQuantity) : undefined,
+              unitPrice: Number(t.pricePerUnit),
+              pricePerUnit: Number(t.pricePerUnit),
+            }))
+          )
+        );
       }
 
       images.forEach((img) => formData.append('images', img));

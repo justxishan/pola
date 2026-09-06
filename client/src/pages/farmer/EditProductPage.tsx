@@ -132,6 +132,13 @@ export const EditProductPage: React.FC = () => {
       setIsSaving(true);
       setIsPublishingAction(publishToMarketplace);
 
+      const normalizedTiers = pricingTiers.map((t: any) => ({
+        minQuantity: Number(t.minQuantity),
+        maxQuantity: t.maxQuantity ? Number(t.maxQuantity) : undefined,
+        unitPrice: Number(t.unitPrice ?? t.pricePerUnit ?? 0),
+        pricePerUnit: Number(t.unitPrice ?? t.pricePerUnit ?? 0),
+      }));
+
       await ProductService.updateProduct(id, {
         productName: title.trim(),
         title: title.trim(),
@@ -146,8 +153,8 @@ export const EditProductPage: React.FC = () => {
         seasonTag: season as any,
         season: season as any,
         description,
-        b2bPricingTiers: pricingTiers,
-        pricingTiers,
+        b2bPricingTiers: normalizedTiers,
+        pricingTiers: normalizedTiers,
         isDraft: !publishToMarketplace,
         saveAsDraft: !publishToMarketplace,
         publish: publishToMarketplace,
