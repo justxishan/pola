@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/components/templates/AuthLayout';
 import { Input } from '@/components/atoms/Input';
-import { Select } from '@/components/atoms/Select';
 import { FileDropzone } from '@/components/molecules/FileDropzone';
 import { Button } from '@/components/atoms/Button';
 import { AuthService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/authStore';
-import { SRI_LANKAN_BANKS } from '@pola/shared';
-import { ShieldCheck, ArrowRight, Building } from 'lucide-react';
+import { ShieldCheck, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const KycUploadPage: React.FC = () => {
@@ -16,10 +14,6 @@ export const KycUploadPage: React.FC = () => {
   const { user, updateUser } = useAuthStore();
 
   const [nicNumber, setNicNumber] = useState('');
-  const [bankName, setBankName] = useState(SRI_LANKAN_BANKS[0].name);
-  const [branchName, setBranchName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [accountHolderName, setAccountHolderName] = useState('');
 
   const [nicFrontFiles, setNicFrontFiles] = useState<File[]>([]);
   const [nicBackFiles, setNicBackFiles] = useState<File[]>([]);
@@ -44,10 +38,6 @@ export const KycUploadPage: React.FC = () => {
       setIsLoading(true);
       const formData = new FormData();
       formData.append('nicNumber', nicNumber.trim());
-      formData.append('bankName', bankName);
-      formData.append('branchName', branchName);
-      formData.append('accountNumber', accountNumber);
-      formData.append('accountHolderName', accountHolderName);
 
       if (nicFrontFiles[0]) formData.append('nicFront', nicFrontFiles[0]);
       if (nicBackFiles[0]) formData.append('nicBack', nicBackFiles[0]);
@@ -124,45 +114,9 @@ export const KycUploadPage: React.FC = () => {
           />
         </div>
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
-            <Building className="w-4 h-4 text-emerald-600" />
-            <span>LankaPay Bank Settlement Details</span>
-          </div>
-
-          <Select
-            label="Bank Name"
-            value={bankName}
-            onChange={(e) => setBankName(e.target.value)}
-          >
-            {SRI_LANKAN_BANKS.map((b) => (
-              <option key={b.code} value={b.name}>
-                {b.name} ({b.code})
-              </option>
-            ))}
-          </Select>
-
-          <Input
-            label="Branch Name"
-            placeholder="e.g. Dambulla Branch"
-            value={branchName}
-            onChange={(e) => setBranchName(e.target.value)}
-          />
-
-          <Input
-            label="Account Number"
-            placeholder="e.g. 1029384756"
-            value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value)}
-          />
-
-          <Input
-            label="Account Holder Name"
-            placeholder="e.g. D. I. Perera"
-            value={accountHolderName}
-            onChange={(e) => setAccountHolderName(e.target.value)}
-          />
-        </div>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          You can add your payout bank account anytime from the Wallet page.
+        </p>
 
         <Button
           type="submit"

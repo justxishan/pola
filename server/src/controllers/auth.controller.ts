@@ -215,7 +215,9 @@ export class AuthController {
   static async selectRole(req: Request, res: Response, next: NextFunction) {
     try {
       const { role } = req.body;
-      const user = (req as any).user;
+      const userId = (req as any).user.userId;
+      const user = await User.findById(userId);
+      if (!user) throw new AppError('User not found', 404);
 
       if (!Object.values(Role).includes(role)) {
         throw new AppError('Invalid user role specified', 400);
@@ -251,9 +253,12 @@ export class AuthController {
    */
   static async submitKyc(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = (req as any).user;
+      const userId = (req as any).user.userId;
+      const user = await User.findById(userId);
+      if (!user) throw new AppError('User not found', 404);
+
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      const { nicNumber, bankName, branchName, accountNumber, accountHolderName } = req.body;
+      const { nicNumber } = req.body;
 
       if (nicNumber) {
         const nicValidation = validateSriLankanNic(nicNumber);
@@ -265,15 +270,6 @@ export class AuthController {
         if (nicValidation.birthYear) {
           user.dateOfBirth = new Date(nicValidation.birthYear, 0, 1);
         }
-      }
-
-      if (bankName && accountNumber) {
-        user.bankDetails = {
-          bankName,
-          branchName: branchName || '',
-          accountNumber,
-          accountHolderName: accountHolderName || user.fullName,
-        };
       }
 
       if (files?.nicFront && files.nicFront[0]) {
@@ -332,7 +328,8 @@ export class AuthController {
    */
   static async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = (req as any).user;
+      const user = await User.findById((req as any).user.userId);
+      if (!user) throw new AppError('User not found', 404);
       res.status(200).json({
         success: true,
         data: {
