@@ -13,10 +13,8 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { DeliveryService } from '@/services/delivery.service';
 import { WalletService } from '@/services/wallet.service';
+import { getDeliveryNavItems } from '@/lib/navItems';
 import {
-  Compass,
-  Radar,
-  Calendar,
   Truck,
   DollarSign,
   Wallet,
@@ -42,13 +40,7 @@ export const EarningsPage: React.FC = () => {
   const [trips, setTrips] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const navItems = [
-    { id: 'hud', label: 'Delivery HUD', icon: <Compass className="w-5 h-5" />, path: '/delivery/dashboard' },
-    { id: 'available', label: 'Available Radar Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
-    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
-    { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
-    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
-  ];
+  const navItems = getDeliveryNavItems(t as any);
 
   useEffect(() => {
     fetchEarningsData();

@@ -13,8 +13,8 @@ import { ChatService } from '@/services/chat.service';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Avatar } from '@/components/atoms/Avatar';
 import toast from 'react-hot-toast';
+import { PolaLogo } from '@/components/atoms/PolaLogo';
 import {
-  Sprout,
   Search,
   SlidersHorizontal,
   MessageSquare,
@@ -180,15 +180,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             href="/"
             className="flex items-center gap-2 px-2.5 py-1 rounded-full hover:bg-slate-200/50 dark:hover:bg-white/10 transition-all cursor-pointer group"
           >
-            <div className="w-8 h-8 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center font-black shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-              <Sprout className="w-4 h-4 text-slate-950" />
-            </div>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                Pola
-              </span>
-              <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">.lk</span>
-            </div>
+            <PolaLogo size={8} className="group-hover:scale-105 transition-transform shadow-md" />
+            <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              Pola
+            </span>
           </a>
         </div>
 

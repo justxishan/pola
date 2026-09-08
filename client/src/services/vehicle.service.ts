@@ -30,4 +30,12 @@ export const VehicleService = {
   uploadVehicleDocs: async (vehicleId: string, formData: FormData) => {
     return api.post(`/vehicles/${vehicleId}/documents`, formData);
   },
+
+  getPendingVehicles: async () => {
+    return api.get('/vehicles/pending');
+  },
+
+  verifyVehicle: async (id: string, approved: boolean, rejectionReason?: string) => {
+    return api.patch(`/vehicles/${id}/verify`, { approved, rejectionReason });
+  },
 };

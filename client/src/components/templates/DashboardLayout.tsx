@@ -8,8 +8,8 @@ import { NotificationDrawer } from '@/components/organisms/NotificationDrawer';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { MobileBottomNav, MobileNavItem } from '@/components/organisms/MobileBottomNav';
 import { NotificationService } from '@/services/notification.service';
+import { PolaLogo } from '@/components/atoms/PolaLogo';
 import {
-  Sprout,
   Truck,
   ShieldCheck,
   ShoppingBag,
@@ -59,7 +59,7 @@ export function getPortalTheme(portalRole: string) {
       activePill: 'bg-lime-400 text-slate-950 font-black shadow-lg shadow-lime-500/20',
       accentRing: 'ring-lime-400/40',
       dotColor: 'bg-lime-400',
-      icon: <Sprout className="w-4 h-4 text-slate-950" />,
+      icon: <PolaLogo size={4} />,
       avatarBg: 'bg-lime-400',
     };
   if (r.includes('delivery'))

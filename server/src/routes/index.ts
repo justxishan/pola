@@ -20,6 +20,7 @@ import notificationRoutes from './notification.routes.js';
 import webhookRoutes from './webhook.routes.js';
 import chatRoutes from './chat.routes.js';
 import bankAccountRoutes from './bankAccount.routes.js';
+import dcRoutes from './dc.routes.js';
 
 const router = Router();
 
@@ -54,5 +55,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/chat', chatRoutes);
 router.use('/bank-accounts', bankAccountRoutes);
+router.use('/distribution-centers', dcRoutes);
 
 export default router;

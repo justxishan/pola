@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Button } from '@/components/atoms/Button';
@@ -10,14 +10,11 @@ import { FileDropzone } from '@/components/molecules/FileDropzone';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { getDeliveryNavItems } from '@/lib/navItems';
 import { DeliveryService } from '@/services/delivery.service';
 import { ChatDrawer } from '@/components/organisms/ChatDrawer';
 import {
-  Compass,
-  Radar,
-  Calendar,
   Truck,
-  DollarSign,
   MapPin,
   Phone,
   QrCode,
@@ -27,6 +24,7 @@ import {
   Sparkles,
   Package,
   MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -38,6 +36,7 @@ export const ActiveTripPage: React.FC = () => {
 
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [packageCount, setPackageCount] = useState<number | ''>('');
   const [isStartingRun, setIsStartingRun] = useState(false);
   const [handoverOtp, setHandoverOtp] = useState('');
   const [isCodCollected, setIsCodCollected] = useState(false);
@@ -45,17 +44,50 @@ export const ActiveTripPage: React.FC = () => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const navItems = [
-    { id: 'hud', label: 'Delivery HUD', icon: <Compass className="w-5 h-5" />, path: '/delivery/dashboard' },
-    { id: 'available', label: 'Available Radar Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
-    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
-    { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
-    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
-  ];
+  // Exception reporting
+  const [isExceptionOpen, setIsExceptionOpen] = useState(false);
+  const [exceptionReason, setExceptionReason] = useState('customer_absent');
+  const [exceptionNote, setExceptionNote] = useState('');
+  const [isReportingException, setIsReportingException] = useState(false);
+
+  // 30s GPS ping interval ref
+  const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const navItems = getDeliveryNavItems(t as any);
 
   useEffect(() => {
     fetchActiveTrip();
+    return () => {
+      if (gpsIntervalRef.current) clearInterval(gpsIntervalRef.current);
+    };
   }, []);
+
+  // Start GPS pings when we have an active OFD trip
+  useEffect(() => {
+    if (activeTrip?.status === 'out_for_delivery') {
+      startGpsPings();
+    } else {
+      if (gpsIntervalRef.current) {
+        clearInterval(gpsIntervalRef.current);
+        gpsIntervalRef.current = null;
+      }
+    }
+  }, [activeTrip?.status]);
+
+  const startGpsPings = () => {
+    if (gpsIntervalRef.current) return; // already running
+    gpsIntervalRef.current = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          DeliveryService.updateLiveLocation(pos.coords.latitude, pos.coords.longitude).catch(
+            () => {}
+          );
+        },
+        () => {},
+        { timeout: 5000, enableHighAccuracy: true }
+      );
+    }, 30000);
+  };
 
   const fetchActiveTrip = async () => {
     try {
@@ -63,6 +95,9 @@ export const ActiveTripPage: React.FC = () => {
       const res: any = await DeliveryService.getActiveTrip();
       if (res.success && res.data) {
         setActiveTrip(res.data.activeTrip);
+        if (res.data.activeTrip?.items?.length) {
+          setPackageCount(res.data.activeTrip.items.length);
+        }
       }
     } catch (err: any) {
       toast.error('Failed to load active trip');
@@ -73,9 +108,18 @@ export const ActiveTripPage: React.FC = () => {
 
   const handleStartDeliveryRun = async () => {
     if (!activeTrip) return;
+    if (!packageCount) {
+      toast.error('Please confirm package count before starting delivery run');
+      return;
+    }
     try {
       setIsStartingRun(true);
-      await DeliveryService.updateTransitStatus(activeTrip._id, 'out_for_delivery', 'Driver started doorstep delivery run');
+      await DeliveryService.updateTransitStatus(
+        activeTrip._id,
+        'out_for_delivery',
+        'Driver started doorstep delivery run',
+        Number(packageCount)
+      );
       toast.success('Status updated: Order is now Out for Delivery!');
       await fetchActiveTrip();
     } catch (err: any) {
@@ -95,13 +139,34 @@ export const ActiveTripPage: React.FC = () => {
     try {
       setIsCompleting(true);
       toast.loading('Verifying handover & releasing trip payout...', { id: 'pod' });
-      await DeliveryService.confirmHandoverDelivery(activeTrip._id, handoverOtp, podPhoto || undefined);
+
+      await DeliveryService.confirmHandoverDelivery(
+        activeTrip._id,
+        handoverOtp,
+        podPhoto || undefined,
+        isCod ? isCodCollected : undefined
+      );
       toast.success('Delivery completed! Payout credited to your Pola Wallet.', { id: 'pod' });
       navigate('/delivery/dashboard');
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to complete delivery', { id: 'pod' });
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleReportException = async () => {
+    if (!activeTrip) return;
+    try {
+      setIsReportingException(true);
+      await DeliveryService.reportDeliveryException(activeTrip._id, exceptionReason, exceptionNote);
+      toast.success('Delivery exception reported. Order marked as returned.');
+      setIsExceptionOpen(false);
+      navigate('/delivery/dashboard');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to report exception');
+    } finally {
+      setIsReportingException(false);
     }
   };
 
@@ -124,7 +189,7 @@ export const ActiveTripPage: React.FC = () => {
       portalTitle={t.deliveryFleet}
       portalRole={user?.role || 'Delivery Partner'}
       navItems={navItems}
-      activePath="/delivery/dashboard"
+      activePath="/delivery/active-trip"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
       onLanguageChange={setLanguage}
@@ -165,7 +230,7 @@ export const ActiveTripPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {currentStep === 1 && (
                   <Button
                     variant="primary"
@@ -191,6 +256,17 @@ export const ActiveTripPage: React.FC = () => {
                 >
                   Navigate (Google Maps)
                 </Button>
+                {currentStep === 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsExceptionOpen(true)}
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    leftIcon={<AlertTriangle className="w-4 h-4" />}
+                  >
+                    Report Issue
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -211,6 +287,44 @@ export const ActiveTripPage: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Step 1: DC Pickup Confirmation Card */}
+            {currentStep === 1 && (
+              <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-amber-900 dark:text-amber-100">
+                    <Package className="w-5 h-5 text-amber-600" />
+                    <span>DC Package Pickup Confirmation</span>
+                  </div>
+                  <Badge variant="amber" size="sm">Action Required</Badge>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  Count and verify the cargo packages at the Distribution Center before loading into your vehicle and initiating the doorstep run.
+                </p>
+                <div className="flex flex-wrap items-end gap-3 pt-1">
+                  <div className="w-48">
+                    <Input
+                      label="Verified Package Count"
+                      type="number"
+                      min={1}
+                      value={packageCount}
+                      onChange={(e) => setPackageCount(e.target.value ? Number(e.target.value) : '')}
+                      placeholder="e.g. 2"
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    isLoading={isStartingRun}
+                    onClick={handleStartDeliveryRun}
+                    className="bg-emerald-600 hover:bg-emerald-500 font-bold"
+                    leftIcon={<Truck className="w-4 h-4" />}
+                  >
+                    Confirm Pickup &amp; Start Run
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Customer details */}
             <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
@@ -337,6 +451,58 @@ export const ActiveTripPage: React.FC = () => {
               </div>
             </div>
           </>
+        )}
+
+        {/* Exception Report Modal */}
+        {isExceptionOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setIsExceptionOpen(false)} />
+            <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95">
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-lg flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  Report Delivery Exception
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Order will be marked as RETURNED for admin review</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Reason</label>
+                  <select
+                    value={exceptionReason}
+                    onChange={(e) => setExceptionReason(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm px-3 py-2"
+                  >
+                    <option value="customer_absent">Customer not present / unreachable</option>
+                    <option value="refused_delivery">Customer refused delivery</option>
+                    <option value="wrong_address">Wrong / incomplete address</option>
+                    <option value="damaged_goods">Goods damaged in transit</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <Input
+                  label="Additional Notes (optional)"
+                  value={exceptionNote}
+                  onChange={(e) => setExceptionNote(e.target.value)}
+                  placeholder="e.g. Called 3 times, no answer"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button variant="outline" size="sm" onClick={() => setIsExceptionOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={isReportingException}
+                  onClick={handleReportException}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Report Exception
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Real-time Customer Coordination Drawer */}

@@ -7,8 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
 import { ChatService } from '@/services/chat.service';
+import { PolaLogo } from '@/components/atoms/PolaLogo';
 import {
-  Sprout,
   ShieldCheck,
   Home,
   Layers,
@@ -154,9 +154,7 @@ export const MarketplaceLayout: React.FC<MarketplaceLayoutProps> = ({
       <footer className="relative z-10 border-t border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-black/60 backdrop-blur-2xl py-8 mt-16 mb-16 sm:mb-0 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-300">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-emerald-400 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/20">
-              <Sprout className="w-4 h-4 text-slate-950" />
-            </div>
+            <PolaLogo size={9} className="shadow-lg" />
             <div>
               <p className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
                 Pola <span className="font-serif-accent italic font-normal text-emerald-600 dark:text-emerald-400">AgriTech Network</span>

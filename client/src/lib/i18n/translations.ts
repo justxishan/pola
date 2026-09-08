@@ -152,7 +152,7 @@ export interface Translations {
 
 export const translations: Record<LanguageCode, Translations> = {
   en: {
-    brandName: 'Pola.lk',
+    brandName: 'Pola',
     brandTagline: 'Sri Lanka’s Agricultural Direct Marketplace',
     fourPortals: '4 Portals',
     signIn: 'Sign In',
@@ -436,7 +436,7 @@ export const translations: Record<LanguageCode, Translations> = {
   },
 
   ta: {
-    brandName: 'Pola.lk',
+    brandName: 'Pola',
     brandTagline: 'இலங்கையின் நேரடி விவசாய சந்தை',
     fourPortals: '4 முக்கிய தளங்கள்',
     signIn: 'உள்நுழைக',

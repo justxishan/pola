@@ -1,8 +1,8 @@
 import React from 'react';
 import { usePortalThemeStore, PortalThemeConfig } from '@/store/portalThemeStore';
 import { useThemeStore } from '@/store/themeStore';
+import { PolaLogo } from '@/components/atoms/PolaLogo';
 import {
-  Sprout,
   ArrowUpRight,
   ChevronDown,
   Star,
@@ -55,11 +55,9 @@ export const AgroviaAuthLayout: React.FC<AgroviaAuthLayoutProps> = ({
             href="/"
             className="flex items-center gap-2.5 group cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-xl bg-lime-400 text-slate-950 flex items-center justify-center font-black shadow-md shadow-lime-400/20 group-hover:scale-105 transition-transform">
-              <Sprout className="w-5 h-5 text-slate-950" />
-            </div>
-            <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-1">
-              Pola <span className="text-lime-400 text-sm font-mono font-semibold">.lk</span>
+            <PolaLogo size={8} className="group-hover:scale-105 transition-transform shadow-md" />
+            <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white">
+              Pola
             </span>
           </a>
 

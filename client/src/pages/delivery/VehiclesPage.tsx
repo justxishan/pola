@@ -11,18 +11,17 @@ import { VehicleService } from '@/services/vehicle.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
+import { getDeliveryNavItems } from '@/lib/navItems';
 import { VehicleType } from '@pola/shared';
 import {
-  Compass,
-  Radar,
-  Calendar,
   Truck,
-  DollarSign,
   Plus,
   X,
-  CheckCircle2,
+  FileText,
+  Upload,
   AlertTriangle,
-  Snowflake,
+  CheckCircle2,
+  Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -44,13 +43,13 @@ export const VehiclesPage: React.FC = () => {
   const [hasColdStorage, setHasColdStorage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const navItems = [
-    { id: 'hud', label: 'Delivery HUD', icon: <Compass className="w-5 h-5" />, path: '/delivery/dashboard' },
-    { id: 'available', label: 'Available Radar Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
-    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
-    { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
-    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
-  ];
+  // Document Upload Modal
+  const [uploadVehicle, setUploadVehicle] = useState<any | null>(null);
+  const [crBookFile, setCrBookFile] = useState<File | null>(null);
+  const [revenueLicenseFile, setRevenueLicenseFile] = useState<File | null>(null);
+  const [isUploadingDocs, setIsUploadingDocs] = useState(false);
+
+  const navItems = getDeliveryNavItems(t as any);
 
   useEffect(() => {
     fetchVehicles();
@@ -92,12 +91,44 @@ export const VehiclesPage: React.FC = () => {
       setMakeModel('Tata Ace / Dimo Batta');
       setCapacityKg('1000');
       setHasColdStorage(false);
-      await fetchVehicles(); // Refresh from DB
+      await fetchVehicles();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to register vehicle');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleUploadDocs = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadVehicle) return;
+    if (!crBookFile && !revenueLicenseFile) {
+      toast.error('Please select at least one document to upload');
+      return;
+    }
+
+    try {
+      setIsUploadingDocs(true);
+      const formData = new FormData();
+      if (crBookFile) formData.append('crBook', crBookFile);
+      if (revenueLicenseFile) formData.append('revenueLicense', revenueLicenseFile);
+
+      await VehicleService.uploadVehicleDocs(uploadVehicle._id, formData);
+      toast.success('Vehicle documents uploaded successfully');
+      setUploadVehicle(null);
+      setCrBookFile(null);
+      setRevenueLicenseFile(null);
+      await fetchVehicles();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to upload documents');
+    } finally {
+      setIsUploadingDocs(false);
+    }
+  };
+
+  const daysUntil = (date?: string | Date) => {
+    if (!date) return null;
+    return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
   };
 
   return (
@@ -124,7 +155,7 @@ export const VehiclesPage: React.FC = () => {
               Registered Transport Vehicles ({vehicles.length})
             </h1>
             <p className="text-xs text-slate-400">
-              Manage your three-wheelers, mini-trucks, lorries & refrigerated bodies
+              Manage your three-wheelers, mini-trucks, lorries &amp; refrigerated bodies
             </p>
           </div>
 
@@ -140,47 +171,221 @@ export const VehiclesPage: React.FC = () => {
         </div>
 
         {/* Vehicles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {vehicles.map((v) => (
+        {isLoading ? (
+          <div className="py-20 flex justify-center">
+            <Spinner size="lg" />
+          </div>
+        ) : vehicles.length === 0 ? (
+          <EmptyState
+            title="No vehicles registered"
+            description="Add your delivery vehicles to accept radar trips"
+            icon={<Truck className="w-8 h-8" />}
+            action={{ label: 'Add First Vehicle', onClick: () => setIsAddOpen(true) }}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {vehicles.map((v) => {
+              const insDays = daysUntil(v.insuranceExpiry);
+              const revDays = daysUntil(v.revenueLicenseExpiry);
+
+              return (
+                <div
+                  key={v._id}
+                  className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-300">
+                        <Truck className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
+                          {v.registrationPlate || v.licensePlate}
+                        </h4>
+                        <p className="text-xs text-slate-400 capitalize">
+                          {v.makeModel} • {v.vehicleType?.replace(/_/g, ' ')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Badge
+                      variant={
+                        v.status === 'verified'
+                          ? 'emerald'
+                          : v.status === 'rejected'
+                          ? 'rose'
+                          : 'amber'
+                      }
+                      size="sm"
+                    >
+                      {v.status === 'verified'
+                        ? 'Verified Active'
+                        : v.status === 'rejected'
+                        ? 'Rejected'
+                        : 'Pending Check'}
+                    </Badge>
+                  </div>
+
+                  {/* Expiry Warnings */}
+                  {(insDays !== null && insDays <= 30) || (revDays !== null && revDays <= 30) ? (
+                    <div className="space-y-1">
+                      {insDays !== null && insDays <= 30 && (
+                        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {insDays <= 0
+                              ? 'Insurance has expired!'
+                              : `Insurance expires in ${insDays} days`}
+                          </span>
+                        </div>
+                      )}
+                      {revDays !== null && revDays <= 30 && (
+                        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {revDays <= 0
+                              ? 'Revenue license has expired!'
+                              : `Revenue license expires in ${revDays} days`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Payload Capacity</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {v.maxPayloadKg || v.capacityKg || 500} kg
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Cold Storage</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {v.hasColdChain || v.hasColdStorage ? 'Equipped' : 'Standard'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Documents Section */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 text-[11px]">Documents:</span>
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                          v.crBookDoc ? 'text-emerald-600' : 'text-slate-400'
+                        }`}
+                      >
+                        CR {v.crBookDoc ? '✓' : '—'}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                          v.revenueLicenseDoc ? 'text-emerald-600' : 'text-slate-400'
+                        }`}
+                      >
+                        License {v.revenueLicenseDoc ? '✓' : '—'}
+                      </span>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUploadVehicle(v)}
+                      leftIcon={<Upload className="w-3.5 h-3.5" />}
+                      className="text-xs py-1 px-2.5 h-auto"
+                    >
+                      {v.crBookDoc || v.revenueLicenseDoc ? 'Update Docs' : 'Upload Docs'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Upload Documents Modal */}
+        {uploadVehicle && (
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
             <div
-              key={v._id}
-              className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4"
-            >
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+              onClick={() => setUploadVehicle(null)}
+            />
+            <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-300">
-                    <Truck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
-                      {v.licensePlate}
-                    </h4>
-                    <p className="text-xs text-slate-400 capitalize">
-                      {v.vehicleType?.replace(/_/g, ' ')}
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-lg">
+                    Upload Vehicle Documents
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Plate: {uploadVehicle.registrationPlate || uploadVehicle.licensePlate}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setUploadVehicle(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUploadDocs} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    CR Book (Certificate of Registration)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    onChange={(e) => setCrBookFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+                  />
+                  {uploadVehicle.crBookDoc && (
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1">
+                      ✓ Previously uploaded
                     </p>
-                  </div>
+                  )}
                 </div>
 
-                <Badge variant={v.isVerified ? 'emerald' : 'amber'} size="sm">
-                  {v.isVerified ? 'Verified Active' : 'Pending Check'}
-                </Badge>
-              </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Revenue License
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    onChange={(e) => setRevenueLicenseFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+                  />
+                  {uploadVehicle.revenueLicenseDoc && (
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1">
+                      ✓ Previously uploaded
+                    </p>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Payload Capacity</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{v.capacityKg} kg</span>
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setUploadVehicle(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    type="submit"
+                    isLoading={isUploadingDocs}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Submit Documents
+                  </Button>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Cold Storage Body</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {v.hasColdStorage ? 'Equipped (Refrigerated)' : 'Standard Body'}
-                  </span>
-                </div>
-              </div>
+              </form>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         {/* Add Modal */}
         {isAddOpen && (
@@ -196,9 +401,14 @@ export const VehiclesPage: React.FC = () => {
                   <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-lg">
                     Add Transport Vehicle
                   </h3>
-                  <p className="text-xs text-slate-400">Register new fleet vehicle for order radar matching</p>
+                  <p className="text-xs text-slate-400">
+                    Register new fleet vehicle for order radar matching
+                  </p>
                 </div>
-                <button onClick={() => setIsAddOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+                <button
+                  onClick={() => setIsAddOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -209,12 +419,21 @@ export const VehiclesPage: React.FC = () => {
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value as VehicleType)}
                   options={[
-                    { value: VehicleType.THREE_WHEELER, label: 'Three-Wheeler (Tuk-Tuk) — Up to 250 kg' },
+                    {
+                      value: VehicleType.THREE_WHEELER,
+                      label: 'Three-Wheeler (Tuk-Tuk) — Up to 250 kg',
+                    },
                     { value: VehicleType.MOTORCYCLE, label: 'Motorcycle — Up to 35 kg' },
-                    { value: VehicleType.MINI_TRUCK, label: 'Mini-Truck (Dimo Batta / Bolero) — Up to 1,000 kg' },
+                    {
+                      value: VehicleType.MINI_TRUCK,
+                      label: 'Mini-Truck (Dimo Batta / Bolero) — Up to 1,000 kg',
+                    },
                     { value: VehicleType.SMALL_LORRY, label: 'Small Lorry (10-14ft) — Up to 2,500 kg' },
                     { value: VehicleType.LARGE_LORRY, label: 'Large Lorry (16-20ft) — Up to 5,000 kg' },
-                    { value: VehicleType.REFRIGERATED_TRUCK, label: 'Refrigerated Cold-Chain Truck' },
+                    {
+                      value: VehicleType.REFRIGERATED_TRUCK,
+                      label: 'Refrigerated Cold-Chain Truck',
+                    },
                   ]}
                 />
 
@@ -252,16 +471,30 @@ export const VehiclesPage: React.FC = () => {
                     onChange={(e) => setHasColdStorage(e.target.checked)}
                     className="w-4 h-4 rounded text-amber-600"
                   />
-                  <label htmlFor="vehCold" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                  <label
+                    htmlFor="vehCold"
+                    className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer"
+                  >
                     Cold-Storage / Insulated Body
                   </label>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <Button variant="outline" size="sm" type="button" onClick={() => setIsAddOpen(false)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setIsAddOpen(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button variant="primary" size="sm" type="submit" isLoading={isSubmitting} className="bg-amber-600">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    type="submit"
+                    isLoading={isSubmitting}
+                    className="bg-amber-600"
+                  >
                     Register Vehicle
                   </Button>
                 </div>
