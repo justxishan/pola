@@ -9,6 +9,10 @@ export const AuthService = {
     return api.post('/auth/verify-otp', { email, otpCode: otp, role });
   },
 
+  adminLogin: async (email: string, password: string) => {
+    return api.post('/auth/admin-login', { email, password });
+  },
+
   googleLogin: async (idToken: string, role?: string) => {
     return api.post('/auth/google', { idToken, role });
   },
@@ -18,11 +22,7 @@ export const AuthService = {
   },
 
   uploadKyc: async (formData: FormData) => {
-    return api.post('/auth/kyc', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    return api.post('/auth/kyc', formData);
   },
 
   getMe: async () => {
@@ -31,5 +31,9 @@ export const AuthService = {
 
   updateProfile: async (data: any) => {
     return api.patch('/auth/profile', data);
+  },
+
+  deleteAccount: async (reason: string, details?: string) => {
+    return api.delete('/auth/account', { data: { reason, details } });
   },
 };

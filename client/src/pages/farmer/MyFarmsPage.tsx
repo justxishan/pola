@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { FarmCard } from '@/components/molecules/FarmCard';
+import { FarmDetailModal } from '@/components/organisms/FarmDetailModal';
+import { EditFarmModal } from '@/components/organisms/EditFarmModal';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Spinner } from '@/components/atoms/Spinner';
 import { FarmService } from '@/services/farm.service';
@@ -20,8 +22,15 @@ export const MyFarmsPage: React.FC = () => {
 
   const [farms, setFarms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [farmToToggle, setFarmToToggle] = useState<any | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const [selectedFarm, setSelectedFarm] = useState<any | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const [editFarm, setEditFarm] = useState<any | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
+  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'delete'; farm: any } | null>(null);
 
   const navItems = getFarmerNavItems(t);
 
@@ -43,28 +52,55 @@ export const MyFarmsPage: React.FC = () => {
     }
   };
 
-  const handleToggleClick = (farm: any) => {
-    if (farm.isActive) {
-      // Deactivation requires confirmation
-      setFarmToToggle(farm);
-      setIsConfirmOpen(true);
-    } else {
-      // Activating can proceed directly
-      executeToggle(farm);
+  const openDetails = (farm: any) => {
+    setSelectedFarm(farm);
+    setIsDetailOpen(true);
+  };
+
+  const closeDetails = () => {
+    setIsDetailOpen(false);
+    setSelectedFarm(null);
+  };
+
+  const handleEdit = (farm: any) => {
+    setIsDetailOpen(false);
+    setEditFarm(farm);
+    setIsEditOpen(true);
+  };
+
+  const handleReactivate = async (farm: any) => {
+    try {
+      setProcessingId(farm._id);
+      await FarmService.reactivateFarm(farm._id);
+      toast.success(`Farm "${farm.farmName}" reactivated`);
+      closeDetails();
+      fetchFarms();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to reactivate farm');
+    } finally {
+      setProcessingId(null);
     }
   };
 
-  const executeToggle = async (farm: any) => {
+  const executeConfirmedAction = async () => {
+    if (!confirmAction) return;
+    const { type, farm } = confirmAction;
     try {
-      const nextStatus = !farm.isActive;
-      await FarmService.updateFarm(farm._id, { isActive: nextStatus });
-      toast.success(`Farm ${nextStatus ? 'activated' : 'deactivated'}`);
+      setProcessingId(farm._id);
+      if (type === 'deactivate') {
+        await FarmService.deactivateFarm(farm._id);
+        toast.success(`Farm "${farm.farmName}" deactivated`);
+      } else {
+        await FarmService.deleteFarm(farm._id);
+        toast.success(`Farm "${farm.farmName}" deleted`);
+      }
+      closeDetails();
       fetchFarms();
     } catch (err: any) {
-      toast.error('Failed to toggle farm status');
+      toast.error(err.response?.data?.message || `Failed to ${type} farm`);
     } finally {
-      setIsConfirmOpen(false);
-      setFarmToToggle(null);
+      setProcessingId(null);
+      setConfirmAction(null);
     }
   };
 
@@ -73,12 +109,7 @@ export const MyFarmsPage: React.FC = () => {
       portalTitle={t.farmerOpsCenter || 'Farmer Portal'}
       portalRole={user?.role || 'Farmer'}
       navItems={navItems}
-      mobileNavItems={navItems.map((item) => ({
-        id: item.id,
-        label: item.label,
-        icon: item.icon,
-        path: item.path,
-      }))}
+      mobileNavItems={navItems.map((item) => ({ id: item.id, label: item.label, icon: item.icon, path: item.path }))}
       activePath="/farmer/farms"
       onNavigate={(path) => navigate(path)}
       currentLanguage={language}
@@ -86,24 +117,16 @@ export const MyFarmsPage: React.FC = () => {
       isDark={isDark}
       onToggleTheme={toggleTheme}
       user={user || undefined}
-      onLogout={() => {
-        logout();
-        navigate('/');
-      }}
+      onLogout={() => { logout(); navigate('/'); }}
     >
       <div className="space-y-8 text-left">
-        {/* Header with Dual-Font Typography */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="space-y-1">
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              My Farms
-            </h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">My Farms</h1>
             <p className="text-xs sm:text-sm text-slate-300">
               Manage your verified cultivation plots, GPS coordinates, and organic PGS certifications
             </p>
           </div>
-
-          {/* Only render when farms exist to prevent duplicate button in empty state */}
           {farms.length > 0 && (
             <button
               onClick={() => navigate('/farmer/farms/new')}
@@ -115,7 +138,6 @@ export const MyFarmsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Farm Cards Grid */}
         {isLoading ? (
           <div className="py-24 flex flex-col items-center justify-center space-y-2">
             <Spinner size="lg" />
@@ -140,39 +162,60 @@ export const MyFarmsPage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {farms.map((farm) => (
-              <FarmCard
-                key={farm._id}
-                id={farm._id}
-                farmName={farm.farmName || farm.name || 'Unnamed Farm'}
-                province={farm.location?.province || farm.province || 'Central'}
-                district={farm.location?.district || farm.district || 'Matale'}
-                nearestVillage={farm.city || farm.location?.city || farm.addressLine || 'Village Hub Zone'}
-                landExtentAcres={farm.extentValue ?? farm.totalAreaAcres ?? farm.landExtentAcres ?? 2.5}
-                ownershipType={farm.ownershipType || 'owned'}
-                irrigationSource={farm.irrigationType || farm.irrigationSource || 'well'}
-                isOrganicCertified={farm.isOrganicCertified}
-                isActive={farm.isActive ?? true}
-                verificationStatus={farm.verificationStatus}
-                onToggleActive={() => handleToggleClick(farm)}
-                onViewListings={() => navigate(`/farmer/products?farmId=${farm._id}`)}
-              />
+              <div key={farm._id} className={farm.isActive === false ? 'opacity-60' : ''}>
+                <FarmCard
+                  id={farm._id}
+                  farmName={farm.farmName || 'Unnamed Farm'}
+                  province={farm.province || 'Central'}
+                  district={farm.district || 'Matale'}
+                  nearestVillage={farm.city || farm.addressLine || 'Village Hub Zone'}
+                  landExtentAcres={farm.extentValue ?? 2.5}
+                  ownershipType={farm.ownershipType || 'owned'}
+                  irrigationSource={farm.irrigationType || 'well'}
+                  isOrganicCertified={farm.isOrganicCertified}
+                  isActive={farm.isActive ?? true}
+                  verificationStatus={farm.verificationStatus}
+                  onOpenDetails={() => openDetails(farm)}
+                  onViewListings={() => navigate(`/farmer/products?farmId=${farm._id}`)}
+                />
+              </div>
             ))}
           </div>
         )}
       </div>
 
+      <FarmDetailModal
+        farm={selectedFarm}
+        isOpen={isDetailOpen}
+        isProcessing={!!processingId}
+        onClose={closeDetails}
+        onEdit={handleEdit}
+        onDeactivate={(farm) => setConfirmAction({ type: 'deactivate', farm })}
+        onReactivate={handleReactivate}
+        onDelete={(farm) => setConfirmAction({ type: 'delete', farm })}
+      />
+
+      <EditFarmModal
+        farm={editFarm}
+        isOpen={isEditOpen}
+        onClose={() => { setIsEditOpen(false); setEditFarm(null); }}
+        onSuccess={fetchFarms}
+      />
+
       <ConfirmDialog
-        isOpen={isConfirmOpen}
-        title="Deactivate Farm Parcel"
-        description={`Are you sure you want to deactivate "${farmToToggle?.farmName || 'this farm'}"? It will temporarily pause all active crop listings linked to this parcel.`}
-        confirmText="Deactivate"
+        isOpen={!!confirmAction}
+        title={confirmAction?.type === 'delete' ? 'Delete Farm Permanently' : 'Deactivate Farm Parcel'}
+        description={
+          confirmAction?.type === 'delete'
+            ? `Permanently delete "${confirmAction?.farm?.farmName}"? This only works if the farm has no crop listing history.`
+            : `Are you sure you want to deactivate "${confirmAction?.farm?.farmName}"? Its crop listings will be hidden from the marketplace but kept on record, not deleted.`
+        }
+        confirmText={confirmAction?.type === 'delete' ? 'Delete' : 'Deactivate'}
         cancelText="Cancel"
-        variant="danger"
-        onConfirm={() => farmToToggle && executeToggle(farmToToggle)}
-        onClose={() => {
-          setIsConfirmOpen(false);
-          setFarmToToggle(null);
-        }}
+        isDestructive
+        isLoading={!!processingId}
+        onConfirm={executeConfirmedAction}
+        onCancel={() => setConfirmAction(null)}
       />
     </DashboardLayout>
   );

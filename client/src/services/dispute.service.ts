@@ -15,9 +15,7 @@ export const DisputeService = {
     if (evidencePhotos) {
       evidencePhotos.forEach((f) => formData.append('evidencePhotos', f));
     }
-    return api.post('/disputes', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return api.post('/disputes', formData);
   },
 
   /** Get disputes raised by the authenticated user */

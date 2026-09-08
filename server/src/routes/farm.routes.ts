@@ -14,7 +14,10 @@ router.use(authenticate);
 router.post(
   '/',
   requireRole(Role.FARMER, Role.COLLECTOR),
-  upload.single('organicCertificate'), // parse multipart BEFORE validation
+  upload.fields([
+    { name: 'verificationDoc', maxCount: 1 },
+    { name: 'organicCertificate', maxCount: 1 },
+  ]),
   validateRequest(CreateFarmSchema),
   FarmController.createFarm
 );
@@ -22,6 +25,9 @@ router.post(
 router.get('/my-farms', requireRole(Role.FARMER, Role.COLLECTOR), FarmController.getMyFarms);
 router.get('/:id', FarmController.getFarmById);
 router.patch('/:id', requireRole(Role.FARMER, Role.COLLECTOR), FarmController.updateFarm);
+router.patch('/:id/deactivate', requireRole(Role.FARMER, Role.COLLECTOR), FarmController.deactivateFarm);
+router.patch('/:id/reactivate', requireRole(Role.FARMER, Role.COLLECTOR), FarmController.reactivateFarm);
+router.delete('/:id', requireRole(Role.FARMER, Role.COLLECTOR), FarmController.deleteFarm);
 router.post(
   '/:id/organic-cert',
   requireRole(Role.FARMER, Role.COLLECTOR),
@@ -30,3 +36,4 @@ router.post(
 );
 
 export default router;
+

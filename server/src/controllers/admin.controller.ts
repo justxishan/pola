@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.model.js';
 import { Order } from '../models/Order.model.js';
 import { Farm } from '../models/Farm.model.js';
@@ -7,6 +8,7 @@ import { Product } from '../models/Product.model.js';
 import { LedgerEntry } from '../models/LedgerEntry.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
 import { PayoutService } from '../services/payout.service.js';
+import { NotificationService } from '../services/notification.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { VerificationStatus, WithdrawalStatus, OrderStatus, Role } from '@pola/shared';
 
@@ -110,6 +112,21 @@ export class AdminController {
 
       await user.save();
 
+      let productsActivated = 0;
+      if (status === VerificationStatus.VERIFIED) {
+        const verifiedFarmIds = (
+          await Farm.find({ farmerId: user._id, verificationStatus: VerificationStatus.VERIFIED }).select('_id')
+        ).map((f) => f._id);
+
+        if (verifiedFarmIds.length > 0) {
+          const result = await Product.updateMany(
+            { farmerId: user._id, farmId: { $in: verifiedFarmIds }, status: 'pending_verification' },
+            { $set: { status: 'active' } }
+          );
+          productsActivated = result.modifiedCount;
+        }
+      }
+
       // Log Audit Trail
       await AuditLog.create({
         adminId: new Types.ObjectId(adminId),
@@ -121,10 +138,28 @@ export class AdminController {
         details: { status, rejectionReason },
       });
 
+      const portal =
+        user.role?.toString().startsWith('farmer') || user.role === Role.COLLECTOR ? 'farmer' :
+        user.role?.toString().startsWith('delivery') ? 'delivery' :
+        user.role?.toString().startsWith('admin') ? 'admin' : 'customer';
+
+      await NotificationService.sendNotification({
+        userId: user._id,
+        title: status === VerificationStatus.VERIFIED ? 'KYC Verification Approved ✅' : 'KYC Verification Rejected',
+        message: status === VerificationStatus.VERIFIED
+          ? 'Your identity verification has been approved. You now have the Verified Producer badge.'
+          : `Your KYC submission was rejected: ${user.kycRejectionReason}`,
+        type: 'kyc',
+        portal,
+        destinationKey: 'KYC',
+      });
+
       res.status(200).json({
         success: true,
-        message: `KYC status updated to ${status}`,
-        data: { user },
+        message: productsActivated > 0
+          ? `KYC status updated to ${status}. ${productsActivated} crop listing(s) activated on the marketplace.`
+          : `KYC status updated to ${status}`,
+        data: { user, productsActivated },
       });
     } catch (error) {
       next(error);
@@ -184,6 +219,16 @@ export class AdminController {
         details: { bankReferenceNumber, amount: entry.amountLkr },
       });
 
+      const withdrawUser = await User.findById(entry.userId).select('role');
+      await NotificationService.sendNotification({
+        userId: entry.userId,
+        title: 'Bank Withdrawal Processed 💸',
+        message: `Your withdrawal of LKR ${Math.abs(entry.amountLkr).toLocaleString()} has been sent to your bank (Ref: ${bankReferenceNumber}).`,
+        type: 'wallet',
+        portal: withdrawUser?.role?.toString().startsWith('delivery') ? 'delivery' : 'farmer',
+        destinationKey: 'WALLET',
+      });
+
       res.status(200).json({
         success: true,
         message: 'Withdrawal marked as processed',
@@ -213,6 +258,16 @@ export class AdminController {
         targetEntity: 'LedgerEntry',
         targetId: id,
         details: { rejectionReason, amount: entry.amountLkr },
+      });
+
+      const withdrawUser = await User.findById(entry.userId).select('role');
+      await NotificationService.sendNotification({
+        userId: entry.userId,
+        title: 'Bank Withdrawal Rejected',
+        message: `Your withdrawal request was rejected: ${rejectionReason}. The amount has been returned to your available balance.`,
+        type: 'wallet',
+        portal: withdrawUser?.role?.toString().startsWith('delivery') ? 'delivery' : 'farmer',
+        destinationKey: 'WALLET',
       });
 
       res.status(200).json({
@@ -385,10 +440,17 @@ export class AdminController {
       if (notes) farm.notes = `[Admin Approved]: ${notes}`;
       await farm.save();
 
-      const { modifiedCount } = await Product.updateMany(
-        { farmId: farm._id, status: 'pending_verification' },
-        { $set: { status: 'active' } }
-      );
+      const farmerUser = await User.findById(farm.farmerId).select('kycStatus');
+      const isFarmerVerified = farmerUser?.kycStatus === VerificationStatus.VERIFIED;
+
+      let modifiedCount = 0;
+      if (isFarmerVerified) {
+        const result = await Product.updateMany(
+          { farmId: farm._id, status: 'pending_verification' },
+          { $set: { status: 'active' } }
+        );
+        modifiedCount = result.modifiedCount;
+      }
 
       await AuditLog.create({
         adminId: new Types.ObjectId(adminId),
@@ -400,10 +462,23 @@ export class AdminController {
         details: { farmName: farm.farmName, district: farm.district, productsActivated: modifiedCount, notes },
       });
 
+      await NotificationService.sendNotification({
+        userId: farm.farmerId,
+        title: 'Farm Approved ✅',
+        message: isFarmerVerified
+          ? `Your farm "${farm.farmName}" has been verified. ${modifiedCount} pending crop listing(s) are now live on the marketplace.`
+          : `Your farm "${farm.farmName}" has been verified. Crop listings will go live once your own KYC verification is also approved.`,
+        type: 'kyc',
+        portal: 'farmer',
+        linkUrl: '/farmer/farms',
+      });
+
       res.status(200).json({
         success: true,
-        message: `Farm "${farm.farmName}" approved. ${modifiedCount} product(s) activated on the marketplace.`,
-        data: { farm, productsActivated: modifiedCount },
+        message: isFarmerVerified
+          ? `Farm "${farm.farmName}" approved. ${modifiedCount} product(s) activated on the marketplace.`
+          : `Farm "${farm.farmName}" approved. Crop listings will go live once the farmer's own KYC verification is also approved.`,
+        data: { farm, productsActivated: modifiedCount, farmerKycVerified: isFarmerVerified },
       });
     } catch (error) {
       next(error);
@@ -438,10 +513,61 @@ export class AdminController {
         details: { farmName: farm.farmName, district: farm.district, reason },
       });
 
+      await NotificationService.sendNotification({
+        userId: farm.farmerId,
+        title: 'Farm Verification Rejected',
+        message: `Your farm "${farm.farmName}" was rejected: ${reason}`,
+        type: 'kyc',
+        portal: 'farmer',
+        linkUrl: '/farmer/farms',
+      });
+
       res.status(200).json({
         success: true,
         message: `Farm "${farm.farmName}" has been rejected.`,
         data: { farm },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Create Admin Account (Super Admin only)
+   */
+  static async createAdmin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { fullName, email, password, role } = req.body;
+      const lowerEmail = email.toLowerCase().trim();
+
+      const existing = await User.findOne({ email: lowerEmail });
+      if (existing) throw new AppError('An account with this email already exists', 409);
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      const newAdmin = await User.create({
+        fullName,
+        email: lowerEmail,
+        password: passwordHash,
+        role,
+        isEmailVerified: true,
+        kycStatus: VerificationStatus.VERIFIED,
+        isActive: true,
+      });
+
+      await AuditLog.create({
+        adminId: new Types.ObjectId(req.user!.userId),
+        adminEmail: req.user!.email,
+        adminRole: req.user!.role,
+        action: 'ADMIN_ACCOUNT_CREATED',
+        targetEntity: 'User',
+        targetId: newAdmin._id.toString(),
+        details: { newAdminEmail: lowerEmail, role },
+      });
+
+      res.status(201).json({
+        success: true,
+        message: `Admin account created for ${lowerEmail}`,
+        data: { id: newAdmin._id, email: newAdmin.email, role: newAdmin.role },
       });
     } catch (error) {
       next(error);

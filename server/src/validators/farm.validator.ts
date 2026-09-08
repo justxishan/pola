@@ -13,8 +13,14 @@ export const CreateFarmSchema = z.object({
     longitude: z.coerce.number().min(79.0, 'Longitude out of Sri Lanka range').max(82.5).optional(),
     extentValue: z.coerce.number().min(0.1, 'Land extent must be positive'),
     extentUnit: z.enum(['acres', 'perches', 'hectares']).default('acres'),
-    ownershipType: z.nativeEnum(OwnershipType).default(OwnershipType.OWNED),
-    irrigationType: z.enum(['rain_fed', 'irrigated', 'drip', 'well', 'canal']).default('rain_fed'),
+    ownershipType: z.preprocess(
+      (v: any) => (v === 'state_permit' ? OwnershipType.LEASED : v),
+      z.nativeEnum(OwnershipType).default(OwnershipType.OWNED)
+    ),
+    irrigationType: z.preprocess(
+      (v: any) => (v === 'rainfed' ? 'rain_fed' : v === 'river' ? 'irrigated' : v),
+      z.enum(['rain_fed', 'irrigated', 'drip', 'well', 'canal']).default('rain_fed')
+    ),
     primaryCrops: z.preprocess(
       (val) => (typeof val === 'string' ? JSON.parse(val) : val),
       z.array(z.string()).default([])

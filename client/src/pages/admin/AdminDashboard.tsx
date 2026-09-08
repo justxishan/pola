@@ -6,6 +6,7 @@ import { Button } from '@/components/atoms/Button';
 import { AdminService } from '@/services/admin.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { getAdminNavItems } from '@/lib/navItems';
 import {
   LayoutDashboard,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
   TrendingUp,
   ArrowUpRight,
   Layers,
+  Sprout,
 } from 'lucide-react';
 import { PortalBackgroundManagerModal } from '@/components/organisms/PortalBackgroundManagerModal';
 import toast from 'react-hot-toast';
@@ -35,18 +37,16 @@ export const AdminDashboard: React.FC = () => {
     platformRevenueLkr: 0,
     pendingKycCount: 0,
     pendingPayoutsCount: 0,
+    pendingFarmsCount: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Command Center', icon: <LayoutDashboard className="w-5 h-5" />, path: '/admin/dashboard' },
-    { id: 'kyc', label: 'KYC Verification', icon: <ShieldCheck className="w-5 h-5" />, path: '/admin/kyc', badgeCount: kpis.pendingKycCount },
-    { id: 'payouts', label: 'LankaPay Payouts', icon: <CreditCard className="w-5 h-5" />, path: '/admin/payouts', badgeCount: kpis.pendingPayoutsCount },
-    { id: 'orders', label: 'Order Oversight', icon: <ShoppingBag className="w-5 h-5" />, path: '/admin/orders' },
-    { id: 'disputes', label: 'Dispute Desk', icon: <AlertTriangle className="w-5 h-5" />, path: '/admin/disputes' },
-    { id: 'hubs', label: 'Hubs & DCs', icon: <Building className="w-5 h-5" />, path: '/admin/hubs' },
-  ];
+  const navItems = getAdminNavItems({
+    pendingKycCount: kpis.pendingKycCount,
+    pendingPayoutsCount: kpis.pendingPayoutsCount,
+    pendingFarmsCount: kpis.pendingFarmsCount,
+  });
 
   useEffect(() => {
     fetchKpis();
@@ -57,7 +57,16 @@ export const AdminDashboard: React.FC = () => {
       setIsLoading(true);
       const res: any = await AdminService.getExecutiveDashboardKpis();
       if (res.success && res.data) {
-        setKpis(res.data.kpis);
+        const d = res.data;
+        setKpis({
+          totalUsersCount: d.totalUsers,
+          totalOrdersCount: d.activeOrdersCount,
+          totalGmvLkr: d.gmv,
+          platformRevenueLkr: d.platformRevenue,
+          pendingKycCount: d.pendingKycCount,
+          pendingPayoutsCount: d.pendingWithdrawalsCount,
+          pendingFarmsCount: d.pendingFarmsCount,
+        });
       }
     } catch (err: any) {
       console.error(err);
@@ -165,7 +174,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Priority Operations Action Panels */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="glass-terminal p-6 sm:p-8 rounded-3xl border border-white/15 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center">
@@ -210,6 +219,30 @@ export const AdminDashboard: React.FC = () => {
               className="w-full py-3.5 px-6 rounded-2xl bg-teal-400 hover:bg-teal-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <span>Manage Payout Desk</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="glass-terminal p-6 sm:p-8 rounded-3xl border border-white/15 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-lime-500/20 text-lime-300 border border-lime-500/30 flex items-center justify-center">
+                <Sprout className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-white">
+                  Farm Verification Queue
+                </h3>
+                <p className="text-xs text-slate-300">
+                  {kpis.pendingFarmsCount || 0} farm plots waiting for admin approval
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/admin/farms')}
+              className="w-full py-3.5 px-6 rounded-2xl bg-lime-400 hover:bg-lime-300 text-slate-950 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <span>Open Farm Approvals</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

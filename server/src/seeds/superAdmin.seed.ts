@@ -1,17 +1,21 @@
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.model.js';
 import { Wallet } from '../models/Wallet.model.js';
 import { Role, VerificationStatus } from '@pola/shared';
+import { env } from '../config/env.config.js';
 import { logger } from '../utils/logger.util.js';
 
 export const seedSuperAdmin = async () => {
   const adminEmail = 'admin@pola.lk';
 
-  let admin = await User.findOne({ email: adminEmail });
+  let admin = await User.findOne({ email: adminEmail }).select('+password');
   if (!admin) {
+    const passwordHash = await bcrypt.hash(env.SUPER_ADMIN_PASSWORD, 12);
     admin = await User.create({
       fullName: 'Pola Super Administrator',
       email: adminEmail,
       phone: '+94771234567',
+      password: passwordHash,
       role: Role.ADMIN_SUPER,
       isEmailVerified: true,
       kycStatus: VerificationStatus.VERIFIED,
@@ -30,8 +34,9 @@ export const seedSuperAdmin = async () => {
   } else {
     admin.role = Role.ADMIN_SUPER;
     admin.kycStatus = VerificationStatus.VERIFIED;
+    admin.password = await bcrypt.hash(env.SUPER_ADMIN_PASSWORD, 12);
     await admin.save();
-    logger.info(`👑 Super Admin account verified: ${adminEmail}`);
+    logger.info(`👑 Super Admin account verified & password synced: ${adminEmail}`);
   }
 
   let wallet = await Wallet.findOne({ userId: admin._id });

@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getDashboardPathForRole } from '@/lib/routeResolver';
 import { Button } from '@/components/atoms/Button';
-import { ShieldAlert, ArrowLeft, RefreshCw } from 'lucide-react';
+import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
 export interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,7 +14,7 @@ export interface ProtectedRouteProps {
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,
-  redirectPath = '/portals',
+  redirectPath = '/',
 }) => {
   const { isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
@@ -55,10 +55,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               <Button
                 variant="outline"
                 className="w-full justify-center border-neutral-700 hover:bg-neutral-800 text-neutral-300 py-3 rounded-xl font-medium flex items-center gap-2"
-                onClick={() => navigate('/portals')}
+                onClick={() => navigate('/')}
               >
-                <RefreshCw className="w-4 h-4" />
-                Switch Portal / Role
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
               </Button>
             </div>
           </div>

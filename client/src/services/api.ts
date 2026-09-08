@@ -10,12 +10,16 @@ export const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT Token
+// Request Interceptor: Attach JWT Token & Strip Content-Type for FormData
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('pola_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // If sending FormData, delete manual Content-Type so browser/axios sets multipart/form-data with boundary
+    if (config.data instanceof FormData && config.headers) {
+      delete config.headers['Content-Type'];
     }
     return config;
   },
@@ -43,7 +47,7 @@ api.interceptors.response.use(
       // Delegate logout to Zustand store to keep in-memory and storage state in sync
       useAuthStore.getState().logout();
 
-      const publicPaths = ['/catalog', '/product/', '/auth/', '/portals', '/portal-select'];
+      const publicPaths = ['/catalog', '/product/', '/auth/'];
       const isPublicPath = publicPaths.some((p) => window.location.pathname.startsWith(p));
       const isAlreadyOnLogin = window.location.pathname.includes('/login');
 

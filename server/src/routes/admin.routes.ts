@@ -4,12 +4,15 @@ import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 import { validateRequest } from '../middleware/validate.middleware.js';
 import { ProcessWithdrawalSchema, RejectWithdrawalSchema } from '../validators/withdrawal.validator.js';
+import { CreateAdminSchema } from '../validators/auth.validator.js';
 import { Role } from '@pola/shared';
 
 const router = Router();
 
 router.use(authenticate);
 router.use(requireRole(Role.ADMIN_SUPER, Role.ADMIN_FINANCE, Role.ADMIN_LOGISTICS, Role.ADMIN_SUPPORT));
+
+router.post('/create-admin', requireRole(Role.ADMIN_SUPER), validateRequest(CreateAdminSchema), AdminController.createAdmin);
 
 router.get('/dashboard', AdminController.getDashboardMetrics);
 router.get('/kyc/queue', AdminController.getKycQueue);

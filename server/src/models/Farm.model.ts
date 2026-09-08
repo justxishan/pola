@@ -22,6 +22,7 @@ export interface IFarm extends Document {
   organicCertificateDoc?: string;
   organicCertIssuer?: string;
   organicCertExpiry?: Date;
+  verificationDoc?: string;
   photos?: string[];
   notes?: string;
   verificationStatus: VerificationStatus;
@@ -65,6 +66,7 @@ const FarmSchema = new Schema<IFarm>(
     organicCertificateDoc: { type: String },
     organicCertIssuer: { type: String },
     organicCertExpiry: { type: Date },
+    verificationDoc: { type: String },
     photos: [{ type: String }],
     notes: { type: String },
     isActive: { type: Boolean, default: true },

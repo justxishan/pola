@@ -12,6 +12,7 @@ import { AdminService } from '@/services/admin.service';
 import { OrderService } from '@/services/order.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { getAdminNavItems } from '@/lib/navItems';
 import {
   LayoutDashboard,
   ShieldCheck,
@@ -51,14 +52,7 @@ export const OrderManagementPage: React.FC = () => {
   const [reassignReason, setReassignReason] = useState('');
   const [isSubmittingReassign, setIsSubmittingReassign] = useState(false);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Command Center', icon: <LayoutDashboard className="w-5 h-5" />, path: '/admin/dashboard' },
-    { id: 'kyc', label: 'KYC Verification', icon: <ShieldCheck className="w-5 h-5" />, path: '/admin/kyc' },
-    { id: 'payouts', label: 'LankaPay Payouts', icon: <CreditCard className="w-5 h-5" />, path: '/admin/payouts' },
-    { id: 'orders', label: 'Order Oversight', icon: <ShoppingBag className="w-5 h-5" />, path: '/admin/orders' },
-    { id: 'disputes', label: 'Dispute Desk', icon: <AlertTriangle className="w-5 h-5" />, path: '/admin/disputes' },
-    { id: 'hubs', label: 'Hubs & DCs', icon: <Building className="w-5 h-5" />, path: '/admin/hubs' },
-  ];
+  const navItems = getAdminNavItems();
 
   const statusPills = [
     { id: 'all', label: 'All Orders' },

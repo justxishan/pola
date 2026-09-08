@@ -16,6 +16,8 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
+  FileText,
+  Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -28,6 +30,7 @@ export const EditProductPage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishingAction, setIsPublishingAction] = useState(false);
   const [farms, setFarms] = useState<any[]>([]);
 
   // Form State
@@ -41,6 +44,8 @@ export const EditProductPage: React.FC = () => {
   const [isOrganic, setIsOrganic] = useState(false);
   const [season, setSeason] = useState('year_round');
   const [description, setDescription] = useState('');
+  const [productStatus, setProductStatus] = useState('active');
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [pricingTiers, setPricingTiers] = useState<
     Array<{ minQuantity: number; maxQuantity?: number; pricePerUnit: number }>
   >([]);
@@ -60,7 +65,7 @@ export const EditProductPage: React.FC = () => {
       ]);
 
       if (farmsRes.success && farmsRes.data) {
-        setFarms(farmsRes.data.farms || []);
+        setFarms((farmsRes.data.farms || []).filter((f: any) => f.isActive !== false));
       }
 
       if (productRes && productRes.success && productRes.data) {
@@ -75,6 +80,8 @@ export const EditProductPage: React.FC = () => {
         setIsOrganic(!!p.isOrganic);
         setSeason(p.seasonTag || p.season || 'year_round');
         setDescription(p.description || '');
+        setProductStatus(p.status || 'active');
+        setExistingImages(p.images || []);
         setPricingTiers(p.b2bPricingTiers || p.pricingTiers || []);
       }
     } catch (err: any) {
@@ -95,36 +102,76 @@ export const EditProductPage: React.FC = () => {
     setPricingTiers(pricingTiers.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (publishToMarketplace: boolean) => {
     if (!id) return;
+    if (!title.trim()) {
+      toast.error('Please enter a produce title');
+      return;
+    }
+
+    const priceNum = parseFloat(pricePerUnit) || 0;
+    const availNum = parseFloat(availableQuantity) || 0;
+    const moqNum = parseInt(minOrderQuantity) || 1;
+
+    if (publishToMarketplace) {
+      if (priceNum <= 0) {
+        toast.error('Price must be greater than 0 to publish to marketplace');
+        return;
+      }
+      if (availNum <= 0) {
+        toast.error('Available stock must be greater than 0 to publish to marketplace');
+        return;
+      }
+      if (moqNum > availNum) {
+        toast.error('Minimum order quantity cannot exceed available stock');
+        return;
+      }
+    }
 
     try {
       setIsSaving(true);
+      setIsPublishingAction(publishToMarketplace);
+
+      const normalizedTiers = pricingTiers.map((t: any) => ({
+        minQuantity: Number(t.minQuantity),
+        maxQuantity: t.maxQuantity ? Number(t.maxQuantity) : undefined,
+        unitPrice: Number(t.unitPrice ?? t.pricePerUnit ?? 0),
+        pricePerUnit: Number(t.unitPrice ?? t.pricePerUnit ?? 0),
+      }));
+
       await ProductService.updateProduct(id, {
         productName: title.trim(),
         title: title.trim(),
         category: category as any,
         farmId: farmId || undefined,
         unit: unit as any,
-        basePricePerUnit: parseFloat(pricePerUnit),
-        pricePerUnit: parseFloat(pricePerUnit),
-        minOrderQuantity: parseInt(minOrderQuantity) || 1,
-        availableQuantity: parseFloat(availableQuantity) || 0,
+        basePricePerUnit: priceNum,
+        pricePerUnit: priceNum,
+        minOrderQuantity: moqNum,
+        availableQuantity: availNum,
         isOrganic,
         seasonTag: season as any,
         season: season as any,
         description,
-        b2bPricingTiers: pricingTiers,
-        pricingTiers,
+        b2bPricingTiers: normalizedTiers,
+        pricingTiers: normalizedTiers,
+        isDraft: !publishToMarketplace,
+        saveAsDraft: !publishToMarketplace,
+        publish: publishToMarketplace,
+        status: publishToMarketplace ? 'active' : 'draft',
       });
 
-      toast.success('Crop harvest listing updated!');
+      toast.success(
+        publishToMarketplace
+          ? 'Crop harvest listed on marketplace!'
+          : 'Draft crop listing updated!'
+      );
       navigate('/farmer/products');
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to update listing');
     } finally {
       setIsSaving(false);
+      setIsPublishingAction(false);
     }
   };
 
@@ -154,11 +201,20 @@ export const EditProductPage: React.FC = () => {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
-              Edit Crop Harvest Listing
-            </h1>
-            <p className="text-xs text-slate-400">
-              Update inventory stock, pricing tiers, and harvest cultivation details
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                Edit Crop Harvest Listing
+              </h1>
+              {productStatus === 'draft' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-400/20 text-amber-500 dark:text-amber-300 border border-amber-400/30">
+                  Draft Listing
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {productStatus === 'draft'
+                ? 'Complete required pricing and stock fields to publish this lot to buyers on Pola Marketplace'
+                : 'Update inventory stock, pricing tiers, and harvest cultivation details'}
             </p>
           </div>
 
@@ -178,7 +234,10 @@ export const EditProductPage: React.FC = () => {
           </div>
         ) : (
           <form
-            onSubmit={handleSubmit}
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave(productStatus !== 'draft');
+            }}
             className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6"
           >
             <div className="space-y-4">
@@ -263,6 +322,34 @@ export const EditProductPage: React.FC = () => {
                 />
               </div>
 
+              {/* Attached Photos (persisted on server/Cloudinary) */}
+              {existingImages.length > 0 && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Uploaded Produce Photos ({existingImages.length})
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Safely stored in Cloudinary
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                    {existingImages.map((imgUrl, idx) => (
+                      <div
+                        key={idx}
+                        className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-900"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Uploaded crop ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* B2B Wholesale Pricing Tiers */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-3">
                 <div className="flex items-center justify-between">
@@ -342,15 +429,43 @@ export const EditProductPage: React.FC = () => {
               >
                 {t.cancel}
               </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                type="submit"
-                isLoading={isSaving}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {t.save}
-              </Button>
+
+              {productStatus === 'draft' ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    isLoading={isSaving && !isPublishingAction}
+                    onClick={() => handleSave(false)}
+                    leftIcon={<FileText className="w-3.5 h-3.5" />}
+                    className="border-amber-400/40 text-amber-600 dark:text-amber-400 hover:bg-amber-400/10"
+                  >
+                    Save as Draft
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    type="button"
+                    isLoading={isSaving && isPublishingAction}
+                    onClick={() => handleSave(true)}
+                    leftIcon={<Globe className="w-3.5 h-3.5" />}
+                    className="bg-lime-500 hover:bg-lime-600 text-slate-950 font-bold"
+                  >
+                    Publish to Marketplace
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  type="submit"
+                  isLoading={isSaving}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {t.save}
+                </Button>
+              )}
             </div>
           </form>
         )}

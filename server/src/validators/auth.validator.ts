@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Role } from '@pola/shared';
+import { Role, ADMIN_ROLES } from '@pola/shared';
 
 export const RequestOtpSchema = z.object({
   body: z.object({
@@ -27,7 +27,7 @@ export const GoogleAuthSchema = z.object({
 
 export const SelectRoleSchema = z.object({
   body: z.object({
-    role: z.nativeEnum(Role),
+    role: z.nativeEnum(Role).refine((r) => !ADMIN_ROLES.includes(r), { message: 'Invalid role selection' }),
   }),
 });
 
@@ -35,7 +35,6 @@ export const UpdateProfileSchema = z.object({
   body: z.object({
     fullName: z.string().min(2).optional(),
     phone: z.string().optional(),
-    role: z.string().optional(),
     onboardingCompleted: z.boolean().optional(),
     nicNumber: z.string().optional(),
     preferredLanguage: z.enum(['en', 'si', 'ta']).optional(),
@@ -59,5 +58,28 @@ export const UpdateProfileSchema = z.object({
         accountHolderName: z.string().optional(),
       })
       .optional(),
+  }),
+});
+
+export const DeleteAccountSchema = z.object({
+  body: z.object({
+    reason: z.string().min(1, 'Please select a reason'),
+    details: z.string().optional(),
+  }),
+});
+
+export const AdminLoginSchema = z.object({
+  body: z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+  }),
+});
+
+export const CreateAdminSchema = z.object({
+  body: z.object({
+    fullName: z.string().min(2),
+    email: z.string().email(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    role: z.enum([Role.ADMIN_SUPER, Role.ADMIN_FINANCE, Role.ADMIN_LOGISTICS, Role.ADMIN_SUPPORT]),
   }),
 });

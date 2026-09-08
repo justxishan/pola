@@ -2,6 +2,7 @@ import { api } from './api';
 
 export interface CartItemPayload {
   productId: string;
+  farmerId?: string;
   title: string;
   pricePerUnit: number;
   unit: string;
@@ -10,6 +11,12 @@ export interface CartItemPayload {
   farmerName?: string;
   minOrderQuantity?: number;
   maxOrderQuantity?: number;
+  tierPricing?: Array<{
+    minQuantity: number;
+    maxQuantity?: number;
+    unitPrice?: number;
+    pricePerUnit?: number;
+  }>;
 }
 
 export const CartService = {

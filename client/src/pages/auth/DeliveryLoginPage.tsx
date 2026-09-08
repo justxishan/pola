@@ -54,12 +54,6 @@ export const DeliveryLoginPage: React.FC = () => {
       }
       footerContent={
         <div className="space-y-2">
-          <p className="text-slate-300">
-            Looking for another portal?{' '}
-            <a href="/portals" className="underline font-bold text-yellow-300 hover:text-white transition-colors">
-              View all 4 Portals
-            </a>
-          </p>
           <p className="text-slate-400 text-[11px]">
             GPS-tracked agritech logistics with instant proof-of-delivery OTP release.
           </p>

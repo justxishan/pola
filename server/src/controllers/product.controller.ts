@@ -1,7 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
 import { Product } from '../models/Product.model.js';
 import { Farm } from '../models/Farm.model.js';
+import { User } from '../models/User.model.js';
+import { Role, VerificationStatus } from '@pola/shared';
 import { CloudinaryService } from '../services/cloudinary.service.js';
+import { uploadFilesToCloudinary } from '../utils/uploadFiles.util.js';
+import { Wishlist } from '../models/Wishlist.model.js';
+import { NotificationService } from '../services/notification.service.js';
+import { logger } from '../utils/logger.util.js';
 import { AppError } from '../middleware/error.middleware.js';
 
 export class ProductController {
@@ -29,12 +36,46 @@ export class ProductController {
         shelfLifeDays,
         images,
         description,
+        status: requestedStatus,
+        isDraft,
+        saveAsDraft,
       } = req.body;
 
       const farm = await Farm.findOne({ _id: farmId, farmerId });
       if (!farm) {
         throw new AppError('Farm not found or does not belong to you', 404);
       }
+      if (!farm.isActive) {
+        throw new AppError('This farm is deactivated. Reactivate it before adding new crop listings.', 400);
+      }
+
+      const farmerUser = await User.findById(farmerId).select('kycStatus');
+      const isFarmVerified = farm.verificationStatus === 'verified';
+      const isFarmerVerified = farmerUser?.kycStatus === 'verified';
+
+      // Upload any multipart image files sent via Multer
+      const files = req.files as Express.Multer.File[];
+      const uploadedUrls = await uploadFilesToCloudinary(files, 'pola/products');
+
+      // Merge newly uploaded Cloudinary URLs with any pre-uploaded/existing image URLs
+      let finalImages: string[] = [...uploadedUrls];
+      if (Array.isArray(images)) {
+        finalImages = [...finalImages, ...images.filter((img) => typeof img === 'string' && img.trim().length > 0)];
+      } else if (typeof images === 'string' && images.trim().length > 0) {
+        finalImages.push(images.trim());
+      }
+
+      const isDraftSubmission =
+        isDraft === true ||
+        isDraft === 'true' ||
+        saveAsDraft === true ||
+        saveAsDraft === 'true' ||
+        requestedStatus === 'draft';
+      const initialStatus = isDraftSubmission
+        ? 'draft'
+        : (isFarmVerified && isFarmerVerified)
+        ? 'active'
+        : 'pending_verification';
 
       const product = await Product.create({
         farmerId,
@@ -43,25 +84,36 @@ export class ProductController {
         productName,
         category,
         variety,
-        unit,
-        basePricePerUnit,
-        availableQuantity,
+        unit: unit || 'kg',
+        basePricePerUnit: basePricePerUnit !== undefined ? Number(basePricePerUnit) : 0,
+        availableQuantity: availableQuantity !== undefined ? Number(availableQuantity) : 0,
         minOrderQuantity: minOrderQuantity || 1,
         b2bPricingTiers: b2bPricingTiers || [],
         selfDeclaredGrade: selfDeclaredGrade || 'grade_a',
-        isOrganic: isOrganic || farm.isOrganicCertified,
+        isOrganic: !!isOrganic,
         requiresColdChain: requiresColdChain || false,
         seasonTag: seasonTag || 'year_round',
         harvestDate,
         shelfLifeDays,
-        images: images || [],
+        images: finalImages,
         description,
-        status: farm.verificationStatus === 'verified' ? 'active' : 'pending_verification',
+        status: initialStatus,
       });
+
+      let statusMessage = 'Product listed successfully on Pola Marketplace';
+      if (!isDraftSubmission && initialStatus === 'pending_verification') {
+        if (!isFarmVerified && !isFarmerVerified) {
+          statusMessage = 'Listing saved. It will go live once your farm and your own KYC are both verified by Pola admin.';
+        } else if (!isFarmVerified) {
+          statusMessage = 'Listing saved. It will go live once your farm is verified by Pola admin.';
+        } else {
+          statusMessage = 'Listing saved. It will go live once your own KYC verification is approved by Pola admin.';
+        }
+      }
 
       res.status(201).json({
         success: true,
-        message: 'Product listed successfully on Pola Marketplace',
+        message: isDraftSubmission ? 'Draft crop listing saved successfully' : statusMessage,
         data: { product },
       });
     } catch (error) {
@@ -82,7 +134,7 @@ export class ProductController {
       if (farmId) filter.farmId = farmId;
 
       const products = await Product.find(filter)
-        .populate('farmId', 'farmName district province verificationStatus')
+        .populate('farmId', 'farmName district province verificationStatus isActive')
         .sort({ createdAt: -1 });
 
       res.status(200).json({
@@ -103,49 +155,110 @@ export class ProductController {
         page = 1,
         limit = 20,
         search,
+        farmerId,
         category,
         district,
         isOrganic,
+        isOrganicOnly,
+        qualityGrade,
+        minRating,
+        requiresColdChain,
         minPrice,
         maxPrice,
         season,
+        sort,
         sortBy = 'createdAt',
         sortOrder = 'desc',
       } = req.query as any;
 
-      const filter: any = { status: 'active', availableQuantity: { $gt: 0 } };
+      const andClauses: any[] = [{ status: 'active', availableQuantity: { $gt: 0 } }];
 
-      if (search) {
-        filter.$text = { $search: search };
+      const inactiveFarms = await Farm.find({ isActive: false }).select('_id');
+      if (inactiveFarms.length > 0) {
+        andClauses.push({ farmId: { $nin: inactiveFarms.map((f) => f._id) } });
       }
+
+      if (farmerId && Types.ObjectId.isValid(farmerId)) {
+        andClauses.push({ farmerId: new Types.ObjectId(farmerId) });
+      }
+
+      if (search && search.trim()) {
+        const clean = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(clean, 'i');
+        andClauses.push({
+          $or: [
+            { productName: searchRegex },
+            { variety: searchRegex },
+            { description: searchRegex },
+          ],
+        });
+      }
+
       if (category) {
-        filter.category = category;
+        andClauses.push({ category });
       }
+
       if (district) {
         const matchingFarms = await Farm.find({
-          district: { $regex: new RegExp(`^${district}$`, 'i') },
+          district: { $regex: new RegExp(`^${district.trim()}$`, 'i') },
         }).select('_id');
         const farmIds = matchingFarms.map((f) => f._id);
 
-        filter.$or = [
-          { district: { $regex: new RegExp(`^${district}$`, 'i') } },
-          { farmId: { $in: farmIds } },
-        ];
-      }
-      if (isOrganic !== undefined) {
-        filter.isOrganic = isOrganic;
-      }
-      if (season) {
-        filter.seasonTag = season;
-      }
-      if (minPrice !== undefined || maxPrice !== undefined) {
-        filter.basePricePerUnit = {};
-        if (minPrice !== undefined) filter.basePricePerUnit.$gte = minPrice;
-        if (maxPrice !== undefined) filter.basePricePerUnit.$lte = maxPrice;
+        andClauses.push({
+          $or: [
+            { district: { $regex: new RegExp(`^${district.trim()}$`, 'i') } },
+            { farmId: { $in: farmIds } },
+          ],
+        });
       }
 
+      const organicFlag = isOrganicOnly !== undefined ? isOrganicOnly : isOrganic;
+      if (organicFlag !== undefined) {
+        andClauses.push({ isOrganic: organicFlag });
+      }
+
+      if (qualityGrade) {
+        andClauses.push({ selfDeclaredGrade: qualityGrade });
+      }
+
+      if (requiresColdChain !== undefined) {
+        andClauses.push({ requiresColdChain });
+      }
+
+      if (minRating !== undefined) {
+        andClauses.push({ averageRating: { $gte: minRating } });
+      }
+
+      if (season) {
+        andClauses.push({ seasonTag: season });
+      }
+
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        const priceFilter: any = {};
+        if (minPrice !== undefined) priceFilter.$gte = minPrice;
+        if (maxPrice !== undefined) priceFilter.$lte = maxPrice;
+        andClauses.push({ basePricePerUnit: priceFilter });
+      }
+
+      const filter = andClauses.length > 1 ? { $and: andClauses } : andClauses[0];
+
       const skip = (page - 1) * limit;
-      const sortConfig: any = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+      let sortConfig: any = { createdAt: -1 };
+      const effectiveSort = sort || sortBy;
+      if (effectiveSort === 'price_asc') {
+        sortConfig = { basePricePerUnit: 1 };
+      } else if (effectiveSort === 'price_desc') {
+        sortConfig = { basePricePerUnit: -1 };
+      } else if (effectiveSort === 'rating') {
+        sortConfig = { averageRating: -1, ratingCount: -1 };
+      } else if (effectiveSort === 'newest') {
+        sortConfig = { createdAt: -1 };
+      } else if (effectiveSort === 'featured') {
+        sortConfig = { isOrganic: -1, createdAt: -1 };
+      } else if (sortBy && sortOrder) {
+        sortConfig = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+      }
 
       const [products, total] = await Promise.all([
         Product.find(filter)
@@ -185,7 +298,7 @@ export class ProductController {
         { new: true }
       )
         .populate('farmerId', 'fullName profileImage phone kycStatus rating')
-        .populate('farmId', 'farmName addressLine city district province gps isOrganicCertified');
+        .populate('farmId', 'farmName addressLine city district province gps isOrganicCertified isActive');
 
       if (!product) throw new AppError('Product not found', 404);
 
@@ -218,8 +331,64 @@ export class ProductController {
         updates.status = updates.isActive ? 'active' : 'delisted';
       }
 
+      if (
+        updates.isDraft === true ||
+        updates.isDraft === 'true' ||
+        updates.saveAsDraft === true ||
+        updates.saveAsDraft === 'true' ||
+        updates.status === 'draft'
+      ) {
+        updates.status = 'draft';
+      } else if (
+        updates.publish === true ||
+        updates.publish === 'true' ||
+        updates.status === 'active' ||
+        (product.status === 'draft' && (updates.isDraft === false || updates.saveAsDraft === false))
+      ) {
+        const farm = await Farm.findById(updates.farmId || product.farmId);
+        const farmerUser = await User.findById(product.farmerId).select('kycStatus');
+        const isFarmVerified = !!farm && farm.verificationStatus === 'verified';
+        const isFarmerVerified = farmerUser?.kycStatus === 'verified';
+        updates.status = (isFarmVerified && isFarmerVerified) ? 'active' : 'pending_verification';
+      }
+
+      const oldPrice = product.basePricePerUnit;
+      const oldAvailable = product.availableQuantity;
+
       Object.assign(product, updates);
       await product.save();
+
+      const newPrice = product.basePricePerUnit;
+      const newAvailable = product.availableQuantity;
+      const priceDropped = oldPrice > 0 && newPrice < oldPrice;
+      const backInStock = oldAvailable === 0 && newAvailable > 0;
+
+      if (priceDropped || backInStock) {
+        Wishlist.find({ 'items.productId': product._id })
+          .select('userId')
+          .then((wishlists) => {
+            for (const w of wishlists) {
+              const title = priceDropped
+                ? `Price Drop Alert: ${product.productName}`
+                : `Back in Stock: ${product.productName}`;
+              const message = priceDropped
+                ? `Good news! ${product.productName} is now LKR ${newPrice} per ${product.unit} (was LKR ${oldPrice}).`
+                : `${product.productName} is back in stock with ${newAvailable} ${product.unit} available!`;
+
+              NotificationService.sendNotification({
+                userId: w.userId,
+                title,
+                message,
+                type: 'system',
+                portal: 'customer',
+                linkUrl: `/product/${product._id}`,
+              });
+            }
+          })
+          .catch((err) => {
+            logger.error(`Failed to send wishlist notifications: ${err.message}`);
+          });
+      }
 
       res.status(200).json({
         success: true,
@@ -251,6 +420,43 @@ export class ProductController {
         success: true,
         message: 'Images uploaded successfully',
         data: { imageUrls },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Public catalog statistics for Hero & Discovery
+   * GET /api/products/stats
+   */
+  static async getPublicStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const [totalActiveListings, verifiedFarmers, activeDistricts] = await Promise.all([
+        Product.countDocuments({ status: 'active', availableQuantity: { $gt: 0 } }),
+        User.countDocuments({
+          role: Role.FARMER,
+          kycStatus: VerificationStatus.VERIFIED,
+        }),
+        Product.distinct('district', { status: 'active', availableQuantity: { $gt: 0 } }),
+      ]);
+
+      const validDistricts = activeDistricts.filter(
+        (d: any) => typeof d === 'string' && d.trim().length > 0
+      );
+
+      let farmerCount = verifiedFarmers;
+      if (farmerCount === 0) {
+        farmerCount = await User.countDocuments({ role: Role.FARMER });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          totalListings: totalActiveListings,
+          totalFarmers: farmerCount,
+          totalDistricts: validDistricts.length,
+        },
       });
     } catch (error) {
       next(error);

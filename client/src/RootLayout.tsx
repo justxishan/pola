@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CartDrawer } from './components/organisms/CartDrawer';
 import { useCartStore } from './store/cartStore';
+import { useWishlistStore } from './store/wishlistStore';
 import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
 import { ChatService } from './services/chat.service';
@@ -18,7 +19,17 @@ import toast, { Toaster } from 'react-hot-toast';
  * would wipe it. Client-side navigation keeps the Zustand store alive.
  */
 export const RootLayout: React.FC = () => {
-  const { items, isOpen, closeCart, updateQuantity, removeItem, getSubtotal, hydrateCartFromDb } = useCartStore();
+  const {
+    items,
+    isOpen,
+    stockIssues,
+    closeCart,
+    updateQuantity,
+    removeItem,
+    moveToWishlist,
+    getSubtotal,
+    hydrateCartFromDb,
+  } = useCartStore();
   const { isAuthenticated, token, user } = useAuthStore();
   const { isDark } = useThemeStore();
   const navigate = useNavigate();
@@ -35,6 +46,12 @@ export const RootLayout: React.FC = () => {
     hydrateCartFromDb();
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      useWishlistStore.getState().fetchWishlist();
+    }
+  }, [isAuthenticated]);
+
   // Global persistent WebSocket connection & real-time notification push
   useEffect(() => {
     if (isAuthenticated && token) {
@@ -43,6 +60,24 @@ export const RootLayout: React.FC = () => {
       const handleLiveNotification = (data: { notification: any }) => {
         const notif = data?.notification;
         if (!notif) return;
+
+        // Determine current active portal from URL
+        const currentPath = window.location.pathname;
+        const currentPortal = currentPath.startsWith('/farmer')
+          ? 'farmer'
+          : currentPath.startsWith('/delivery')
+          ? 'delivery'
+          : currentPath.startsWith('/admin')
+          ? 'admin'
+          : 'customer';
+
+        // Notify bells & dashboards to increment count immediately
+        window.dispatchEvent(new CustomEvent('pola:notification:new', { detail: notif }));
+
+        // Only pop up toast notification if it belongs to the current portal
+        if (notif.portal && notif.portal !== currentPortal) {
+          return;
+        }
 
         toast(
           (t) => (
@@ -63,9 +98,6 @@ export const RootLayout: React.FC = () => {
           ),
           { duration: 5000 }
         );
-
-        // Notify bells & dashboards to increment count immediately
-        window.dispatchEvent(new CustomEvent('pola:notification:new', { detail: notif }));
       };
 
       ChatService.onNotificationReceived(handleLiveNotification);
@@ -82,7 +114,17 @@ export const RootLayout: React.FC = () => {
 
   const handleCheckout = () => {
     closeCart();
-    navigate('/checkout');
+    const sellerCount = new Set(items.map((i) => i.farmerId || i.farmerName || 'default')).size;
+    if (sellerCount > 1 || stockIssues.length > 0) {
+      navigate('/cart');
+    } else {
+      navigate('/checkout');
+    }
+  };
+
+  const handleViewCart = () => {
+    closeCart();
+    navigate('/cart');
   };
 
   return (
@@ -94,9 +136,12 @@ export const RootLayout: React.FC = () => {
         isOpen={isOpen}
         onClose={closeCart}
         items={items}
+        stockIssues={stockIssues}
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
+        onMoveToWishlist={moveToWishlist}
         onCheckout={handleCheckout}
+        onViewCart={handleViewCart}
         subtotalLkr={getSubtotal()}
       />
 

@@ -11,7 +11,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems, getDeliveryNavItems } from '@/lib/navItems';
-import { ArrowLeft, User, Building, ShieldCheck, Save, MapPin } from 'lucide-react';
+import { DISTRICTS } from '@pola/shared';
+import { ArrowLeft, User, Building, ShieldCheck, Save, MapPin, Home } from 'lucide-react';
+import { DeleteAccountModal } from '@/components/organisms/DeleteAccountModal';
 import toast from 'react-hot-toast';
 
 export const EditProfilePage: React.FC = () => {
@@ -20,8 +22,22 @@ export const EditProfilePage: React.FC = () => {
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [dob, setDob] = useState<string>(
+    (user as any)?.dateOfBirth
+      ? new Date((user as any).dateOfBirth).toISOString().split('T')[0]
+      : ''
+  );
+  const [addressLine1, setAddressLine1] = useState(
+    user?.addresses?.[0]?.addressLine1 || ''
+  );
+  const [city, setCity] = useState(user?.addresses?.[0]?.city || '');
+  const [district, setDistrict] = useState(
+    user?.addresses?.[0]?.district || 'Colombo'
+  );
   const [preferredLang, setPreferredLang] = useState<'en' | 'si' | 'ta'>(
     (user?.preferredLanguage as any) || language || 'en'
   );
@@ -79,6 +95,23 @@ export const EditProfilePage: React.FC = () => {
         preferredLanguage: preferredLang,
         themePreference: themePref,
       };
+
+      if (dob) {
+        updates.dateOfBirth = dob;
+      }
+
+      if (addressLine1 || city || district) {
+        updates.addresses = [
+          {
+            label: 'Primary Address',
+            addressLine1,
+            city,
+            district,
+            province: 'Western',
+            isDefault: true,
+          },
+        ];
+      }
 
       if (isFarmer && assignedHubId) {
         updates.assignedHubId = assignedHubId;
@@ -145,10 +178,10 @@ export const EditProfilePage: React.FC = () => {
 
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
-            Edit Account Profile
+            Edit Account Profile & Settings
           </h1>
           <p className="text-xs text-slate-400">
-            Update your personal contact information, payout bank details, and collection center
+            Update your personal contact information, date of birth, primary address, and preferences
           </p>
         </div>
 
@@ -178,6 +211,13 @@ export const EditProfilePage: React.FC = () => {
               />
 
               <Input
+                label="Date of Birth"
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+              />
+
+              <Input
                 label="Sri Lankan Mobile Phone"
                 placeholder="e.g. 0771234567"
                 value={phone}
@@ -192,6 +232,46 @@ export const EditProfilePage: React.FC = () => {
                 <option value="en">English</option>
                 <option value="si">සිංහල (Sinhala)</option>
                 <option value="ta">தமிழ் (Tamil)</option>
+              </Select>
+            </div>
+          </div>
+
+          {/* Primary Address Card */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <Home className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Delivery & Residential Address
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Input
+                  label="Street Address / Premises"
+                  placeholder="e.g. No. 45, Temple Road"
+                  value={addressLine1}
+                  onChange={(e) => setAddressLine1(e.target.value)}
+                />
+              </div>
+
+              <Input
+                label="City / Town"
+                placeholder="e.g. Nugegoda"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+
+              <Select
+                label="District"
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+              >
+                {DISTRICTS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
               </Select>
             </div>
           </div>
@@ -243,10 +323,27 @@ export const EditProfilePage: React.FC = () => {
                 </Button>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                LankaPay settlement bank accounts are managed directly inside your <strong>Earnings & Wallet</strong> section. You can register multiple accounts, set a primary payout destination, and securely update bank details.
+                Your settlement bank accounts are managed directly inside your <strong>Earnings & Wallet</strong> section. You can register multiple accounts, set a primary payout destination, and securely update bank details.
               </p>
             </div>
           )}
+
+          {/* Danger Zone */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/50 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-rose-600 dark:text-rose-400">Danger Zone</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Deleting your account will delist all your crop listings and sign you out immediately.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="text-rose-600 border-rose-300 dark:border-rose-800"
+            >
+              Delete My Account
+            </Button>
+          </div>
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-2">
@@ -271,6 +368,8 @@ export const EditProfilePage: React.FC = () => {
           </div>
         </form>
       </div>
+
+      <DeleteAccountModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} />
     </DashboardLayout>
   );
 };

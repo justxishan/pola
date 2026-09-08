@@ -33,6 +33,8 @@ const envSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().default(''),
   CLIENT_SECRET: z.string().default(''),
+
+  SUPER_ADMIN_PASSWORD: z.string().default('Ishan24665@'),
 });
 
 const parseEnv = () => {

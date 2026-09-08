@@ -23,6 +23,7 @@ import {
   Phone,
   Mail,
   Info,
+  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -42,6 +43,7 @@ interface PendingFarm {
   organicCertIssuer?: string;
   organicCertExpiry?: string;
   notes?: string;
+  verificationDoc?: string;
   createdAt: string;
   farmerId: {
     _id: string;
@@ -144,7 +146,7 @@ export const FarmVerificationQueuePage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">Farm Plot Verification Queue</h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Approving a farm sets it to Verified and automatically activates all its pending crop listings on the marketplace.
+              Approving a farm sets it to Verified. Its pending crop listings only go live once the farmer's own KYC is also verified — check the KYC badge below before approving, or approve both from their respective queues.
             </p>
           </div>
           <Badge variant="warning" size="md">{farms.length} Pending</Badge>
@@ -224,6 +226,20 @@ export const FarmVerificationQueuePage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {farm.verificationDoc ? (
+                  <a
+                    href={farm.verificationDoc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    View Verification Document
+                  </a>
+                ) : (
+                  <p className="text-[11px] text-rose-500">No verification document on file — registered before this requirement.</p>
+                )}
 
                 {farm.notes && (
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex gap-2 text-xs text-slate-600 dark:text-slate-300">

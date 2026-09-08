@@ -4,7 +4,7 @@ export interface IRating extends Document {
   _id: Types.ObjectId;
   orderId: Types.ObjectId;
   raterUserId: Types.ObjectId; // The user giving the rating (e.g. Customer)
-  targetType: 'produce_farmer' | 'delivery_driver' | 'collector';
+  targetType: 'produce_farmer' | 'delivery_driver' | 'collector' | 'farmer' | 'driver';
   targetUserId: Types.ObjectId; // Farmer or Driver or Collector
   productId?: Types.ObjectId; // For produce rating
 
@@ -24,7 +24,7 @@ const RatingSchema = new Schema<IRating>(
     raterUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     targetType: {
       type: String,
-      enum: ['produce_farmer', 'delivery_driver', 'collector'],
+      enum: ['produce_farmer', 'delivery_driver', 'collector', 'farmer', 'driver'],
       required: true,
       index: true,
     },

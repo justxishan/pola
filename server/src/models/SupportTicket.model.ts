@@ -14,7 +14,7 @@ export interface ISupportTicket extends Document {
   userId: Types.ObjectId;
   userRole: string;
   subject: string;
-  category: 'order' | 'wallet' | 'kyc' | 'app_bug' | 'dispute' | 'general';
+  category: 'hub_grading' | 'payout_delay' | 'transport_pickup' | 'crates' | 'technical' | 'general';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'open' | 'in_progress' | 'waiting_for_user' | 'resolved' | 'closed';
   relatedOrderId?: Types.ObjectId;
@@ -43,7 +43,7 @@ const SupportTicketSchema = new Schema<ISupportTicket>(
     subject: { type: String, required: true, trim: true },
     category: {
       type: String,
-      enum: ['order', 'wallet', 'kyc', 'app_bug', 'dispute', 'general'],
+      enum: ['hub_grading', 'payout_delay', 'transport_pickup', 'crates', 'technical', 'general'],
       default: 'general',
     },
     priority: {

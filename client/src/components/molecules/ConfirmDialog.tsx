@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/atoms/Button';
 import { AlertTriangle, X } from 'lucide-react';
@@ -26,14 +27,44 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) {
+        onCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, isLoading, onCancel]);
+
+  if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
+
+  const content = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={() => {
+        if (!isLoading) onCancel();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+      aria-describedby="confirm-dialog-description"
+    >
+      <div
+        className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onCancel}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          disabled={isLoading}
+          aria-label="Close dialog"
+          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
         >
           <X className="w-4 h-4" />
         </button>
@@ -51,8 +82,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </div>
 
           <div className="space-y-1">
-            <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">{title}</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <h4
+              id="confirm-dialog-title"
+              className="text-base font-bold text-slate-900 dark:text-slate-100"
+            >
+              {title}
+            </h4>
+            <p
+              id="confirm-dialog-description"
+              className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed"
+            >
               {description}
             </p>
           </div>
@@ -74,4 +113,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 };

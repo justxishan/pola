@@ -5,7 +5,6 @@ import { RootLayout } from './RootLayout';
 import { ProtectedRoute } from './components/templates/ProtectedRoute';
 
 // Dedicated Auth & Portal Selection Pages
-import { PortalSelectPage } from './pages/auth/PortalSelectPage';
 import { FarmerLoginPage } from './pages/auth/FarmerLoginPage';
 import { CustomerLoginPage } from './pages/auth/CustomerLoginPage';
 import { DeliveryLoginPage } from './pages/auth/DeliveryLoginPage';
@@ -21,11 +20,12 @@ import { DeliveryOnboardingPage } from './pages/delivery/DeliveryOnboardingPage'
 
 // Marketplace Pages
 import { HomePage } from './pages/marketplace/HomePage';
-import { CatalogPage } from './pages/marketplace/CatalogPage';
 import { ProductDetailPage } from './pages/marketplace/ProductDetailPage';
 import { CheckoutPage } from './pages/marketplace/CheckoutPage';
 import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
 import { CustomerOrdersPage } from './pages/marketplace/CustomerOrdersPage';
+import { WishlistPage } from './pages/marketplace/WishlistPage';
+import { CartPage } from './pages/marketplace/CartPage';
 
 // Farmer Pages
 import { FarmerDashboard } from './pages/farmer/FarmerDashboard';
@@ -55,6 +55,7 @@ import { DisputeAdjudicationPage } from './pages/admin/DisputeAdjudicationPage';
 import { LogisticsPage } from './pages/admin/LogisticsPage';
 import { AuditLogPage } from './pages/admin/AuditLogPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
+import { CreateAdminPage } from './pages/admin/CreateAdminPage';
 
 // Shared Pages
 import { WalletPage } from './pages/shared/WalletPage';
@@ -62,6 +63,7 @@ import { EditProfilePage } from './pages/shared/EditProfilePage';
 import { HelpSupportPage } from './pages/shared/HelpSupportPage';
 import { MessagesPage } from './pages/shared/MessagesPage';
 import { NotFoundPage } from './pages/shared/NotFoundPage';
+import { RouteErrorBoundary } from './components/organisms/ErrorBoundary';
 
 export const router = createBrowserRouter([
   {
@@ -69,11 +71,8 @@ export const router = createBrowserRouter([
     // It lives INSIDE the router context, so useNavigate() is safe inside it.
     // This is where the CartDrawer, Toaster, theme sync, and cart hydration live.
     element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
     children: [
-      // Universal Multi-Portal Hub
-      { path: '/portals', element: <PortalSelectPage /> },
-      { path: '/portal-select', element: <PortalSelectPage /> },
-
       // 1. Farmer Portal Routes
       { path: '/farmer/login', element: <FarmerLoginPage /> },
       {
@@ -148,6 +147,14 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: '/farmer/messages',
+        element: (
+          <ProtectedRoute allowedRoles={FARMER_ROLES} redirectPath="/farmer/login">
+            <MessagesPage />
+          </ProtectedRoute>
+        ),
+      },
 
       // 2. Customer & Buyer Marketplace Routes
       { path: '/', element: <HomePage /> },
@@ -156,7 +163,7 @@ export const router = createBrowserRouter([
       // /auth/login is used by the 401 interceptor — map to customer login.
       // Portal-specific 401s are handled by the interceptor reading the current path.
       { path: '/auth/login', element: <Navigate to="/customer/login" replace /> },
-      { path: '/catalog', element: <CatalogPage /> },
+      { path: '/catalog', element: <Navigate to="/" replace /> },
       { path: '/product/:id', element: <ProductDetailPage /> },
       {
         path: '/customer/onboarding',
@@ -166,6 +173,7 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      { path: '/cart', element: <CartPage /> },
       {
         // Checkout is public so guests can browse — auth guard lives inside the page
         // (it redirects to /customer/login?redirect=/checkout on submit)
@@ -195,6 +203,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute redirectPath="/customer/login">
             <CustomerOrdersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/wishlist',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <WishlistPage />
           </ProtectedRoute>
         ),
       },
@@ -254,6 +270,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
             <EarningsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/delivery/messages',
+        element: (
+          <ProtectedRoute allowedRoles={DELIVERY_ROLES} redirectPath="/delivery/login">
+            <MessagesPage />
           </ProtectedRoute>
         ),
       },
@@ -329,6 +353,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS, Role.ADMIN_FINANCE]} redirectPath="/admin/login">
             <ReportsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/manage-admins',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER]} redirectPath="/admin/login">
+            <CreateAdminPage />
           </ProtectedRoute>
         ),
       },

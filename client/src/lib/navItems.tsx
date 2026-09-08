@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Building,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 
 export interface NavItemDef {
@@ -32,12 +33,13 @@ export interface NavItemDef {
 
 export function getFarmerNavItems(t: Record<string, string> = {}): NavItemDef[] {
   return [
-    { id: 'dashboard', label: t.dashboard    || 'Dashboard',         icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
-    { id: 'farms',     label: t.myFarms      || 'My Farms',           icon: <Sprout          className="w-5 h-5" />, path: '/farmer/farms'     },
-    { id: 'products',  label: t.cropListings || 'Crop Listings',      icon: <Package         className="w-5 h-5" />, path: '/farmer/products'  },
-    { id: 'orders',    label: t.farmOrders   || 'Farm Orders',        icon: <ShoppingBag     className="w-5 h-5" />, path: '/farmer/orders'    },
-    { id: 'hubs',      label: t.hubDropoffs  || 'Hub Drop-offs',      icon: <MapPin          className="w-5 h-5" />, path: '/farmer/hubs'      },
-    { id: 'wallet',    label: t.earningsWallet || 'Earnings & Wallet', icon: <Wallet         className="w-5 h-5" />, path: '/wallet'           },
+    { id: 'dashboard', label: t.dashboard    || 'Dashboard',   icon: <LayoutDashboard className="w-5 h-5" />, path: '/farmer/dashboard' },
+    { id: 'farms',     label: t.myFarms      || 'My Farms',     icon: <Sprout          className="w-5 h-5" />, path: '/farmer/farms'     },
+    { id: 'products',  label: t.cropListings || 'Crop Listings',icon: <Package         className="w-5 h-5" />, path: '/farmer/products'  },
+    { id: 'orders',    label: t.farmOrders   || 'Farm Orders',  icon: <ShoppingBag     className="w-5 h-5" />, path: '/farmer/orders'    },
+    { id: 'messages',  label: t.messages     || 'Messages',     icon: <MessageSquare   className="w-5 h-5" />, path: '/farmer/messages'  },
+    { id: 'hubs',      label: t.hubDropoffs  || 'Hub Drop-offs',icon: <MapPin          className="w-5 h-5" />, path: '/farmer/hubs'      },
+    { id: 'wallet',    label: t.wallet || t.earningsWallet || 'Wallet', icon: <Wallet  className="w-5 h-5" />, path: '/wallet'           },
   ];
 }
 

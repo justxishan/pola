@@ -28,8 +28,6 @@ export const VehicleService = {
   },
 
   uploadVehicleDocs: async (vehicleId: string, formData: FormData) => {
-    return api.post(`/vehicles/${vehicleId}/documents`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return api.post(`/vehicles/${vehicleId}/documents`, formData);
   },
 };

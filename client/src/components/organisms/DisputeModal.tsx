@@ -48,9 +48,7 @@ export const DisputeModal: React.FC<DisputeModalProps> = ({
       formData.append('refundPreference', refundPreference);
       if (evidencePhoto) formData.append('evidence', evidencePhoto);
 
-      await api.post('/disputes', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post('/disputes', formData);
 
       toast.success('Dispute submitted for admin adjudication. Funds remain held in escrow.');
       if (onSuccess) onSuccess();

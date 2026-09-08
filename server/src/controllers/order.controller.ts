@@ -333,6 +333,8 @@ export class OrderController {
         .populate('assignedDcId')
         .populate('items.productId')
         .populate('items.farmerId', 'fullName email phone')
+        .populate('leg2DriverId', 'fullName phone profileImage')
+        .populate('leg1DriverId', 'fullName phone profileImage')
         .sort({ createdAt: -1 });
 
       res.status(200).json({

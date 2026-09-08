@@ -36,6 +36,8 @@ export interface Translations {
   farmOrders: string;
   hubDropoffs: string;
   earningsWallet: string;
+  wallet: string;
+  messages: string;
   settings: string;
   availableTrips: string;
   hubSchedule: string;
@@ -131,6 +133,21 @@ export interface Translations {
   kycBannerTitle: string;
   kycBannerDesc: string;
   completeKycNow: string;
+
+  // Customer Shell
+  chats: string;
+  wishlist: string;
+  filters: string;
+  searchPlaceholder: string;
+
+  // Hero & Discovery
+  exploreAllLots: string;
+  b2bWholesale: string;
+  viewingB2bWholesale: string;
+  signInToUnlock: string;
+  savedWishlist: string;
+  liveOrderTracking: string;
+  escrowWallet: string;
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -167,7 +184,9 @@ export const translations: Record<LanguageCode, Translations> = {
     cropListings: 'Crop Listings',
     farmOrders: 'Farm Orders',
     hubDropoffs: 'Hub Drop-offs',
-    earningsWallet: 'Earnings & Wallet',
+    earningsWallet: 'Wallet',
+    wallet: 'Wallet',
+    messages: 'Messages',
     settings: 'Profile & Settings',
     availableTrips: 'Available Trips',
     hubSchedule: 'Hub Schedule',
@@ -257,6 +276,21 @@ export const translations: Record<LanguageCode, Translations> = {
     kycBannerTitle: 'Identity Verification Incomplete',
     kycBannerDesc: 'Your account is pending verification. Submit your National Identity Card (NIC) to activate marketplace listings and payouts.',
     completeKycNow: 'Complete Verification Now →',
+
+    // Customer Shell
+    chats: 'Chats',
+    wishlist: 'Wishlist',
+    filters: 'Filters',
+    searchPlaceholder: 'Search fresh harvest, crops...',
+
+    // Hero & Discovery
+    exploreAllLots: 'Explore All Lots',
+    b2bWholesale: 'B2B Wholesale',
+    viewingB2bWholesale: 'Viewing B2B Wholesale',
+    signInToUnlock: 'Sign in to unlock',
+    savedWishlist: 'Saved Wishlist',
+    liveOrderTracking: 'Live Order Tracking',
+    escrowWallet: 'Escrow Wallet',
   },
 
   si: {
@@ -292,7 +326,9 @@ export const translations: Record<LanguageCode, Translations> = {
     cropListings: 'අස්වනු ලැයිස්තුව',
     farmOrders: 'ගොවි ඇණවුම්',
     hubDropoffs: 'මධ්‍යස්ථාන භාරදීම්',
-    earningsWallet: 'ඉපැයීම් සහ පසුම්බිය',
+    earningsWallet: 'පසුම්බිය',
+    wallet: 'පසුම්බිය',
+    messages: 'පණිවිඩ',
     settings: 'ගිණුම් සැකසුම්',
     availableTrips: 'ලබාගත හැකි චාරිකා',
     hubSchedule: 'මධ්‍යස්ථාන කාලසටහන',
@@ -382,6 +418,21 @@ export const translations: Record<LanguageCode, Translations> = {
     kycBannerTitle: 'හැඳුනුම්පත් තහවුරු කිරීම අසම්පූර්ණයි',
     kycBannerDesc: 'ඔබගේ ගිණුම තවමත් තහවුරු කර නොමැත. අස්වනු විකිණීම සහ මුදල් ලබාගැනීම සක්‍රිය කිරීමට ඔබගේ ජාතික හැඳුනුම්පත (NIC) ඉදිරිපත් කරන්න.',
     completeKycNow: 'දැන්ම තහවුරු කරන්න →',
+
+    // Customer Shell
+    chats: 'සංවාද',
+    wishlist: 'පැතුම් ලැයිස්තුව',
+    filters: 'පෙරහන්',
+    searchPlaceholder: 'නැවුම් අස්වනු සොයන්න...',
+
+    // Hero & Discovery
+    exploreAllLots: 'සියලු අස්වනු බලන්න',
+    b2bWholesale: 'තොග වෙළඳාම (B2B)',
+    viewingB2bWholesale: 'තොග වෙළඳාම බලමින්',
+    signInToUnlock: 'ප්‍රවේශ වී ලබාගන්න',
+    savedWishlist: 'කැමති ලැයිස්තුව',
+    liveOrderTracking: 'සජීවී ඇණවුම් නිරීක්ෂණය',
+    escrowWallet: 'පොලා පසුම්බිය',
   },
 
   ta: {
@@ -417,7 +468,9 @@ export const translations: Record<LanguageCode, Translations> = {
     cropListings: 'பயிர் பட்டியல்',
     farmOrders: 'பண்ணை கட்டளைகள்',
     hubDropoffs: 'மையத்தில் ஒப்படைப்பு',
-    earningsWallet: 'வருமானம் & பணப்பை',
+    earningsWallet: 'பணப்பை',
+    wallet: 'பணப்பை',
+    messages: 'செய்திகள்',
     settings: 'சுயவிவரம் & அமைப்புகள்',
     availableTrips: 'கிடைக்கும் பயணங்கள்',
     hubSchedule: 'மைய அட்டவணை',
@@ -507,5 +560,20 @@ export const translations: Record<LanguageCode, Translations> = {
     kycBannerTitle: 'அடையாள சரிபார்ப்பு முழுமையடையவில்லை',
     kycBannerDesc: 'உங்கள் கணக்கு சரிபார்க்கப்படாமல் உள்ளது. விற்பனை மற்றும் பணம் பெறுவதை செயல்படுத்த உங்கள் தேசிய அடையாள அட்டையை (NIC) சமர்ப்பிக்கவும்.',
     completeKycNow: 'இப்போதே சரிபார்க்கவும் →',
+
+    // Customer Shell
+    chats: 'உரையாடல்கள்',
+    wishlist: 'விருப்பப்பட்டியல்',
+    filters: 'வடிகட்டிகள்',
+    searchPlaceholder: 'புதிய விளைச்சலைத் தேடுக...',
+
+    // Hero & Discovery
+    exploreAllLots: 'அனைத்து விளைச்சல்களையும் காண்க',
+    b2bWholesale: 'மொத்த வர்த்தகம் (B2B)',
+    viewingB2bWholesale: 'மொத்த வர்த்தகத்தை பார்க்கிறீர்கள்',
+    signInToUnlock: 'அணுக உள்நுழைக',
+    savedWishlist: 'விருப்பப்பட்டியல்',
+    liveOrderTracking: 'நேரடி ஆர்டர் கண்காணிப்பு',
+    escrowWallet: 'பாதுகாப்பான பணப்பை',
   },
 };

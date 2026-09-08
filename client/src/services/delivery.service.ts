@@ -26,9 +26,7 @@ export const DeliveryService = {
     const formData = new FormData();
     formData.append('handoverOtp', handoverOtp);
     if (podPhotoFile) formData.append('podPhoto', podPhotoFile);
-    return api.post(`/delivery/trips/${orderId}/pod`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return api.post(`/delivery/trips/${orderId}/pod`, formData);
   },
 
   /** Get driver's current active (out_for_delivery) trip */
