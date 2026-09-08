@@ -96,6 +96,7 @@ export interface IUser extends Document {
   isActive: boolean;
   deactivationReason?: string;
   deactivatedAt?: Date;
+  deletedEmail?: string;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -207,6 +208,7 @@ const UserSchema = new Schema<IUser>(
     isActive: { type: Boolean, default: true },
     deactivationReason: { type: String },
     deactivatedAt: { type: Date },
+    deletedEmail: { type: String },
     lastLoginAt: { type: Date },
   },
   {

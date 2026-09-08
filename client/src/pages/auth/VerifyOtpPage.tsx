@@ -34,7 +34,7 @@ export const VerifyOtpPage: React.FC = () => {
 
   useEffect(() => {
     if (!email) {
-      navigate('/portals');
+      navigate('/');
       return;
     }
 

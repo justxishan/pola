@@ -1,18 +1,13 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { usePortalThemeStore, PortalThemeConfig } from '@/store/portalThemeStore';
 import { useThemeStore } from '@/store/themeStore';
 import {
   Sprout,
-  ShoppingBag,
-  Truck,
-  ShieldCheck,
   ArrowUpRight,
   ChevronDown,
   Star,
   Globe,
   Lock,
-  Layers,
 } from 'lucide-react';
 
 export interface AgroviaAuthLayoutProps {
@@ -32,19 +27,10 @@ export const AgroviaAuthLayout: React.FC<AgroviaAuthLayoutProps> = ({
   footerContent,
   badgeContent,
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { themes } = usePortalThemeStore();
   const { language, setLanguage } = useThemeStore();
 
   const theme: PortalThemeConfig = themes[portalId] || themes.customer;
-
-  const navLinks = [
-    { id: 'customer', label: 'Marketplace', path: '/customer/login', icon: <ShoppingBag className="w-3.5 h-3.5" /> },
-    { id: 'farmer', label: 'Farmers', path: '/farmer/login', icon: <Sprout className="w-3.5 h-3.5" /> },
-    { id: 'delivery', label: 'Delivery Fleet', path: '/delivery/login', icon: <Truck className="w-3.5 h-3.5" /> },
-    { id: 'admin', label: 'Admin HQ', path: '/admin/login', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-  ];
 
   return (
     <div className="relative min-h-screen w-full bg-slate-950 text-white overflow-x-hidden flex flex-col justify-between selection:bg-lime-400 selection:text-slate-950">
@@ -76,27 +62,6 @@ export const AgroviaAuthLayout: React.FC<AgroviaAuthLayoutProps> = ({
               Pola <span className="text-lime-400 text-sm font-mono font-semibold">.lk</span>
             </span>
           </a>
-
-          {/* Navigation Links Pills */}
-          <nav className="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-white/5 border border-white/10 text-xs">
-            {navLinks.map((link) => {
-              const isActive = portalId === link.id || location.pathname === link.path;
-              return (
-                <button
-                  key={link.id}
-                  onClick={() => navigate(link.path)}
-                  className={`px-3.5 py-1.5 rounded-full transition-all duration-200 flex items-center gap-1.5 font-medium cursor-pointer ${
-                    isActive
-                      ? 'bg-white/20 text-white font-bold shadow-xs border border-white/30'
-                      : 'text-slate-300 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {link.icon}
-                  <span>{link.label}</span>
-                </button>
-              );
-            })}
-          </nav>
 
           {/* Right Action & Language Switcher */}
           <div className="flex items-center gap-2 sm:gap-3">
@@ -130,15 +95,6 @@ export const AgroviaAuthLayout: React.FC<AgroviaAuthLayoutProps> = ({
                 த
               </button>
             </div>
-
-            {/* Portal Hub Quick Pill Button */}
-            <button
-              onClick={() => navigate('/portals')}
-              className="px-3.5 sm:px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">All Portals</span>
-            </button>
           </div>
         </div>
       </header>

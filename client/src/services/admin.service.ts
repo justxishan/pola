@@ -5,6 +5,10 @@ export const AdminService = {
     return api.get('/admin/dashboard');
   },
 
+  createAdmin: async (data: { fullName: string; email: string; password: string; role: string }) => {
+    return api.post('/admin/create-admin', data);
+  },
+
   // ── KYC Queue ────────────────────────────────────────────────────────────
   getKycVerificationQueue: async (role?: string) => {
     const params = role ? `?role=${role}` : '';

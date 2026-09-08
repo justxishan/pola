@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.model.js';
 import { Order } from '../models/Order.model.js';
 import { Farm } from '../models/Farm.model.js';
@@ -525,6 +526,48 @@ export class AdminController {
         success: true,
         message: `Farm "${farm.farmName}" has been rejected.`,
         data: { farm },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Create Admin Account (Super Admin only)
+   */
+  static async createAdmin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { fullName, email, password, role } = req.body;
+      const lowerEmail = email.toLowerCase().trim();
+
+      const existing = await User.findOne({ email: lowerEmail });
+      if (existing) throw new AppError('An account with this email already exists', 409);
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      const newAdmin = await User.create({
+        fullName,
+        email: lowerEmail,
+        password: passwordHash,
+        role,
+        isEmailVerified: true,
+        kycStatus: VerificationStatus.VERIFIED,
+        isActive: true,
+      });
+
+      await AuditLog.create({
+        adminId: new Types.ObjectId(req.user!.userId),
+        adminEmail: req.user!.email,
+        adminRole: req.user!.role,
+        action: 'ADMIN_ACCOUNT_CREATED',
+        targetEntity: 'User',
+        targetId: newAdmin._id.toString(),
+        details: { newAdminEmail: lowerEmail, role },
+      });
+
+      res.status(201).json({
+        success: true,
+        message: `Admin account created for ${lowerEmail}`,
+        data: { id: newAdmin._id, email: newAdmin.email, role: newAdmin.role },
       });
     } catch (error) {
       next(error);

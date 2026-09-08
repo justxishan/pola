@@ -11,6 +11,7 @@ import {
   SelectRoleSchema,
   UpdateProfileSchema,
   DeleteAccountSchema,
+  AdminLoginSchema,
 } from '../validators/auth.validator.js';
 
 const router = Router();
@@ -23,6 +24,7 @@ router.post('/otp/verify', authRateLimiter, validateRequest(VerifyOtpSchema), Au
 router.post('/verify-otp', authRateLimiter, validateRequest(VerifyOtpSchema), AuthController.verifyOtp);
 
 router.post('/google', authRateLimiter, validateRequest(GoogleAuthSchema), AuthController.googleAuth);
+router.post('/admin-login', authRateLimiter, validateRequest(AdminLoginSchema), AuthController.adminLogin);
 
 // Protected Auth Endpoints
 router.get('/profile', authenticate, AuthController.getProfile);

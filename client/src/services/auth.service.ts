@@ -9,6 +9,10 @@ export const AuthService = {
     return api.post('/auth/verify-otp', { email, otpCode: otp, role });
   },
 
+  adminLogin: async (email: string, password: string) => {
+    return api.post('/auth/admin-login', { email, password });
+  },
+
   googleLogin: async (idToken: string, role?: string) => {
     return api.post('/auth/google', { idToken, role });
   },

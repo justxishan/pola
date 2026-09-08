@@ -90,7 +90,7 @@ export class ProductController {
         minOrderQuantity: minOrderQuantity || 1,
         b2bPricingTiers: b2bPricingTiers || [],
         selfDeclaredGrade: selfDeclaredGrade || 'grade_a',
-        isOrganic: isOrganic || farm.isOrganicCertified,
+        isOrganic: !!isOrganic,
         requiresColdChain: requiresColdChain || false,
         seasonTag: seasonTag || 'year_round',
         harvestDate,

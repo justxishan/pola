@@ -60,12 +60,6 @@ export const CustomerLoginPage: React.FC = () => {
       }
       footerContent={
         <div className="space-y-2">
-          <p className="text-slate-300">
-            Need producer or courier tools?{' '}
-            <a href="/portals" className="underline font-bold text-emerald-300 hover:text-white transition-colors">
-              Browse 4 Portals
-            </a>
-          </p>
           <p className="text-slate-400 text-[11px]">
             By signing in, you agree to Pola Escrow Terms & Conditions.
           </p>

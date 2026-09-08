@@ -1,41 +1,43 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AgroviaAuthLayout } from '@/components/templates/AgroviaAuthLayout';
-import { GoogleSignInButton } from '@/components/molecules/GoogleSignInButton';
 import { AuthService } from '@/services/auth.service';
-import { Role } from '@pola/shared';
-import { ShieldCheck, Mail, ArrowRight, Key, Lock, Activity } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { ShieldCheck, Mail, Lock, ArrowRight, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const AdminLoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setAuth } = useAuthStore();
   const [email, setEmail] = useState('admin@pola.lk');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !email.includes('@')) {
       setError('Please enter a valid administrator email');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your administrator password');
       return;
     }
 
     try {
       setIsLoading(true);
       setError('');
-      const res: any = await AuthService.requestOtp(email.trim().toLowerCase(), Role.ADMIN_SUPER);
-      toast.success(res.message || '6-digit admin security code sent!');
-
-      if (res.devOtp) {
-        toast(`[DEV MODE] Verification Code: ${res.devOtp}`, { icon: '🔑', duration: 7000 });
+      const res: any = await AuthService.adminLogin(email.trim().toLowerCase(), password);
+      if (res.data) {
+        setAuth(res.data.user, res.data.token);
+        toast.success(res.message || 'Admin authentication successful');
+        navigate('/admin/dashboard');
       }
-
-      navigate(
-        `/auth/verify?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${Role.ADMIN_SUPER}&redirect=/admin/dashboard`
-      );
     } catch (err: any) {
-      setError(err.message || 'Failed to send admin security code');
-      toast.error(err.message || 'Failed to send admin security code');
+      const msg = err.message || 'Invalid administrator credentials';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -54,19 +56,13 @@ export const AdminLoginPage: React.FC = () => {
       }
       footerContent={
         <div className="space-y-2">
-          <p className="text-slate-300">
-            Looking for another portal?{' '}
-            <a href="/portals" className="underline font-bold text-teal-300 hover:text-white transition-colors">
-              View all 4 Portals
-            </a>
-          </p>
           <p className="text-slate-400 text-[11px]">
-            Strict multi-factor authentication and role-based access control enforced.
+            Strict password authentication and role-based access control enforced.
           </p>
         </div>
       }
     >
-      <form onSubmit={handleRequestOtp} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-200 mb-1.5 tracking-wide">
             Administrator Email
@@ -88,6 +84,28 @@ export const AdminLoginPage: React.FC = () => {
               required
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-200 mb-1.5 tracking-wide">
+            Password
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Lock className="w-4 h-4" />
+            </div>
+            <input
+              type="password"
+              placeholder="••••••••••••"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError('');
+              }}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:border-teal-400 focus:bg-white/15 transition-all font-mono"
+              required
+            />
+          </div>
           {error && <p className="text-xs text-rose-400 mt-1 font-medium">{error}</p>}
         </div>
 
@@ -100,27 +118,12 @@ export const AdminLoginPage: React.FC = () => {
             <span className="inline-block animate-spin w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full" />
           ) : (
             <>
-              <span>Send Executive Code</span>
+              <span>Sign In to Command Center</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}
         </button>
       </form>
-
-      <div className="relative flex items-center justify-center my-4">
-        <div className="border-t border-white/15 w-full" />
-        <span className="px-3 text-[11px] text-slate-300 font-bold uppercase tracking-wider shrink-0">
-          Or authorized Google SSO
-        </span>
-        <div className="border-t border-white/15 w-full" />
-      </div>
-
-      <div className="bg-white/95 rounded-2xl p-1.5 shadow-md">
-        <GoogleSignInButton
-          role={Role.ADMIN_SUPER}
-          onSuccess={() => navigate('/admin/dashboard')}
-        />
-      </div>
 
       <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-xs text-slate-300 space-y-1">
         <div className="flex items-center gap-1.5 font-bold text-teal-300">

@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import {
   User,
   ShieldCheck,
+  ShieldAlert,
   Wallet,
   Package,
   LayoutGrid,
@@ -183,19 +184,21 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
         </button>
 
-        <button
-          onClick={() => {
-            onClose();
-            navigate('/portals');
-          }}
-          className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-2.5">
-            <ExternalLink className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span>{t.fourPortals} Directory</span>
-          </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        </button>
+        {user?.role === 'admin_super' && (
+          <button
+            onClick={() => {
+              onClose();
+              navigate('/admin/manage-admins');
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>Manage Admins</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+        )}
 
         <button
           onClick={() => {

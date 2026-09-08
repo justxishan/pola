@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.model.js';
 import { Wallet } from '../models/Wallet.model.js';
 import { env } from '../config/env.config.js';
@@ -8,7 +9,7 @@ import { MailerService } from '../services/mailer.service';
 import { EscrowService } from '../services/escrow.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { AppError } from '../middleware/error.middleware.js';
-import { Role, VerificationStatus } from '@pola/shared';
+import { Role, VerificationStatus, ADMIN_ROLES } from '@pola/shared';
 import { validateSriLankanNic } from '@pola/shared';
 import { validateSriLankanPhone } from '@pola/shared';
 import { OTP_EXPIRY_MINUTES } from '../utils/constants.js';
@@ -36,6 +37,10 @@ export class AuthController {
       const { email, role } = req.body;
       const lowerEmail = email.toLowerCase().trim();
 
+      if (role && ADMIN_ROLES.includes(role as Role)) {
+        throw new AppError('Admin accounts cannot be created through email sign-in.', 403);
+      }
+
       // Generate 6-digit random code
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
       const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
@@ -47,8 +52,6 @@ export class AuthController {
           fullName: lowerEmail.split('@')[0],
           role: (role as Role) || Role.CUSTOMER_B2C,
         });
-      } else if (role && user.role === Role.CUSTOMER_B2C && role !== Role.CUSTOMER_B2C) {
-        user.role = role as Role;
       }
 
       user.otpCode = otpCode;
@@ -88,6 +91,8 @@ export class AuthController {
         throw new AppError('User not found. Please request a new OTP.', 404);
       }
 
+      const isNewUser = !user.lastLoginAt;
+
       if (user.isActive === false) {
         throw new AppError('This account has been deactivated. Contact Pola support to reactivate it.', 403);
       }
@@ -114,7 +119,17 @@ export class AuthController {
         user.fullName = fullName;
       }
       if (role) {
-        user.role = role as Role;
+        if (ADMIN_ROLES.includes(role as Role)) {
+          throw new AppError('Admin accounts cannot be accessed through email sign-in.', 403);
+        }
+        if (isNewUser) {
+          user.role = role as Role;
+        } else if (user.role !== role) {
+          throw new AppError(
+            `This email is already registered as a ${user.role.replace(/_/g, ' ')}. Please sign in from that portal instead.`,
+            409
+          );
+        }
       }
 
       await user.save();
@@ -138,7 +153,7 @@ export class AuthController {
             onboardingCompleted: user.onboardingCompleted ?? false,
             addresses: user.addresses || [],
           },
-          isNewUser: !user.lastLoginAt,
+          isNewUser,
         },
       });
     } catch (error) {
@@ -156,6 +171,10 @@ export class AuthController {
       const payload = await verifyGoogleIdToken(idToken);
       if (!payload || !payload.email) {
         throw new AppError('Invalid Google authentication token', 400);
+      }
+
+      if (role && ADMIN_ROLES.includes(role as Role)) {
+        throw new AppError('Admin accounts cannot be accessed through Google sign-in.', 403);
       }
 
       const lowerEmail = payload.email.toLowerCase().trim();
@@ -183,8 +202,11 @@ export class AuthController {
         if (payload.picture && !user.profileImage) {
           user.profileImage = payload.picture;
         }
-        if (role) {
-          user.role = role as Role;
+        if (role && user.role !== role) {
+          throw new AppError(
+            `This email is already registered as a ${user.role.replace(/_/g, ' ')}. Please sign in from that portal instead.`,
+            409
+          );
         }
       }
 
@@ -217,6 +239,51 @@ export class AuthController {
   }
 
   /**
+   * Admin Password Login
+   */
+  static async adminLogin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password } = req.body;
+      const lowerEmail = email.toLowerCase().trim();
+      const user = await User.findOne({ email: lowerEmail }).select('+password');
+
+      if (!user || !user.password || !ADMIN_ROLES.includes(user.role)) {
+        throw new AppError('Invalid email or password', 401);
+      }
+      if (user.isActive === false) {
+        throw new AppError('This account has been deactivated.', 403);
+      }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw new AppError('Invalid email or password', 401);
+      }
+
+      user.lastLoginAt = new Date();
+      await user.save();
+      await EscrowService.getOrCreateWallet(user._id, user.role);
+
+      const token = AuthController.generateToken(user);
+      res.status(200).json({
+        success: true,
+        message: 'Admin authentication successful',
+        data: {
+          token,
+          user: {
+            id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            kycStatus: user.kycStatus,
+            avatarUrl: user.profileImage,
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Select / Switch Role
    */
   static async selectRole(req: Request, res: Response, next: NextFunction) {
@@ -225,6 +292,13 @@ export class AuthController {
       const userId = (req as any).user.userId;
       const user = await User.findById(userId);
       if (!user) throw new AppError('User not found', 404);
+
+      if (ADMIN_ROLES.includes(role as Role)) {
+        throw new AppError('Admin roles cannot be self-assigned.', 403);
+      }
+      if (user.onboardingCompleted) {
+        throw new AppError('Your role is already set and cannot be changed here.', 409);
+      }
 
       if (!Object.values(Role).includes(role)) {
         throw new AppError('Invalid user role specified', 400);
@@ -413,6 +487,8 @@ export class AuthController {
       user.isActive = false;
       user.deactivationReason = details ? `${reason}: ${details}` : reason;
       user.deactivatedAt = new Date();
+      user.deletedEmail = user.email;
+      user.email = `deleted+${user._id}@pola.lk`;
       await user.save();
 
       res.status(200).json({

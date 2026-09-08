@@ -5,7 +5,6 @@ import { RootLayout } from './RootLayout';
 import { ProtectedRoute } from './components/templates/ProtectedRoute';
 
 // Dedicated Auth & Portal Selection Pages
-import { PortalSelectPage } from './pages/auth/PortalSelectPage';
 import { FarmerLoginPage } from './pages/auth/FarmerLoginPage';
 import { CustomerLoginPage } from './pages/auth/CustomerLoginPage';
 import { DeliveryLoginPage } from './pages/auth/DeliveryLoginPage';
@@ -56,6 +55,7 @@ import { DisputeAdjudicationPage } from './pages/admin/DisputeAdjudicationPage';
 import { LogisticsPage } from './pages/admin/LogisticsPage';
 import { AuditLogPage } from './pages/admin/AuditLogPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
+import { CreateAdminPage } from './pages/admin/CreateAdminPage';
 
 // Shared Pages
 import { WalletPage } from './pages/shared/WalletPage';
@@ -73,10 +73,6 @@ export const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
-      // Universal Multi-Portal Hub
-      { path: '/portals', element: <PortalSelectPage /> },
-      { path: '/portal-select', element: <PortalSelectPage /> },
-
       // 1. Farmer Portal Routes
       { path: '/farmer/login', element: <FarmerLoginPage /> },
       {
@@ -357,6 +353,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS, Role.ADMIN_FINANCE]} redirectPath="/admin/login">
             <ReportsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/manage-admins',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER]} redirectPath="/admin/login">
+            <CreateAdminPage />
           </ProtectedRoute>
         ),
       },

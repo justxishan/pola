@@ -47,7 +47,7 @@ api.interceptors.response.use(
       // Delegate logout to Zustand store to keep in-memory and storage state in sync
       useAuthStore.getState().logout();
 
-      const publicPaths = ['/catalog', '/product/', '/auth/', '/portals', '/portal-select'];
+      const publicPaths = ['/catalog', '/product/', '/auth/'];
       const isPublicPath = publicPaths.some((p) => window.location.pathname.startsWith(p));
       const isAlreadyOnLogin = window.location.pathname.includes('/login');
 
