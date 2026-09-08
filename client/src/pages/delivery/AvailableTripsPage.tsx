@@ -5,41 +5,70 @@ import { DeliveryOpportunityCard } from '@/components/molecules/DeliveryOpportun
 import { RangeSlider } from '@/components/molecules/RangeSlider';
 import { EmptyState } from '@/components/molecules/EmptyState';
 import { Spinner } from '@/components/atoms/Spinner';
-import { Button } from '@/components/atoms/Button';
 import { DeliveryService } from '@/services/delivery.service';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
-import { LayoutDashboard, Truck, Wallet, Radar, ArrowRight, Navigation, Calendar, DollarSign } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
+import { getDeliveryNavItems } from '@/lib/navItems';
+import { Radar } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+/** Haversine distance in km between two GPS coordinates */
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export const AvailableTripsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
+  const { t } = useTranslation();
 
   const [radiusKm, setRadiusKm] = useState(35);
   const [trips, setTrips] = useState<any[]>([]);
+  const [driverLat, setDriverLat] = useState<number | undefined>(undefined);
+  const [driverLng, setDriverLng] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/delivery/dashboard' },
-    { id: 'radar', label: 'Available Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
-    { id: 'active', label: 'Active Trip', icon: <Navigation className="w-5 h-5" />, path: '/delivery/active-trip' },
-    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
-    { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
-    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
-    { id: 'wallet', label: 'Earnings & Payouts', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  const navItems = getDeliveryNavItems(t as any);
 
+  // Get real GPS on mount, then fetch
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDriverLat(pos.coords.latitude);
+        setDriverLng(pos.coords.longitude);
+      },
+      () => {
+        // GPS unavailable — backend will use saved location
+      },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  }, []);
+
+  // Re-fetch whenever radius or GPS coords change
   useEffect(() => {
     fetchRadarTrips();
-  }, [radiusKm]);
+  }, [radiusKm, driverLat, driverLng]);
 
   const fetchRadarTrips = async () => {
     try {
       setIsLoading(true);
-      const res: any = await DeliveryService.getAvailableRadarTrips(7.8731, 80.6517, radiusKm);
+      const res: any = await DeliveryService.getAvailableRadarTrips(driverLat, driverLng, radiusKm);
       if (res.success && res.data) {
         setTrips(res.data.orders || res.data.availableOrders || []);
       }
@@ -67,7 +96,7 @@ export const AvailableTripsPage: React.FC = () => {
 
   return (
     <DashboardLayout
-      portalTitle="Delivery Operations Hub"
+      portalTitle={t.deliveryFleet}
       portalRole={user?.role || 'Delivery Partner'}
       navItems={navItems}
       activePath="/delivery/available"
@@ -124,6 +153,17 @@ export const AvailableTripsPage: React.FC = () => {
               const payout = t.leg2DeliveryFee || t.totalDeliveryFee || 650;
               const itemCount = t.items?.length || 1;
 
+              // Compute real distance if we have both sets of coords
+              const destLat = t.deliveryAddress?.gps?.latitude;
+              const destLng = t.deliveryAddress?.gps?.longitude;
+              const distanceKm =
+                driverLat !== undefined &&
+                driverLng !== undefined &&
+                destLat !== undefined &&
+                destLng !== undefined
+                  ? Math.round(haversineKm(driverLat, driverLng, destLat, destLng) * 10) / 10
+                  : undefined;
+
               return (
                 <DeliveryOpportunityCard
                   key={t._id}
@@ -131,7 +171,7 @@ export const AvailableTripsPage: React.FC = () => {
                   orderNumber={t.orderNumber}
                   pickupLocation={pickup}
                   deliveryLocation={deliveryLoc}
-                  distanceKm={18}
+                  distanceKm={distanceKm}
                   payoutLkr={payout}
                   itemCount={itemCount}
                   onAccept={() => handleAcceptTrip(t._id)}

@@ -111,4 +111,48 @@ export class VehicleController {
       next(error);
     }
   }
+
+  /**
+   * Admin: Get all vehicles awaiting verification
+   */
+  static async getPendingVehicles(req: Request, res: Response, next: NextFunction) {
+    try {
+      const vehicles = await Vehicle.find({ status: VerificationStatus.PENDING })
+        .populate('ownerId', 'fullName email phone')
+        .sort({ createdAt: -1 });
+
+      res.status(200).json({
+        success: true,
+        data: { vehicles },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Admin: Verify or reject a vehicle
+   */
+  static async verifyVehicle(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { approved, rejectionReason } = req.body;
+      const vehicle = await Vehicle.findById(id);
+      if (!vehicle) throw new AppError('Vehicle not found', 404);
+
+      vehicle.status = approved ? VerificationStatus.VERIFIED : VerificationStatus.REJECTED;
+      if (!approved && rejectionReason) {
+        vehicle.rejectionReason = rejectionReason;
+      }
+      await vehicle.save();
+
+      res.status(200).json({
+        success: true,
+        message: `Vehicle ${approved ? 'verified' : 'rejected'} successfully`,
+        data: { vehicle },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

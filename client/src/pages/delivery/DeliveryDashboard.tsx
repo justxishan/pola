@@ -1,26 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { StatCard } from '@/components/molecules/StatCard';
 import { Toggle } from '@/components/atoms/Toggle';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useTranslation } from '@/lib/i18n';
+import { getDeliveryNavItems } from '@/lib/navItems';
+import { DeliveryService } from '@/services/delivery.service';
 import {
-  LayoutDashboard,
   Truck,
   Wallet,
   Radar,
-  Calendar,
   DollarSign,
   Navigation,
   ArrowRight,
-  Sparkles,
-  CheckCircle2,
-  Circle,
   ShieldCheck,
   Package,
-  Clock,
-  ArrowUpRight,
   TrendingUp,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -29,25 +25,94 @@ export const DeliveryDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
+  const { t } = useTranslation();
 
-  const [isOnline, setIsOnline] = useState(true);
+  // Online state — initialise from user.isOnline if available
+  const [isOnline, setIsOnline] = useState<boolean>((user as any)?.isOnline !== false);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, path: '/delivery/dashboard' },
-    { id: 'radar', label: 'Available Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
-    { id: 'active', label: 'Active Trip', icon: <Navigation className="w-5 h-5" />, path: '/delivery/active-trip' },
-    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
-    { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
-    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
-    { id: 'wallet', label: 'Earnings & Payouts', icon: <Wallet className="w-5 h-5" />, path: '/wallet' },
-  ];
+  // Real stat data
+  const [nearbyCount, setNearbyCount] = useState<number>(0);
+  const [todayEarnings, setTodayEarnings] = useState<number>(0);
+  const [completedTrips, setCompletedTrips] = useState<number>(0);
+  const [totalEarned, setTotalEarned] = useState<number>(0);
 
-  const isKycVerified = user?.kycStatus === 'verified';
-  const hasBank = !!(user as any)?.bankDetails?.accountNumber || !!(user as any)?.bankAccount?.accountNumber;
+  const locationWatchRef = useRef<number | null>(null);
+
+  const navItems = getDeliveryNavItems(t as any);
+
+  // Fetch real radar + earnings stats on mount
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      // Get current GPS position for accurate radar
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const [radarRes, earningsRes]: any[] = await Promise.all([
+            DeliveryService.getAvailableRadarTrips(latitude, longitude, 25),
+            DeliveryService.getEarnings(),
+          ]);
+
+          if (radarRes.success && radarRes.data) {
+            setNearbyCount(radarRes.data.orders?.length ?? 0);
+          }
+          if (earningsRes.success && earningsRes.data) {
+            setCompletedTrips(earningsRes.data.completedTripsCount ?? 0);
+            setTotalEarned(earningsRes.data.wallet?.totalEarned ?? 0);
+
+            // Today's earnings: sum leg2DeliveryFee on trips completed today
+            const today = new Date().toDateString();
+            const todayTrips = (earningsRes.data.completedTrips || []).filter(
+              (trip: any) =>
+                trip.deliveredAt && new Date(trip.deliveredAt).toDateString() === today
+            );
+            const todayTotal = todayTrips.reduce(
+              (sum: number, trip: any) => sum + (trip.leg2DeliveryFee || 0),
+              0
+            );
+            setTodayEarnings(todayTotal);
+          }
+        },
+        async () => {
+          // Fallback without GPS coords
+          const earningsRes: any = await DeliveryService.getEarnings();
+          if (earningsRes.success && earningsRes.data) {
+            setCompletedTrips(earningsRes.data.completedTripsCount ?? 0);
+            setTotalEarned(earningsRes.data.wallet?.totalEarned ?? 0);
+          }
+        },
+        { timeout: 6000 }
+      );
+    } catch {
+      // Silently degrade — stats just stay at 0
+    }
+  };
+
+  /** Persist online status via updateLiveLocation; use real GPS when possible */
+  const handleToggleOnline = (on: boolean) => {
+    setIsOnline(on);
+    toast.success(on ? 'Online! Radar listening for nearby trips.' : 'Switched offline.');
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        DeliveryService.updateLiveLocation(pos.coords.latitude, pos.coords.longitude, on).catch(
+          () => {}
+        );
+      },
+      () => {
+        // Send toggle without coords if GPS unavailable
+        DeliveryService.updateLiveLocation(0, 0, on).catch(() => {});
+      },
+      { timeout: 5000 }
+    );
+  };
 
   return (
     <DashboardLayout
-      portalTitle="Delivery Operations Hub"
+      portalTitle={t.deliveryFleet}
       portalRole={user?.role || 'Delivery Partner'}
       navItems={navItems}
       activePath="/delivery/dashboard"
@@ -86,43 +151,40 @@ export const DeliveryDashboard: React.FC = () => {
             <Toggle
               label={isOnline ? 'Online & Accepting Radar Trips' : 'Offline'}
               checked={isOnline}
-              onChange={(on) => {
-                setIsOnline(on);
-                toast.success(on ? 'Online! Radar listening for nearby trips.' : 'Switched offline.');
-              }}
+              onChange={handleToggleOnline}
             />
           </div>
         </div>
 
-        {/* 4 Stat Cards */}
+        {/* 4 Stat Cards — now real data */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <StatCard
             title="Available Trips"
-            value="3 Nearby"
-            subtitle="Within your 15km radar"
+            value={nearbyCount > 0 ? `${nearbyCount} Nearby` : 'None nearby'}
+            subtitle="Within your 25km radar"
             icon={<Radar className="w-6 h-6 text-yellow-400" />}
             iconBgColor="bg-yellow-500/20 text-yellow-300 border border-yellow-400/30"
           />
 
           <StatCard
             title="Today's Earnings"
-            value="LKR 4,250"
-            subtitle="3 trips completed"
+            value={`LKR ${todayEarnings.toLocaleString()}`}
+            subtitle={`${completedTrips} total trips completed`}
             icon={<TrendingUp className="w-6 h-6 text-lime-400" />}
             iconBgColor="bg-lime-500/20 text-lime-300 border border-lime-400/30"
           />
 
           <StatCard
-            title="Total Cargo Delivered"
-            value="480 kg"
+            title="Lifetime Payouts"
+            value={`LKR ${totalEarned.toLocaleString()}`}
             subtitle="Leg-1 & Leg-2 runs"
             icon={<Package className="w-6 h-6 text-emerald-400" />}
             iconBgColor="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
           />
 
           <StatCard
-            title="Courier Reliability"
-            value="98.6%"
+            title="Completed Trips"
+            value={String(completedTrips)}
             subtitle="Verified OTP handovers"
             icon={<ShieldCheck className="w-6 h-6 text-sky-400" />}
             iconBgColor="bg-sky-500/20 text-sky-300 border border-sky-400/30"
@@ -154,12 +216,18 @@ export const DeliveryDashboard: React.FC = () => {
             <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-bold text-yellow-300 flex items-center gap-1.5">
-                  <Radar className="w-3.5 h-3.5" /> Trip Request • Nuwara Eliya DC → Kandy
+                  <Radar className="w-3.5 h-3.5" />
+                  {nearbyCount > 0
+                    ? `${nearbyCount} trip request${nearbyCount > 1 ? 's' : ''} available nearby`
+                    : isOnline
+                    ? 'Radar scanning — no trips in your radius yet'
+                    : 'Go online to start receiving trip requests'}
                 </span>
-                <span className="font-black text-sm text-yellow-400">LKR 2,450</span>
               </div>
               <p className="text-xs text-slate-300">
-                Cargo: 220 kg Highland Vegetables (Carrots & Leeks). Escrow payout upon arrival.
+                {isOnline
+                  ? 'Open Full Radar to accept a run and start earning.'
+                  : 'Toggle online above to activate the radar feed.'}
               </p>
             </div>
           </div>

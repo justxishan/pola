@@ -3,12 +3,13 @@ import { Types } from 'mongoose';
 import { Order } from '../models/Order.model.js';
 import { User } from '../models/User.model.js';
 import { Wallet } from '../models/Wallet.model.js';
+import { QualityInspection } from '../models/QualityInspection.model.js';
 import { RadiusService } from '../services/radius.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { EscrowService } from '../services/escrow.service.js';
 import { NotificationService } from '../services/notification.service.js';
 import { AppError } from '../middleware/error.middleware.js';
-import { OrderStatus, Role } from '@pola/shared';
+import { OrderStatus, Role, QualityGrade } from '@pola/shared';
 
 export class DeliveryController {
   /**
@@ -19,6 +20,14 @@ export class DeliveryController {
       const driverId = req.user!.userId;
       const driver = await User.findById(driverId);
       if (!driver) throw new AppError('Driver not found', 404);
+
+      // If driver is offline, return empty radar immediately
+      if (driver.isOnline === false) {
+        return res.status(200).json({
+          success: true,
+          data: { orders: [], availableOrders: [], driverRadiusKm: driver.deliveryRadiusKm || 35, offline: true },
+        });
+      }
 
       const radiusKm = Number(req.query.radiusKm) || driver.deliveryRadiusKm || 35;
       const lat = Number(req.query.lat) || driver.currentLocation?.latitude;
@@ -150,7 +159,7 @@ export class DeliveryController {
     try {
       const driverId = req.user!.userId;
       const { orderId } = req.params;
-      const { status, note } = req.body;
+      const { status, note, packageCount, conditionPhotoUrl } = req.body;
 
       const order = await Order.findOne({ _id: orderId, leg2DriverId: driverId });
       if (!order) throw new AppError('Order not found or unauthorized for your account', 404);
@@ -159,12 +168,36 @@ export class DeliveryController {
         throw new AppError('Transit updates from this endpoint only support moving to OUT_FOR_DELIVERY. Use proof of delivery for final handover.', 400);
       }
 
+      if (!packageCount) {
+        throw new AppError('Confirm package count before starting the doorstep run', 400);
+      }
+
+      const firstItem = order.items[0];
+      if (firstItem) {
+        await QualityInspection.create({
+          orderId: order._id,
+          productId: firstItem.productId,
+          farmerId: firstItem.farmerId,
+          inspectorId: new Types.ObjectId(driverId),
+          stage: 'dc_intake',
+          dcId: order.assignedDcId,
+          selfDeclaredGrade: firstItem.selfDeclaredGrade || QualityGrade.GRADE_A,
+          assignedGrade: firstItem.inspectedGrade || QualityGrade.GRADE_A,
+          priceMultiplier: 1.0,
+          listedQuantity: order.items.length,
+          confirmedQuantity: Number(packageCount),
+          weightVariancePercent: 0,
+          criteriaNotes: note || `Courier picked up ${packageCount} package(s) at DC`,
+          photos: conditionPhotoUrl ? [conditionPhotoUrl] : [],
+        }).catch(() => {});
+      }
+
       order.status = OrderStatus.OUT_FOR_DELIVERY;
       order.timeline.push({
         status: OrderStatus.OUT_FOR_DELIVERY,
         timestamp: new Date(),
         updatedBy: new Types.ObjectId(driverId),
-        note: note || `Courier started doorstep delivery run for Order #${order.orderNumber}`,
+        note: note || `Courier confirmed ${packageCount} package(s) and started doorstep delivery run for Order #${order.orderNumber}`,
       });
 
       await order.save();
@@ -232,7 +265,7 @@ export class DeliveryController {
     try {
       const driverId = req.user!.userId;
       const { orderId } = req.params;
-      const { handoverOtp } = req.body;
+      const { handoverOtp, codCollected } = req.body;
 
       const order = await Order.findOne({ _id: orderId, leg2DriverId: driverId });
       if (!order) throw new AppError('Order not found or unauthorized', 404);
@@ -244,6 +277,12 @@ export class DeliveryController {
       if (req.file) {
         const upload = await CloudinaryService.uploadBuffer(req.file.buffer, 'pola/pod');
         order.proofOfDeliveryPhoto = upload.secure_url;
+      }
+
+      // Persist COD collection status
+      if (codCollected !== undefined) {
+        order.codCollected = codCollected === true || codCollected === 'true';
+        if (order.codCollected) order.codCollectedAt = new Date();
       }
 
       order.status = OrderStatus.DELIVERED;
@@ -309,6 +348,57 @@ export class DeliveryController {
   }
 
   /**
+   * Report a delivery exception (e.g. customer absent, refused delivery) → RETURNED status
+   */
+  static async reportDeliveryException(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const { orderId } = req.params;
+      const { reason, note } = req.body;
+
+      if (!reason) throw new AppError('Exception reason is required', 400);
+
+      const order = await Order.findOne({
+        _id: orderId,
+        leg2DriverId: driverId,
+        status: { $in: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.ASSIGNED_FOR_DELIVERY] },
+      });
+      if (!order) throw new AppError('Active trip not found or unauthorized', 404);
+
+      order.status = OrderStatus.RETURNED;
+      order.cancellationReason = `Delivery exception: ${reason}${note ? ` — ${note}` : ''}`;
+      order.timeline.push({
+        status: OrderStatus.RETURNED,
+        timestamp: new Date(),
+        updatedBy: new Types.ObjectId(driverId),
+        note: `Delivery exception reported: ${reason}. ${note || ''}`.trim(),
+      });
+
+      await order.save();
+
+      // Notify customer
+      await NotificationService.sendNotification({
+        userId: order.customerId,
+        title: 'Delivery Attempt Unsuccessful',
+        message: `We were unable to deliver Order #${order.orderNumber}. Reason: ${reason}. Our team will contact you.`,
+        type: 'order',
+        portal: 'customer',
+        destinationKey: 'ORDER_DETAIL',
+        relatedId: order._id.toString(),
+        linkUrl: `/orders/${order._id}/track`,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Delivery exception reported. Order marked as RETURNED.',
+        data: { order },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get Delivery Earnings and Wallet Stats
    */
   static async getEarnings(req: Request, res: Response, next: NextFunction) {
@@ -321,6 +411,34 @@ export class DeliveryController {
         status: { $in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] },
       }).sort({ createdAt: -1 });
 
+      // All trips for reliability calculation (delivered vs returned)
+      const allDriverTrips = await Order.find({
+        leg2DriverId: driverId,
+        status: { $in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.RETURNED] },
+      });
+
+      const deliveredCount = completedTrips.length;
+      const returnedCount = allDriverTrips.filter((o) => o.status === OrderStatus.RETURNED).length;
+      const totalResolved = deliveredCount + returnedCount;
+      const reliabilityPct =
+        totalResolved > 0 ? Math.round((deliveredCount / totalResolved) * 1000) / 10 : null;
+
+      // Today's earnings
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEarningsLkr = completedTrips
+        .filter((trip) => trip.deliveredAt && new Date(trip.deliveredAt) >= todayStart)
+        .reduce((sum, trip) => sum + (trip.leg2DeliveryFee || trip.totalDeliveryFee || 0), 0);
+
+      // Total cargo kg delivered
+      const totalCargoKg = completedTrips.reduce((sum, trip) => {
+        const orderKg = (trip.items || []).reduce(
+          (itemSum, item) => itemSum + (item.quantityCollected || item.quantityOrdered || 0),
+          0
+        );
+        return sum + orderKg;
+      }, 0);
+
       res.status(200).json({
         success: true,
         data: {
@@ -331,6 +449,9 @@ export class DeliveryController {
           },
           completedTripsCount: completedTrips.length,
           completedTrips,
+          todayEarningsLkr,
+          totalCargoKg: Math.round(totalCargoKg * 10) / 10,
+          reliabilityPct,
         },
       });
     } catch (error) {

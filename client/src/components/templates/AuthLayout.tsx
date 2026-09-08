@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/cn';
-import { Sprout } from 'lucide-react';
+import { PolaLogo } from '@/components/atoms/PolaLogo';
 
 export interface AuthLayoutProps {
   title: string;
@@ -22,11 +22,9 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
       {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-2">
         <a href="/" className="inline-flex items-center gap-2 group">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-emerald-500/20 shadow-md group-hover:scale-105 transition-transform">
-            <Sprout className="w-7 h-7" />
-          </div>
+          <PolaLogo size={12} className="group-hover:scale-105 transition-transform shadow-md shadow-emerald-500/10" />
           <span className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-            Pola <span className="text-emerald-600 dark:text-emerald-400">.lk</span>
+            Pola
           </span>
         </a>
         <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">{title}</h2>

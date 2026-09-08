@@ -10,21 +10,22 @@ import { EmptyState } from '@/components/molecules/EmptyState';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
-import { api } from '@/services/api';
+import { getDeliveryNavItems } from '@/lib/navItems';
+import { HubService } from '@/services/hub.service';
 import {
-  Compass,
-  Radar,
-  Calendar,
   Truck,
-  DollarSign,
   Scale,
-  FileCheck,
+  CheckCircle2,
   Package,
+  Navigation,
+  ArrowRight,
+  Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type GradeEntry = {
   orderId: string;
+  productId: string;
   farmerId: string;
   farmerName: string;
   productName: string;
@@ -33,6 +34,7 @@ type GradeEntry = {
   grade: string;
   notes: string;
   isVerified: boolean;
+  isSaved?: boolean;
 };
 
 export const HubIntakePage: React.FC = () => {
@@ -44,15 +46,13 @@ export const HubIntakePage: React.FC = () => {
   const [schedule, setSchedule] = useState<any>(null);
   const [entries, setEntries] = useState<GradeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savingRowKey, setSavingRowKey] = useState<string | null>(null);
+  const [isAcceptingRun, setIsAcceptingRun] = useState(false);
+  const [isDeparting, setIsDeparting] = useState(false);
+  const [isConfirmingArrival, setIsConfirmingArrival] = useState(false);
+  const [runStage, setRunStage] = useState<'pending_accept' | 'intake' | 'in_transit' | 'arrived'>('intake');
 
-  const navItems = [
-    { id: 'hud', label: 'Delivery HUD', icon: <Compass className="w-5 h-5" />, path: '/delivery/dashboard' },
-    { id: 'available', label: 'Available Radar Trips', icon: <Radar className="w-5 h-5" />, path: '/delivery/available' },
-    { id: 'hub', label: 'Hub Intake Sheet', icon: <Calendar className="w-5 h-5" />, path: '/delivery/hub-schedule' },
-    { id: 'vehicles', label: 'My Vehicles', icon: <Truck className="w-5 h-5" />, path: '/delivery/vehicles' },
-    { id: 'earnings', label: 'Trip Earnings', icon: <DollarSign className="w-5 h-5" />, path: '/delivery/earnings' },
-  ];
+  const navItems = getDeliveryNavItems(t as any);
 
   useEffect(() => {
     fetchTodaySchedule();
@@ -61,28 +61,47 @@ export const HubIntakePage: React.FC = () => {
   const fetchTodaySchedule = async () => {
     try {
       setIsLoading(true);
-      // Fetch pending orders at hub assigned to this driver/hub
-      const res: any = await api.get('/delivery/hub-schedule');
+      const res: any = await HubService.getMySchedule();
       if (res.success && res.data) {
-        setSchedule(res.data.schedule || null);
-        // Build grading entry list from pending hub orders
+        const sched = res.data.schedules?.[0] || null;
+        setSchedule(sched);
+
         const rawEntries: GradeEntry[] = (res.data.pendingOrders || []).flatMap((order: any) =>
           (order.items || []).map((item: any) => ({
             orderId: order._id,
-            farmerId: item.farmerId,
-            farmerName: item.farmerName || 'Unknown',
+            productId: item.productId,
+            farmerId: item.farmerId?._id || item.farmerId,
+            farmerName: item.farmerId?.fullName || item.farmerName || 'Registered Farmer',
             productName: item.productName,
             listedWeightKg: item.quantityOrdered || 0,
-            actualWeightKg: String(item.quantityOrdered || ''),
-            grade: 'A',
+            actualWeightKg: String(item.quantityCollected || item.quantityOrdered || ''),
+            grade: item.inspectedGrade || 'A',
             notes: '',
-            isVerified: false,
+            isVerified: !!item.quantityCollected,
+            isSaved: !!item.quantityCollected,
           }))
         );
         setEntries(rawEntries);
+
+        // Check overall orders stage
+        const orders = res.data.pendingOrders || [];
+        if (orders.length > 0) {
+          const hasAssignedDriver = orders.some((o: any) => o.leg1DriverId);
+          const allDeparted = orders.every((o: any) => o.status === 'in_transit_to_dc');
+          const allArrived = orders.every((o: any) => o.status === 'received_at_dc');
+
+          if (allArrived) {
+            setRunStage('arrived');
+          } else if (allDeparted) {
+            setRunStage('in_transit');
+          } else if (hasAssignedDriver) {
+            setRunStage('intake');
+          } else {
+            setRunStage('pending_accept');
+          }
+        }
       }
-    } catch (err: any) {
-      // If endpoint doesn't exist yet, show empty state gracefully
+    } catch {
       setEntries([]);
     } finally {
       setIsLoading(false);
@@ -95,37 +114,81 @@ export const HubIntakePage: React.FC = () => {
     setEntries(updated);
   };
 
-  const handleLockManifest = async () => {
-    const unverifiedCount = entries.filter((e) => !e.actualWeightKg || !e.grade).length;
-    if (unverifiedCount > 0) {
-      toast.error(`${unverifiedCount} item(s) still need actual weight and grade before locking`);
+  const handleAcceptRun = async () => {
+    if (!schedule?.hubId) {
+      toast.error('No hub assigned for today');
       return;
     }
-
     try {
-      setIsSubmitting(true);
-      // Build grading payload for POST /hubs/intake-grading
-      const gradingPayload = {
-        hubId: schedule?.hubId,
-        intakeDate: new Date().toISOString(),
-        entries: entries.map((e) => ({
-          orderId: e.orderId,
-          farmerId: e.farmerId,
-          productName: e.productName,
-          listedWeightKg: e.listedWeightKg,
-          actualWeightKg: parseFloat(e.actualWeightKg) || e.listedWeightKg,
-          grade: e.grade,
-          notes: e.notes,
-        })),
-      };
-
-      await api.post('/hubs/intake-grading', gradingPayload);
-      toast.success('Hub Manifest signed and locked! All orders moved to "In Transit to DC".');
-      navigate('/delivery/dashboard');
+      setIsAcceptingRun(true);
+      const res: any = await HubService.acceptHubRun(schedule.hubId);
+      if (res.success) {
+        toast.success(res.message || 'Leg-1 run accepted! You can now grade hub produce.');
+        setRunStage('intake');
+        await fetchTodaySchedule();
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to submit hub intake grading');
+      toast.error(err.response?.data?.message || err.message || 'Failed to accept run');
     } finally {
-      setIsSubmitting(false);
+      setIsAcceptingRun(false);
+    }
+  };
+
+  const handleSaveRow = async (entry: GradeEntry, index: number) => {
+    const rowKey = `${entry.orderId}-${entry.productId}`;
+    setSavingRowKey(rowKey);
+    try {
+      await HubService.submitIntakeGrading({
+        orderId: entry.orderId,
+        productId: entry.productId,
+        confirmedQuantity: parseFloat(entry.actualWeightKg) || entry.listedWeightKg,
+        assignedGrade: entry.grade,
+        criteriaNotes: entry.notes,
+      });
+      const updated = [...entries];
+      updated[index].isVerified = true;
+      updated[index].isSaved = true;
+      setEntries(updated);
+      toast.success(`Verified & saved: ${entry.productName}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to save entry');
+    } finally {
+      setSavingRowKey(null);
+    }
+  };
+
+  const handleDepartForDc = async () => {
+    if (!schedule?.hubId) return;
+    const unsaved = entries.filter((e) => !e.isSaved);
+    if (unsaved.length > 0) {
+      toast.error(`Please save all ${unsaved.length} item(s) before departing`);
+      return;
+    }
+    try {
+      setIsDeparting(true);
+      await HubService.departForDc(schedule.hubId);
+      toast.success('Run departed! Cargo is now in transit to Distribution Center.');
+      setRunStage('in_transit');
+      await fetchTodaySchedule();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to depart');
+    } finally {
+      setIsDeparting(false);
+    }
+  };
+
+  const handleConfirmArrival = async () => {
+    if (!schedule?.hubId) return;
+    try {
+      setIsConfirmingArrival(true);
+      await HubService.confirmDcArrival(schedule.hubId);
+      toast.success('Cargo arrived and confirmed at Distribution Center!');
+      setRunStage('arrived');
+      await fetchTodaySchedule();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to confirm arrival');
+    } finally {
+      setIsConfirmingArrival(false);
     }
   };
 
@@ -157,17 +220,52 @@ export const HubIntakePage: React.FC = () => {
             </p>
           </div>
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleLockManifest}
-            isLoading={isSubmitting}
-            disabled={entries.length === 0}
-            className="bg-emerald-600 hover:bg-emerald-700"
-            leftIcon={<FileCheck className="w-4 h-4" />}
-          >
-            {t.signLockManifest}
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {runStage === 'pending_accept' && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleAcceptRun}
+                isLoading={isAcceptingRun}
+                className="bg-amber-600 hover:bg-amber-700"
+                leftIcon={<Truck className="w-4 h-4" />}
+              >
+                Accept Leg-1 Hub Run
+              </Button>
+            )}
+
+            {runStage === 'intake' && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleDepartForDc}
+                isLoading={isDeparting}
+                className="bg-emerald-600 hover:bg-emerald-700"
+                leftIcon={<Navigation className="w-4 h-4" />}
+              >
+                Depart for DC
+              </Button>
+            )}
+
+            {runStage === 'in_transit' && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleConfirmArrival}
+                isLoading={isConfirmingArrival}
+                className="bg-sky-600 hover:bg-sky-700"
+                leftIcon={<CheckCircle2 className="w-4 h-4" />}
+              >
+                Confirm DC Arrival
+              </Button>
+            )}
+
+            {runStage === 'arrived' && (
+              <Badge variant="emerald" size="md">
+                Arrival Confirmed at DC
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Scheduled Transport Run Banner */}
@@ -183,11 +281,31 @@ export const HubIntakePage: React.FC = () => {
                     {schedule.hubName} ──► {schedule.dcName}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    {schedule.pickupWindow} • Vehicle: {schedule.vehiclePlate}
+                    {schedule.pickupWindow} • Vehicle: {schedule.vehiclePlate || 'Assigned Transport'}
                   </p>
                 </div>
               </div>
-              <Badge variant="emerald" size="md">Intake Active</Badge>
+
+              <Badge
+                variant={
+                  runStage === 'arrived'
+                    ? 'emerald'
+                    : runStage === 'in_transit'
+                    ? 'sky'
+                    : runStage === 'intake'
+                    ? 'emerald'
+                    : 'amber'
+                }
+                size="md"
+              >
+                {runStage === 'arrived'
+                  ? 'Delivered to DC'
+                  : runStage === 'in_transit'
+                  ? 'En Route to DC'
+                  : runStage === 'intake'
+                  ? 'Intake Active'
+                  : 'Awaiting Run Acceptance'}
+              </Badge>
             </div>
           </div>
         )}
@@ -204,57 +322,75 @@ export const HubIntakePage: React.FC = () => {
           />
         ) : (
           <div className="space-y-4">
-            {entries.map((entry, idx) => (
-              <div
-                key={`${entry.orderId}-${idx}`}
-                className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div>
-                    <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
-                      {entry.farmerName}
-                    </h4>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-                      {entry.productName}
-                    </p>
+            {entries.map((entry, idx) => {
+              const rowKey = `${entry.orderId}-${entry.productId}`;
+              const isSaving = savingRowKey === rowKey;
+
+              return (
+                <div
+                  key={rowKey}
+                  className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
+                        {entry.farmerName}
+                      </h4>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                        {entry.productName}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Badge variant={entry.isSaved ? 'emerald' : 'amber'} size="sm">
+                        {entry.isSaved ? 'Verified & Saved' : 'Pending Weighing'}
+                      </Badge>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        isLoading={isSaving}
+                        onClick={() => handleSaveRow(entry, idx)}
+                        className={entry.isSaved ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700'}
+                        leftIcon={<Save className="w-3.5 h-3.5" />}
+                      >
+                        {entry.isSaved ? 'Update' : 'Save'}
+                      </Button>
+                    </div>
                   </div>
-                  <Badge variant={entry.isVerified ? 'emerald' : 'amber'} size="sm">
-                    {entry.isVerified ? 'Verified' : 'Pending Weighing'}
-                  </Badge>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Input
+                      label={`Scale Weight (Listed: ${entry.listedWeightKg} kg)`}
+                      type="number"
+                      value={entry.actualWeightKg}
+                      onChange={(e) => {
+                        handleUpdateEntry(idx, 'actualWeightKg', e.target.value);
+                        handleUpdateEntry(idx, 'isVerified', !!e.target.value);
+                      }}
+                    />
+
+                    <Select
+                      label="Assigned Quality Grade"
+                      value={entry.grade}
+                      onChange={(e) => handleUpdateEntry(idx, 'grade', e.target.value)}
+                      options={[
+                        { value: 'A', label: 'Grade A — Premium (100% Payout)' },
+                        { value: 'B', label: 'Grade B — Standard (90% Payout)' },
+                        { value: 'C', label: 'Grade C — Below Standard (75% Payout)' },
+                        { value: 'rejected', label: 'Rejected — Spoilage / Damage (0% Payout)' },
+                      ]}
+                    />
+
+                    <Input
+                      label="Inspection Notes"
+                      value={entry.notes}
+                      onChange={(e) => handleUpdateEntry(idx, 'notes', e.target.value)}
+                      placeholder="Optional observations..."
+                    />
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Input
-                    label={`Scale Weight (Listed: ${entry.listedWeightKg} kg)`}
-                    type="number"
-                    value={entry.actualWeightKg}
-                    onChange={(e) => {
-                      handleUpdateEntry(idx, 'actualWeightKg', e.target.value);
-                      handleUpdateEntry(idx, 'isVerified', !!e.target.value);
-                    }}
-                  />
-
-                  <Select
-                    label="Assigned Quality Grade"
-                    value={entry.grade}
-                    onChange={(e) => handleUpdateEntry(idx, 'grade', e.target.value)}
-                    options={[
-                      { value: 'A', label: 'Grade A — Premium (100% Payout)' },
-                      { value: 'B', label: 'Grade B — Standard (90% Payout)' },
-                      { value: 'C', label: 'Grade C — Below Standard (75% Payout)' },
-                      { value: 'rejected', label: 'Rejected — Spoilage / Damage (0% Payout)' },
-                    ]}
-                  />
-
-                  <Input
-                    label="Inspection Notes"
-                    value={entry.notes}
-                    onChange={(e) => handleUpdateEntry(idx, 'notes', e.target.value)}
-                    placeholder="Optional observations..."
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

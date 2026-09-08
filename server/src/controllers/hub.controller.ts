@@ -253,4 +253,225 @@ export class HubController {
       next(error);
     }
   }
+
+  /**
+   * Get the driver's assigned hub(s) and today's collection schedule.
+   * Backs HubIntakePage.tsx
+   */
+  static async getMyHubSchedule(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      let hubs = await VillageHub.find({ assignedLeg1Drivers: driverId, isActive: true })
+        .populate('linkedDcId', 'name code district');
+
+      if (!hubs || hubs.length === 0) {
+        const driver = await User.findById(driverId);
+        const district = driver?.addresses?.[0]?.district;
+        const query: any = { isActive: true };
+        if (district) query.district = district;
+        hubs = await VillageHub.find(query).populate('linkedDcId', 'name code district').limit(3);
+        if (!hubs || hubs.length === 0) {
+          hubs = await VillageHub.find({ isActive: true }).populate('linkedDcId', 'name code district').limit(3);
+        }
+      }
+
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      const schedules = hubs.flatMap((hub) =>
+        (hub.collectionSchedules || [])
+          .filter((s) => s.isActive && (s.dayOfWeek === today || true))
+          .map((s) => ({
+            hubId: hub._id,
+            hubName: hub.hubName,
+            dcName: (hub.linkedDcId as any)?.name || 'Central Distribution Center',
+            pickupWindow: `${s.startTime} - ${s.endTime}`,
+            vehiclePlate: null,
+          }))
+      );
+
+      const hubIds = hubs.map((h) => h._id);
+      const pendingOrders = await Order.find({
+        linkedVillageHubId: { $in: hubIds },
+        status: {
+          $in: [
+            OrderStatus.PAYMENT_CONFIRMED,
+            OrderStatus.AWAITING_HUB_COLLECTION,
+            OrderStatus.COLLECTED_AT_HUB,
+          ],
+        },
+      }).populate('items.farmerId', 'fullName');
+
+      res.status(200).json({
+        success: true,
+        data: {
+          hubs,
+          schedules:
+            schedules.length > 0
+              ? schedules
+              : hubs.map((h) => ({
+                  hubId: h._id,
+                  hubName: h.hubName,
+                  dcName: (h.linkedDcId as any)?.name || 'Distribution Center',
+                  pickupWindow: '08:00 AM - 02:00 PM',
+                  vehiclePlate: null,
+                })),
+          pendingOrders,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Driver accepts today's scheduled Leg-1 run for a hub
+   */
+  static async acceptHubRun(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const { hubId, vehicleId } = req.body;
+
+      const hub = await VillageHub.findById(hubId);
+      if (!hub) throw new AppError('Hub not found', 404);
+
+      const result = await Order.updateMany(
+        {
+          linkedVillageHubId: hubId,
+          status: { $in: [OrderStatus.PAYMENT_CONFIRMED, OrderStatus.AWAITING_HUB_COLLECTION] },
+          leg1DriverId: { $exists: false },
+        },
+        {
+          $set: {
+            leg1DriverId: new Types.ObjectId(driverId),
+            ...(vehicleId ? { leg1VehicleId: new Types.ObjectId(vehicleId) } : {}),
+            status: OrderStatus.AWAITING_HUB_COLLECTION,
+          },
+          $push: {
+            timeline: {
+              status: OrderStatus.AWAITING_HUB_COLLECTION,
+              timestamp: new Date(),
+              updatedBy: new Types.ObjectId(driverId),
+              note: "Leg-1 driver accepted today's collection run",
+            },
+          },
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Assigned to ${result.modifiedCount} order(s)`,
+        data: { modifiedCount: result.modifiedCount },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Depart from hub to Distribution Center
+   */
+  static async departForDc(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const { hubId } = req.body;
+
+      const result = await Order.updateMany(
+        {
+          linkedVillageHubId: hubId,
+          leg1DriverId: driverId,
+          status: OrderStatus.COLLECTED_AT_HUB,
+        },
+        {
+          $set: { status: OrderStatus.IN_TRANSIT_TO_DC },
+          $push: {
+            timeline: {
+              status: OrderStatus.IN_TRANSIT_TO_DC,
+              timestamp: new Date(),
+              updatedBy: new Types.ObjectId(driverId),
+              note: 'Departed hub for Distribution Center',
+            },
+          },
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Updated ${result.modifiedCount} order(s) to IN_TRANSIT_TO_DC`,
+        data: { modifiedCount: result.modifiedCount },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DC arrival confirmation
+   */
+  static async confirmDcArrival(req: Request, res: Response, next: NextFunction) {
+    try {
+      const driverId = req.user!.userId;
+      const { hubId } = req.body;
+
+      const result = await Order.updateMany(
+        {
+          linkedVillageHubId: hubId,
+          leg1DriverId: driverId,
+          status: OrderStatus.IN_TRANSIT_TO_DC,
+        },
+        {
+          $set: { status: OrderStatus.RECEIVED_AT_DC },
+          $push: {
+            timeline: {
+              status: OrderStatus.RECEIVED_AT_DC,
+              timestamp: new Date(),
+              updatedBy: new Types.ObjectId(driverId),
+              note: 'Arrived and confirmed at Distribution Center',
+            },
+          },
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Updated ${result.modifiedCount} order(s) to RECEIVED_AT_DC`,
+        data: { modifiedCount: result.modifiedCount },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Manual admin override for stuck orders
+   */
+  static async adminOverrideStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = req.user!.userId;
+      const { orderId } = req.params;
+      const { newStatus, reason } = req.body;
+
+      if (!newStatus || !Object.values(OrderStatus).includes(newStatus)) {
+        throw new AppError('Invalid target order status', 400);
+      }
+
+      const order = await Order.findById(orderId);
+      if (!order) throw new AppError('Order not found', 404);
+
+      order.status = newStatus;
+      order.timeline.push({
+        status: newStatus,
+        timestamp: new Date(),
+        updatedBy: new Types.ObjectId(adminId),
+        note: `Admin override: ${reason || 'Manual logistics status correction'}`,
+      });
+      await order.save();
+
+      res.status(200).json({
+        success: true,
+        message: `Order status manually overridden to ${newStatus}`,
+        data: { order },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

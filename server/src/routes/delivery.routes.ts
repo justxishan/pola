@@ -19,5 +19,6 @@ router.get('/earnings', DeliveryController.getEarnings);
 // Must come before /:orderId routes
 router.get('/trips/active', DeliveryController.getActiveTrip);
 router.get('/trips/history', DeliveryController.getTripHistory);
+router.post('/trips/:orderId/exception', DeliveryController.reportDeliveryException);
 
 export default router;

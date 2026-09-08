@@ -56,6 +56,7 @@ export interface IOrder extends Document {
   assignedDcId: Types.ObjectId;
   linkedVillageHubId?: Types.ObjectId;
   leg1DriverId?: Types.ObjectId;
+  leg1VehicleId?: Types.ObjectId;
   leg2DriverId?: Types.ObjectId;
   leg2VehicleId?: Types.ObjectId;
 
@@ -100,6 +101,8 @@ export interface IOrder extends Document {
   proofOfDeliveryPhoto?: string;
   deliverySignature?: string;
   deliveredAt?: Date;
+  codCollected?: boolean;
+  codCollectedAt?: Date;
 
   // Cancellation & Dispute
   cancellationReason?: string;
@@ -178,6 +181,7 @@ const OrderSchema = new Schema<IOrder>(
     assignedDcId: { type: Schema.Types.ObjectId, ref: 'DistributionCenter', required: true, index: true },
     linkedVillageHubId: { type: Schema.Types.ObjectId, ref: 'VillageHub' },
     leg1DriverId: { type: Schema.Types.ObjectId, ref: 'User' },
+    leg1VehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle' },
     leg2DriverId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     leg2VehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle' },
 
@@ -218,6 +222,8 @@ const OrderSchema = new Schema<IOrder>(
     proofOfDeliveryPhoto: { type: String },
     deliverySignature: { type: String },
     deliveredAt: { type: Date },
+    codCollected: { type: Boolean, default: false },
+    codCollectedAt: { type: Date },
 
     cancellationReason: { type: String },
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
