@@ -39,6 +39,8 @@ export class RatingController {
             order.leg2DriverId ||
             order.leg1DriverId?._id ||
             order.leg1DriverId;
+        } else if (targetType === 'customer') {
+          resolvedTargetUserId = order.customerId?._id || order.customerId;
         }
       }
 

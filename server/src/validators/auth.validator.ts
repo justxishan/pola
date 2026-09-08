@@ -45,6 +45,8 @@ export const UpdateProfileSchema = z.object({
     businessType: z.enum(['supermarket', 'hotel', 'restaurant', 'retailer', 'exporter']).optional(),
     deliveryRadiusKm: z.number().optional(),
     isOnline: z.boolean().optional(),
+    drivingLicenseNumber: z.string().optional(),
+    preferredShift: z.enum(['morning', 'afternoon', 'both']).optional(),
     addresses: z.array(z.any()).optional(),
     kycStatus: z.string().optional(),
     themePreference: z.enum(['light', 'dark', 'system']).optional(),

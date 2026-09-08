@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation, LanguageCode } from '@/lib/i18n';
 import { AuthService } from '@/services/auth.service';
+import { VehicleService } from '@/services/vehicle.service';
 import { PROVINCES_DISTRICTS, DISTRICTS } from '@pola/shared';
 import {
   Truck,
@@ -132,6 +133,13 @@ export const DeliveryOnboardingPage: React.FC = () => {
     setCurrentStep((prev) => Math.max(0, prev - 1));
   };
 
+  const DEFAULT_PAYLOAD_BY_TYPE: Record<string, number> = {
+    motorcycle: 40,
+    tuk_tuk: 250,
+    mini_truck: 1000,
+    lorry: 3500,
+  };
+
   const handleComplete = async () => {
     try {
       setIsLoading(true);
@@ -145,8 +153,34 @@ export const DeliveryOnboardingPage: React.FC = () => {
           phone: finalPhone,
           role: 'delivery_individual' as any,
           onboardingCompleted: true,
+          drivingLicenseNumber: hasDocumentsSection && licenseNumber.trim() ? licenseNumber.trim() : undefined,
+          preferredShift: preferredShift as any,
+          addresses: [
+            {
+              label: 'Base District',
+              province: province || 'Western',
+              district: district || 'Colombo',
+              addressLine1: `${district || 'Colombo'} Base`,
+              city: district || 'Colombo',
+              isDefault: true,
+            },
+          ],
         });
       } catch (e) {}
+
+      // Register vehicle if info provided or default vehicle type
+      try {
+        const regPlate = hasDocumentsSection && plateNumber.trim() ? plateNumber.trim() : 'WP CAB-1001';
+        await VehicleService.registerVehicle({
+          vehicleType: vehicleType || 'mini_truck',
+          registrationPlate: regPlate,
+          hasColdChain,
+          maxPayloadKg: DEFAULT_PAYLOAD_BY_TYPE[vehicleType] || 500,
+          makeModel: 'Registered during onboarding',
+        });
+      } catch (err) {
+        console.warn('Vehicle registration during onboarding was skipped or failed:', err);
+      }
 
       updateUser({
         fullName: finalName,

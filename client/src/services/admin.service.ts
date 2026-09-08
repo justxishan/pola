@@ -80,10 +80,10 @@ export const AdminService = {
   updatePlatformConfig: async (data: {
     platformCommissionPercent?: number;
     collectorCommissionPercent?: number;
-    gradeMultipliers?: { A?: number; B?: number; C?: number; rejected?: number };
-    leg1FlatFeeLkr?: number;
-    leg2BaseFeeLkr?: number;
+    deliveryBaseFeeLkr?: number;
+    deliveryPerKmLkr?: number;
+    deliveryPerKgLkr?: number;
   }) => {
-    return api.patch('/admin/platform-config', data);
+    return api.put('/admin/platform-config', data);
   },
 };

@@ -80,6 +80,8 @@ export interface IUser extends Document {
   // Delivery Partner Details
   deliveryRadiusKm?: number; // Radar radius (5 - 35km)
   isOnline?: boolean; // Online status for Leg-2 delivery drivers
+  drivingLicenseNumber?: string;
+  preferredShift?: 'morning' | 'afternoon' | 'both';
   currentLocation?: {
     latitude: number;
     longitude: number;
@@ -193,6 +195,8 @@ const UserSchema = new Schema<IUser>(
 
     deliveryRadiusKm: { type: Number, default: 15 },
     isOnline: { type: Boolean, default: false, index: true },
+    drivingLicenseNumber: { type: String },
+    preferredShift: { type: String, enum: ['morning', 'afternoon', 'both'] },
     currentLocation: {
       latitude: { type: Number },
       longitude: { type: Number },

@@ -9,7 +9,8 @@ import { CloudinaryService } from '../services/cloudinary.service.js';
 import { EscrowService } from '../services/escrow.service.js';
 import { NotificationService } from '../services/notification.service.js';
 import { AppError } from '../middleware/error.middleware.js';
-import { OrderStatus, Role, QualityGrade } from '@pola/shared';
+import { Vehicle } from '../models/Vehicle.model.js';
+import { OrderStatus, Role, QualityGrade, VerificationStatus } from '@pola/shared';
 
 export class DeliveryController {
   /**
@@ -98,8 +99,18 @@ export class DeliveryController {
         throw new AppError(`Order is not ready for courier pickup (current status: ${order.status})`, 400);
       }
 
+      if (vehicleId) {
+        const vehicle = await Vehicle.findOne({
+          _id: vehicleId,
+          $or: [{ ownerId: driverId }, { assignedDriverId: driverId }],
+          status: VerificationStatus.VERIFIED,
+          operationalStatus: 'active',
+          isAvailable: true,
+        });
+        if (!vehicle) throw new AppError('Vehicle not found, unverified, maintenance/suspended, or not owned by you', 400);
+        order.leg2VehicleId = new Types.ObjectId(vehicleId);
+      }
       order.leg2DriverId = new Types.ObjectId(driverId);
-      if (vehicleId) order.leg2VehicleId = new Types.ObjectId(vehicleId);
       order.status = OrderStatus.ASSIGNED_FOR_DELIVERY;
 
       order.timeline.push({
@@ -467,7 +478,7 @@ export class DeliveryController {
       const driverId = req.user!.userId;
       const activeTrip = await Order.findOne({
         leg2DriverId: driverId,
-        status: OrderStatus.OUT_FOR_DELIVERY,
+        status: { $in: [OrderStatus.ASSIGNED_FOR_DELIVERY, OrderStatus.OUT_FOR_DELIVERY] },
       })
         .populate('customerId', 'fullName phone addresses')
         .populate('assignedDcId', 'name code district');

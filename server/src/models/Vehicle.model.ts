@@ -22,6 +22,7 @@ export interface IVehicle extends Document {
   vehiclePhotos?: string[];
 
   status: VerificationStatus;
+  operationalStatus: 'active' | 'maintenance' | 'suspended';
   rejectionReason?: string;
   isAvailable: boolean;
   createdAt: Date;
@@ -63,6 +64,12 @@ const VehicleSchema = new Schema<IVehicle>(
       type: String,
       enum: Object.values(VerificationStatus),
       default: VerificationStatus.PENDING,
+    },
+    operationalStatus: {
+      type: String,
+      enum: ['active', 'maintenance', 'suspended'],
+      default: 'active',
+      index: true,
     },
     rejectionReason: { type: String },
     isAvailable: { type: Boolean, default: true },

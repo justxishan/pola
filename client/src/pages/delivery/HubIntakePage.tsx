@@ -43,6 +43,7 @@ export const HubIntakePage: React.FC = () => {
   const { isDark, toggleTheme, language, setLanguage } = useThemeStore();
   const { t } = useTranslation();
 
+  const [needsAssignment, setNeedsAssignment] = useState(false);
   const [schedule, setSchedule] = useState<any>(null);
   const [entries, setEntries] = useState<GradeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +64,11 @@ export const HubIntakePage: React.FC = () => {
       setIsLoading(true);
       const res: any = await HubService.getMySchedule();
       if (res.success && res.data) {
+        if (res.data.needsAssignment) {
+          setNeedsAssignment(true);
+          return;
+        }
+        setNeedsAssignment(false);
         const sched = res.data.schedules?.[0] || null;
         setSchedule(sched);
 
@@ -210,63 +216,71 @@ export const HubIntakePage: React.FC = () => {
       }}
     >
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              {t.hubIntakeSheet}
-            </h1>
-            <p className="text-xs text-slate-400">
-              Leg-1 Village Hub Intake • Log verified scale weights and assign Grade A/B/C/Reject
-            </p>
-          </div>
+        {needsAssignment ? (
+          <EmptyState
+            icon={<Truck className="w-8 h-8 text-slate-400" />}
+            title="No Hub Assignment"
+            description="You have not been assigned to a hub yet. Contact your Operations Admin to assign your leg-1 hub."
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">
+                  {t.hubIntakeSheet}
+                </h1>
+                <p className="text-xs text-slate-400">
+                  Leg-1 Village Hub Intake • Log verified scale weights and assign Grade A/B/C/Reject
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {runStage === 'pending_accept' && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleAcceptRun}
-                isLoading={isAcceptingRun}
-                className="bg-amber-600 hover:bg-amber-700"
-                leftIcon={<Truck className="w-4 h-4" />}
-              >
-                Accept Leg-1 Hub Run
-              </Button>
-            )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {runStage === 'pending_accept' && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleAcceptRun}
+                    isLoading={isAcceptingRun}
+                    className="bg-amber-600 hover:bg-amber-700"
+                    leftIcon={<Truck className="w-4 h-4" />}
+                  >
+                    Accept Leg-1 Hub Run
+                  </Button>
+                )}
 
-            {runStage === 'intake' && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleDepartForDc}
-                isLoading={isDeparting}
-                className="bg-emerald-600 hover:bg-emerald-700"
-                leftIcon={<Navigation className="w-4 h-4" />}
-              >
-                Depart for DC
-              </Button>
-            )}
+                {runStage === 'intake' && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleDepartForDc}
+                    isLoading={isDeparting}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    leftIcon={<Navigation className="w-4 h-4" />}
+                  >
+                    Depart for DC
+                  </Button>
+                )}
 
-            {runStage === 'in_transit' && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleConfirmArrival}
-                isLoading={isConfirmingArrival}
-                className="bg-sky-600 hover:bg-sky-700"
-                leftIcon={<CheckCircle2 className="w-4 h-4" />}
-              >
-                Confirm DC Arrival
-              </Button>
-            )}
+                {runStage === 'in_transit' && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleConfirmArrival}
+                    isLoading={isConfirmingArrival}
+                    className="bg-sky-600 hover:bg-sky-700"
+                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  >
+                    Confirm DC Arrival
+                  </Button>
+                )}
 
-            {runStage === 'arrived' && (
-              <Badge variant="emerald" size="md">
-                Arrival Confirmed at DC
-              </Badge>
-            )}
-          </div>
-        </div>
+                {runStage === 'arrived' && (
+                  <Badge variant="emerald" size="md">
+                    Arrival Confirmed at DC
+                  </Badge>
+                )}
+              </div>
+            </div>
 
         {/* Scheduled Transport Run Banner */}
         {schedule && (
@@ -392,6 +406,8 @@ export const HubIntakePage: React.FC = () => {
               );
             })}
           </div>
+        )}
+          </>
         )}
       </div>
     </DashboardLayout>

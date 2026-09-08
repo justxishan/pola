@@ -12,6 +12,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getDeliveryNavItems } from '@/lib/navItems';
 import { DeliveryService } from '@/services/delivery.service';
+import { RatingService } from '@/services/rating.service';
 import { ChatDrawer } from '@/components/organisms/ChatDrawer';
 import {
   Truck,
@@ -49,6 +50,12 @@ export const ActiveTripPage: React.FC = () => {
   const [exceptionReason, setExceptionReason] = useState('customer_absent');
   const [exceptionNote, setExceptionNote] = useState('');
   const [isReportingException, setIsReportingException] = useState(false);
+
+  // Customer rating after completion
+  const [showRateCustomerModal, setShowRateCustomerModal] = useState(false);
+  const [customerRatingScore, setCustomerRatingScore] = useState(5);
+  const [customerReviewText, setCustomerReviewText] = useState('');
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   // 30s GPS ping interval ref
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -147,11 +154,34 @@ export const ActiveTripPage: React.FC = () => {
         isCod ? isCodCollected : undefined
       );
       toast.success('Delivery completed! Payout credited to your Pola Wallet.', { id: 'pod' });
-      navigate('/delivery/dashboard');
+      setShowRateCustomerModal(true);
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to complete delivery', { id: 'pod' });
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleSubmitCustomerRating = async () => {
+    if (!activeTrip?._id) {
+      navigate('/delivery/dashboard');
+      return;
+    }
+    try {
+      setIsSubmittingRating(true);
+      await RatingService.submitRating({
+        orderId: activeTrip._id,
+        targetType: 'customer',
+        ratingScore: customerRatingScore,
+        reviewText: customerReviewText,
+      });
+      toast.success('Customer rating submitted!');
+    } catch (err: any) {
+      console.warn('Rating submission error:', err);
+    } finally {
+      setIsSubmittingRating(false);
+      setShowRateCustomerModal(false);
+      navigate('/delivery/dashboard');
     }
   };
 
@@ -499,6 +529,69 @@ export const ActiveTripPage: React.FC = () => {
                   className="bg-red-600 hover:bg-red-700"
                 >
                   Report Exception
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rate Customer Modal */}
+        {showRateCustomerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+            <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95">
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  Rate Customer Handover
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Share feedback about {recipientName}</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-2 py-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setCustomerRatingScore(star)}
+                      className="p-1 cursor-pointer transition-transform hover:scale-110"
+                    >
+                      <CheckCircle2
+                        className={`w-8 h-8 ${
+                          star <= customerRatingScore ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-700'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                <Input
+                  label="Review / Feedback (optional)"
+                  value={customerReviewText}
+                  onChange={(e) => setCustomerReviewText(e.target.value)}
+                  placeholder="e.g. Prompt handover, friendly customer..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowRateCustomerModal(false);
+                    navigate('/delivery/dashboard');
+                  }}
+                >
+                  Skip
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={isSubmittingRating}
+                  onClick={handleSubmitCustomerRating}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black"
+                >
+                  Submit Rating
                 </Button>
               </div>
             </div>

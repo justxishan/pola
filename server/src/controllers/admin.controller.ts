@@ -11,6 +11,7 @@ import { PayoutService } from '../services/payout.service.js';
 import { NotificationService } from '../services/notification.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { VerificationStatus, WithdrawalStatus, OrderStatus, Role } from '@pola/shared';
+import { getOrInitPlatformConfig, invalidatePlatformConfigCache, PlatformConfig } from '../models/PlatformConfig.model.js';
 
 export class AdminController {
   /**
@@ -568,6 +569,71 @@ export class AdminController {
         success: true,
         message: `Admin account created for ${lowerEmail}`,
         data: { id: newAdmin._id, email: newAdmin.email, role: newAdmin.role },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get Platform Configuration (Super Admin only)
+   */
+  static async getPlatformConfig(req: Request, res: Response, next: NextFunction) {
+    try {
+      const config = await getOrInitPlatformConfig();
+      res.status(200).json({ success: true, data: { config } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update Platform Configuration (Super Admin only)
+   */
+  static async updatePlatformConfig(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminId = req.user!.userId;
+      const {
+        platformCommissionPercent,
+        collectorCommissionPercent,
+        deliveryBaseFeeLkr,
+        deliveryPerKmLkr,
+        deliveryPerKgLkr,
+      } = req.body;
+
+      const allowedFields: Record<string, unknown> = {};
+      if (platformCommissionPercent !== undefined) allowedFields.platformCommissionPercent = platformCommissionPercent;
+      if (collectorCommissionPercent !== undefined) allowedFields.collectorCommissionPercent = collectorCommissionPercent;
+      if (deliveryBaseFeeLkr !== undefined) allowedFields.deliveryBaseFeeLkr = deliveryBaseFeeLkr;
+      if (deliveryPerKmLkr !== undefined) allowedFields.deliveryPerKmLkr = deliveryPerKmLkr;
+      if (deliveryPerKgLkr !== undefined) allowedFields.deliveryPerKgLkr = deliveryPerKgLkr;
+
+      if (Object.keys(allowedFields).length === 0) {
+        throw new AppError('No valid fields provided for update', 400);
+      }
+
+      const config = await PlatformConfig.findOneAndUpdate(
+        {},
+        { $set: allowedFields },
+        { upsert: true, new: true }
+      );
+
+      invalidatePlatformConfigCache();
+
+      await AuditLog.create({
+        adminId: new Types.ObjectId(adminId),
+        adminEmail: req.user!.email,
+        adminRole: req.user!.role,
+        action: 'PLATFORM_CONFIG_UPDATED',
+        targetEntity: 'PlatformConfig',
+        targetId: config!._id.toString(),
+        details: allowedFields,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Platform configuration updated successfully',
+        data: { config },
       });
     } catch (error) {
       next(error);

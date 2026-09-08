@@ -99,6 +99,16 @@ export const VehiclesPage: React.FC = () => {
     }
   };
 
+  const handleToggleOperationalStatus = async (vehicleId: string, status: 'active' | 'maintenance' | 'suspended') => {
+    try {
+      await VehicleService.updateOperationalStatus(vehicleId, status);
+      toast.success(`Vehicle set to ${status}`);
+      await fetchVehicles();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update vehicle status');
+    }
+  };
+
   const handleUploadDocs = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadVehicle) return;
@@ -296,6 +306,27 @@ export const VehiclesPage: React.FC = () => {
                     >
                       {v.crBookDoc || v.revenueLicenseDoc ? 'Update Docs' : 'Upload Docs'}
                     </Button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                    <span className="text-slate-400 text-[11px] font-semibold">Operational:</span>
+                    {(['active', 'maintenance', 'suspended'] as const).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => handleToggleOperationalStatus(v._id, st)}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-bold capitalize transition-colors cursor-pointer ${
+                          (v.operationalStatus || 'active') === st
+                            ? st === 'active'
+                              ? 'bg-emerald-500 text-white'
+                              : st === 'maintenance'
+                              ? 'bg-amber-500 text-slate-950'
+                              : 'bg-rose-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
                   </div>
                 </div>
               );

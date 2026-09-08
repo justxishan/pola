@@ -49,4 +49,11 @@ router.patch(
   HubController.adminOverrideStatus
 );
 
+router.post(
+  '/:id/assign-driver',
+  authenticate,
+  requireRole(Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS),
+  HubController.assignLeg1Driver
+);
+
 export default router;

@@ -38,4 +38,12 @@ export const VehicleService = {
   verifyVehicle: async (id: string, approved: boolean, rejectionReason?: string) => {
     return api.patch(`/vehicles/${id}/verify`, { approved, rejectionReason });
   },
+
+  updateOperationalStatus: async (id: string, operationalStatus: 'active' | 'maintenance' | 'suspended') => {
+    return api.patch(`/vehicles/${id}/operational-status`, { operationalStatus });
+  },
+
+  assignDriver: async (id: string, driverId?: string) => {
+    return api.post(`/vehicles/${id}/assign-driver`, { driverId });
+  },
 };

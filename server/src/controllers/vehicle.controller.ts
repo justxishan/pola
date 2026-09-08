@@ -155,4 +155,58 @@ export class VehicleController {
       next(error);
     }
   }
+
+  /**
+   * Update vehicle operational status (active / maintenance / suspended)
+   */
+  static async updateOperationalStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const ownerId = req.user!.userId;
+      const { id } = req.params;
+      const { operationalStatus } = req.body;
+
+      if (!['active', 'maintenance', 'suspended'].includes(operationalStatus)) {
+        throw new AppError('Invalid operational status', 400);
+      }
+
+      const vehicle = await Vehicle.findOne({ _id: id, ownerId });
+      if (!vehicle) throw new AppError('Vehicle not found or unauthorized', 404);
+
+      vehicle.operationalStatus = operationalStatus;
+      await vehicle.save();
+
+      res.status(200).json({
+        success: true,
+        message: `Vehicle operational status updated to ${operationalStatus}`,
+        data: { vehicle },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Company Fleet: Assign driver to company-owned vehicle
+   */
+  static async assignDriver(req: Request, res: Response, next: NextFunction) {
+    try {
+      const companyId = req.user!.userId;
+      const { id } = req.params;
+      const { driverId } = req.body;
+
+      const vehicle = await Vehicle.findOne({ _id: id, ownerId: companyId });
+      if (!vehicle) throw new AppError('Company vehicle not found or unauthorized', 404);
+
+      vehicle.assignedDriverId = driverId ? (driverId as any) : undefined;
+      await vehicle.save();
+
+      res.status(200).json({
+        success: true,
+        message: driverId ? 'Driver assigned to vehicle successfully' : 'Driver unassigned from vehicle',
+        data: { vehicle },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

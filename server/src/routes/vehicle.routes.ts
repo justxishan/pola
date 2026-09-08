@@ -24,5 +24,7 @@ router.post(
   ]),
   VehicleController.uploadDocuments
 );
+router.patch('/:id/operational-status', VehicleController.updateOperationalStatus);
+router.post('/:id/assign-driver', requireRole(Role.DELIVERY_COMPANY), VehicleController.assignDriver);
 
 export default router;

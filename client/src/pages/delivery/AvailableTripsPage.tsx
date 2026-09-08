@@ -150,7 +150,7 @@ export const AvailableTripsPage: React.FC = () => {
             {trips.map((t) => {
               const pickup = t.assignedDcId?.name || 'Regional Distribution Hub';
               const deliveryLoc = `${t.deliveryAddress?.city || 'Colombo'}, ${t.deliveryAddress?.district || 'Western'}`;
-              const payout = t.leg2DeliveryFee || t.totalDeliveryFee || 650;
+              const payout = t.leg2DeliveryFee ?? t.totalDeliveryFee ?? 0;
               const itemCount = t.items?.length || 1;
 
               // Compute real distance if we have both sets of coords

@@ -21,6 +21,7 @@ import {
   Building,
   FileText,
   MessageSquare,
+  Settings,
 } from 'lucide-react';
 
 export interface NavItemDef {
@@ -66,5 +67,6 @@ export function getAdminNavItems(kpis?: { pendingKycCount?: number; pendingPayou
     { id: 'disputes', label: 'Dispute Desk', icon: <AlertTriangle className="w-5 h-5" />, path: '/admin/disputes' },
     { id: 'hubs', label: 'Hubs & DCs', icon: <Building className="w-5 h-5" />, path: '/admin/hubs' },
     { id: 'reports', label: 'Reports Studio', icon: <FileText className="w-5 h-5" />, path: '/admin/reports' },
+    { id: 'config', label: 'Platform Config', icon: <Settings className="w-5 h-5" />, path: '/admin/platform-config' },
   ];
 }

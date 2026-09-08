@@ -26,6 +26,7 @@ import { OrderTrackingPage } from './pages/marketplace/OrderTrackingPage';
 import { CustomerOrdersPage } from './pages/marketplace/CustomerOrdersPage';
 import { WishlistPage } from './pages/marketplace/WishlistPage';
 import { CartPage } from './pages/marketplace/CartPage';
+import { MyDisputesPage } from './pages/marketplace/MyDisputesPage';
 
 // Farmer Pages
 import { FarmerDashboard } from './pages/farmer/FarmerDashboard';
@@ -57,6 +58,7 @@ import { LogisticsPage } from './pages/admin/LogisticsPage';
 import { AuditLogPage } from './pages/admin/AuditLogPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
 import { CreateAdminPage } from './pages/admin/CreateAdminPage';
+import { PlatformConfigPage } from './pages/admin/PlatformConfigPage';
 
 // Shared Pages
 import { WalletPage } from './pages/shared/WalletPage';
@@ -204,6 +206,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute redirectPath="/customer/login">
             <CustomerOrdersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/orders/disputes',
+        element: (
+          <ProtectedRoute redirectPath="/customer/login">
+            <MyDisputesPage />
           </ProtectedRoute>
         ),
       },
@@ -370,6 +380,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER]} redirectPath="/admin/login">
             <CreateAdminPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/platform-config',
+        element: (
+          <ProtectedRoute allowedRoles={[Role.ADMIN_SUPER]} redirectPath="/admin/login">
+            <PlatformConfigPage />
           </ProtectedRoute>
         ),
       },

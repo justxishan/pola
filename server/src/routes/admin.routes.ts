@@ -39,4 +39,8 @@ router.get('/farms/queue', AdminController.getFarmVerificationQueue);
 router.patch('/farms/:id/verify', AdminController.verifyFarm);
 router.patch('/farms/:id/reject', AdminController.rejectFarm);
 
+// Platform Configuration (Super Admin only)
+router.get('/platform-config', requireRole(Role.ADMIN_SUPER), AdminController.getPlatformConfig);
+router.put('/platform-config', requireRole(Role.ADMIN_SUPER), AdminController.updatePlatformConfig);
+
 export default router;

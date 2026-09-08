@@ -8,7 +8,9 @@ import { WastageLog } from '../models/WastageLog.model.js';
 import { GradingService } from '../services/grading.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { AppError } from '../middleware/error.middleware.js';
-import { OrderStatus, QualityGrade } from '@pola/shared';
+import { Vehicle } from '../models/Vehicle.model.js';
+import { getOrInitPlatformConfig } from '../models/PlatformConfig.model.js';
+import { OrderStatus, QualityGrade, VerificationStatus } from '@pola/shared';
 
 export class HubController {
   /**
@@ -93,9 +95,13 @@ export class HubController {
       item.finalPrice = finalPrice;
       item.subtotal = finalPrice * confirmedQuantity;
 
-      // Re-calculate payouts
-      const platformFee = Math.round((item.subtotal * 0.05) * 100) / 100;
-      const collectorFee = item.collectorId ? Math.round((item.subtotal * 0.03) * 100) / 100 : 0;
+      // Re-calculate payouts based on PlatformConfig
+      const config = await getOrInitPlatformConfig();
+      const pCommRate = (config.platformCommissionPercent || 5) / 100;
+      const cCommRate = (config.collectorCommissionPercent || 3) / 100;
+
+      const platformFee = Math.round((item.subtotal * pCommRate) * 100) / 100;
+      const collectorFee = item.collectorId ? Math.round((item.subtotal * cCommRate) * 100) / 100 : 0;
       item.platformCommissionLkr = platformFee;
       item.collectorCommissionLkr = collectorFee;
       item.farmerPayoutLkr = item.subtotal - platformFee - collectorFee;
@@ -265,14 +271,15 @@ export class HubController {
         .populate('linkedDcId', 'name code district');
 
       if (!hubs || hubs.length === 0) {
-        const driver = await User.findById(driverId);
-        const district = driver?.addresses?.[0]?.district;
-        const query: any = { isActive: true };
-        if (district) query.district = district;
-        hubs = await VillageHub.find(query).populate('linkedDcId', 'name code district').limit(3);
-        if (!hubs || hubs.length === 0) {
-          hubs = await VillageHub.find({ isActive: true }).populate('linkedDcId', 'name code district').limit(3);
-        }
+        return res.status(200).json({
+          success: true,
+          data: {
+            hubs: [],
+            schedules: [],
+            pendingOrders: [],
+            needsAssignment: true,
+          },
+        });
       }
 
       const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -332,6 +339,21 @@ export class HubController {
 
       const hub = await VillageHub.findById(hubId);
       if (!hub) throw new AppError('Hub not found', 404);
+
+      if (!hub.assignedLeg1Drivers.some((id: any) => id.toString() === driverId)) {
+        throw new AppError('You are not assigned to this hub', 403);
+      }
+
+      if (vehicleId) {
+        const vehicle = await Vehicle.findOne({
+          _id: vehicleId,
+          $or: [{ ownerId: driverId }, { assignedDriverId: driverId }],
+          status: VerificationStatus.VERIFIED,
+          operationalStatus: 'active',
+          isAvailable: true,
+        });
+        if (!vehicle) throw new AppError('Vehicle not found, unverified, maintenance/suspended, or not owned by you', 400);
+      }
 
       const result = await Order.updateMany(
         {
@@ -469,6 +491,35 @@ export class HubController {
         success: true,
         message: `Order status manually overridden to ${newStatus}`,
         data: { order },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Admin: Assign a leg-1 driver to a village hub
+   */
+  static async assignLeg1Driver(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { driverId } = req.body;
+
+      if (!driverId) throw new AppError('driverId is required', 400);
+
+      const hub = await VillageHub.findById(id);
+      if (!hub) throw new AppError('Village Hub not found', 404);
+
+      const driverObjId = new Types.ObjectId(driverId);
+      if (!hub.assignedLeg1Drivers.some((d: any) => d.toString() === driverId)) {
+        hub.assignedLeg1Drivers.push(driverObjId as any);
+        await hub.save();
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Driver assigned to hub successfully',
+        data: { hub },
       });
     } catch (error) {
       next(error);
