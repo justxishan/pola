@@ -18,4 +18,15 @@ export const RatingService = {
     if (orderIds && orderIds.length > 0) params.append('orderIds', orderIds.join(','));
     return api.get(`/ratings/check?${params.toString()}`);
   },
+
+  getRatingStats: async (targetUserId?: string, productId?: string) => {
+    const params = new URLSearchParams();
+    if (targetUserId) params.append('targetUserId', targetUserId);
+    if (productId) params.append('productId', productId);
+    return api.get(`/ratings/stats?${params.toString()}`);
+  },
+
+  checkProductReviewEligibility: async (productId: string) => {
+    return api.get(`/ratings/eligible-order?productId=${encodeURIComponent(productId)}`);
+  },
 };

@@ -16,6 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { CartItem, StockIssue } from '@/store/cartStore';
+import { calculateItemSubtotal, getPricingUnitLabel } from '@pola/shared';
 
 export interface CartDrawerProps {
   isOpen: boolean;
@@ -54,7 +55,7 @@ function groupItemsBySeller(items: CartItem[]): SellerGroup[] {
     }
     const group = map.get(key)!;
     group.items.push(item);
-    group.subtotal += item.pricePerUnit * item.quantity;
+    group.subtotal += calculateItemSubtotal(item.pricePerUnit, item.quantity, item.unit);
   }
   return Array.from(map.values());
 }
@@ -192,7 +193,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                                 {item.title}
                               </h5>
                               <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                                LKR {item.pricePerUnit.toLocaleString()}/{item.unit}
+                                LKR {item.pricePerUnit.toLocaleString()} {getPricingUnitLabel(item.unit)}
                               </p>
 
                               <QuantityStepper
@@ -227,7 +228,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                                 </button>
                               </div>
                               <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                                LKR {(item.pricePerUnit * item.quantity).toLocaleString()}
+                                LKR {calculateItemSubtotal(item.pricePerUnit, item.quantity, item.unit).toLocaleString()}
                               </span>
                             </div>
                           </div>

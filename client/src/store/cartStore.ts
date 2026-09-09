@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { CartService } from '@/services/cart.service';
 import { useAuthStore } from './authStore';
 import { useWishlistStore } from './wishlistStore';
+import { calculateItemSubtotal } from '@pola/shared';
 
 export interface CartItem {
   productId: string;
@@ -131,7 +132,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   getSubtotal: () => {
-    return get().items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0);
+    return get().items.reduce((sum, item) => sum + calculateItemSubtotal(item.pricePerUnit, item.quantity, item.unit), 0);
   },
 
   getItemCount: () => {

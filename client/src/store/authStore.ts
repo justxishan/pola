@@ -4,6 +4,7 @@ import { Role } from '@pola/shared';
 export interface UserProfile {
   _id: string;
   fullName?: string;
+  username?: string;
   email: string;
   phone?: string;
   role: Role;

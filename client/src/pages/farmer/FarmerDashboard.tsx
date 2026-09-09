@@ -416,11 +416,18 @@ export const FarmerDashboard: React.FC = () => {
               {farmerRatings.map((rev: any) => (
                 <ReviewCard
                   key={rev._id}
-                  userName={rev.raterUserId?.fullName || 'Verified Buyer'}
+                  userName={
+                    rev.raterUserId?.username
+                      ? `@${rev.raterUserId.username}`
+                      : rev.raterUserId?.fullName
+                      ? `@${rev.raterUserId.fullName.toLowerCase().replace(/\s+/g, '_')}`
+                      : 'Verified Buyer'
+                  }
                   userAvatar={rev.raterUserId?.profileImage}
                   rating={rev.ratingScore || 5}
                   createdAt={rev.createdAt}
                   comment={rev.reviewText}
+                  tags={rev.tags}
                   isVerifiedBuyer={true}
                 />
               ))}

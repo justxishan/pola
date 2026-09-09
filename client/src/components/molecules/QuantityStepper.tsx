@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/cn';
 import { Minus, Plus } from 'lucide-react';
 
@@ -23,24 +23,62 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
   disabled = false,
   className,
 }) => {
-  const handleDecrement = () => {
-    if (value > min) {
-      onChange(Math.max(min, value - step));
+  const effectiveMin = Math.max(0, min);
+  const effectiveMax = Math.max(effectiveMin, max);
+
+  const [inputText, setInputText] = useState<string>(String(value));
+  const [isFocused, setIsFocused] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setInputText(String(value));
     }
+  }, [value, isFocused]);
+
+  const handleDecrement = () => {
+    const nextVal = Math.round((value - step) * 100) / 100;
+    const clamped = Math.max(effectiveMin, nextVal);
+    onChange(clamped);
+    setInputText(String(clamped));
   };
 
   const handleIncrement = () => {
-    if (value < max) {
-      onChange(Math.min(max, value + step));
-    }
+    const nextVal = Math.round((value + step) * 100) / 100;
+    const clamped = Math.min(effectiveMax, nextVal);
+    onChange(clamped);
+    setInputText(String(clamped));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const parsed = parseFloat(e.target.value);
-    if (!isNaN(parsed)) {
-      if (parsed >= min && parsed <= max) {
-        onChange(parsed);
-      }
+    const raw = e.target.value;
+    setInputText(raw);
+
+    // If valid number entered, propagate without locking intermediate states
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed) && parsed >= effectiveMin && parsed <= effectiveMax) {
+      onChange(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const parsed = parseFloat(inputText);
+    if (isNaN(parsed) || parsed < effectiveMin) {
+      onChange(effectiveMin);
+      setInputText(String(effectiveMin));
+    } else if (parsed > effectiveMax) {
+      onChange(effectiveMax);
+      setInputText(String(effectiveMax));
+    } else {
+      const rounded = Math.round(parsed * 100) / 100;
+      onChange(rounded);
+      setInputText(String(rounded));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
     }
   };
 
@@ -54,7 +92,7 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
     >
       <button
         type="button"
-        disabled={value <= min || disabled}
+        disabled={value <= effectiveMin || disabled}
         onClick={handleDecrement}
         className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
         aria-label="Decrease quantity"
@@ -62,22 +100,24 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
         <Minus className="w-3.5 h-3.5" />
       </button>
 
-      <div className="px-2 flex items-center justify-center min-w-12 text-center">
+      <div className="px-2 flex items-center justify-center min-w-14 text-center">
         <input
-          type="number"
-          value={value}
+          type="text"
+          inputMode="decimal"
+          value={inputText}
           onChange={handleInputChange}
-          min={min}
-          max={max}
+          onFocus={() => setIsFocused(true)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           disabled={disabled}
-          className="w-10 text-center text-sm font-bold text-slate-900 dark:text-slate-100 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-12 text-center text-sm font-bold text-slate-900 dark:text-slate-100 bg-transparent focus:outline-none"
         />
         {unit && <span className="text-xs text-slate-400 font-medium ml-0.5">{unit}</span>}
       </div>
 
       <button
         type="button"
-        disabled={value >= max || disabled}
+        disabled={value >= effectiveMax || disabled}
         onClick={handleIncrement}
         className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
         aria-label="Increase quantity"
@@ -87,3 +127,4 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
     </div>
   );
 };
+

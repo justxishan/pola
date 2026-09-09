@@ -3,11 +3,12 @@ import { Types } from 'mongoose';
 import { Rating } from '../models/Rating.model.js';
 import { Product } from '../models/Product.model.js';
 import { Order } from '../models/Order.model.js';
+import { User } from '../models/User.model.js';
 import { AppError } from '../middleware/error.middleware.js';
 
 export class RatingController {
   /**
-   * Submit two-way produce or delivery rating
+   * Submit two-way produce, farmer, or customer rating with upsert support
    */
   static async submitRating(req: Request, res: Response, next: NextFunction) {
     try {
@@ -23,7 +24,7 @@ export class RatingController {
       let resolvedProductId = productId;
 
       if (!resolvedTargetUserId || !Types.ObjectId.isValid(resolvedTargetUserId)) {
-        if (targetType === 'farmer') {
+        if (targetType === 'farmer' || targetType === 'produce_farmer') {
           if (resolvedProductId && Types.ObjectId.isValid(resolvedProductId)) {
             const matchingItem = order.items.find(
               (i) => (i.productId?._id || i.productId)?.toString() === resolvedProductId.toString()
@@ -33,7 +34,7 @@ export class RatingController {
           if (!resolvedTargetUserId && order.items.length > 0) {
             resolvedTargetUserId = order.items[0]?.farmerId?._id || order.items[0]?.farmerId;
           }
-        } else if (targetType === 'driver') {
+        } else if (targetType === 'driver' || targetType === 'delivery_driver') {
           resolvedTargetUserId =
             order.leg2DriverId?._id ||
             order.leg2DriverId ||
@@ -44,7 +45,7 @@ export class RatingController {
         }
       }
 
-      if (!resolvedProductId && targetType === 'farmer' && order.items.length > 0) {
+      if (!resolvedProductId && (targetType === 'farmer' || targetType === 'produce_farmer') && order.items.length > 0) {
         resolvedProductId = order.items[0]?.productId?._id || order.items[0]?.productId;
       }
 
@@ -55,21 +56,47 @@ export class RatingController {
         );
       }
 
-      const rating = await Rating.create({
+      // Normalized targetType
+      const normalizedTargetType =
+        targetType === 'farmer' ? 'produce_farmer' :
+        targetType === 'driver' ? 'delivery_driver' :
+        targetType;
+
+      // Upsert: Find existing rating for this order + rater + target/product
+      const lookupFilter: any = {
         orderId: new Types.ObjectId(orderId),
         raterUserId: new Types.ObjectId(raterUserId),
-        targetType,
+        targetType: normalizedTargetType,
+      };
+
+      if (resolvedProductId && Types.ObjectId.isValid(resolvedProductId)) {
+        lookupFilter.productId = new Types.ObjectId(resolvedProductId);
+      } else {
+        lookupFilter.targetUserId = new Types.ObjectId(resolvedTargetUserId);
+      }
+
+      const updatePayload: any = {
+        orderId: new Types.ObjectId(orderId),
+        raterUserId: new Types.ObjectId(raterUserId),
+        targetType: normalizedTargetType,
         targetUserId: new Types.ObjectId(resolvedTargetUserId),
         productId: resolvedProductId && Types.ObjectId.isValid(resolvedProductId) ? new Types.ObjectId(resolvedProductId) : undefined,
-        ratingScore: Number(ratingScore) || 5,
+        ratingScore: Math.min(5, Math.max(1, Number(ratingScore) || 5)),
         reviewText: reviewText || '',
         tags: tags || [],
         photos: photos || [],
-      });
+        isPublic: true,
+      };
 
-      // Update product rating aggregate if product rated
+      const rating = await Rating.findOneAndUpdate(
+        lookupFilter,
+        { $set: updatePayload },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      // 1. Update product rating aggregate if product was rated
       if (resolvedProductId && Types.ObjectId.isValid(resolvedProductId)) {
-        const stats = await Rating.aggregate([
+        const prodStats = await Rating.aggregate([
           { $match: { productId: new Types.ObjectId(resolvedProductId), isPublic: true } },
           {
             $group: {
@@ -80,15 +107,36 @@ export class RatingController {
           },
         ]);
 
-        if (stats.length > 0) {
+        if (prodStats.length > 0) {
           await Product.findByIdAndUpdate(resolvedProductId, {
-            averageRating: Math.round(stats[0].avgRating * 10) / 10,
-            ratingCount: stats[0].count,
+            averageRating: Math.round(prodStats[0].avgRating * 10) / 10,
+            ratingCount: prodStats[0].count,
           });
         }
       }
 
-      res.status(201).json({
+      // 2. Update target user rating aggregate (farmer, customer, or driver)
+      if (resolvedTargetUserId && Types.ObjectId.isValid(resolvedTargetUserId)) {
+        const userStats = await Rating.aggregate([
+          { $match: { targetUserId: new Types.ObjectId(resolvedTargetUserId), isPublic: true } },
+          {
+            $group: {
+              _id: '$targetUserId',
+              avgRating: { $avg: '$ratingScore' },
+              count: { $sum: 1 },
+            },
+          },
+        ]);
+
+        if (userStats.length > 0) {
+          await User.findByIdAndUpdate(resolvedTargetUserId, {
+            ratingAverage: Math.round(userStats[0].avgRating * 10) / 10,
+            ratingCount: userStats[0].count,
+          });
+        }
+      }
+
+      res.status(200).json({
         success: true,
         message: 'Rating and review submitted successfully',
         data: { rating },
@@ -99,19 +147,26 @@ export class RatingController {
   }
 
   /**
-   * Get ratings and reviews for a target farmer / driver / product
+   * Get ratings and reviews for a target farmer / driver / customer / product
    */
   static async getTargetRatings(req: Request, res: Response, next: NextFunction) {
     try {
-      const { targetUserId, productId } = req.query;
+      const { targetUserId, productId, targetType, limit = 20 } = req.query as any;
       const filter: any = { isPublic: true };
-      if (targetUserId) filter.targetUserId = targetUserId;
-      if (productId) filter.productId = productId;
+      if (targetUserId && Types.ObjectId.isValid(targetUserId)) {
+        filter.targetUserId = new Types.ObjectId(targetUserId);
+      }
+      if (productId && Types.ObjectId.isValid(productId)) {
+        filter.productId = new Types.ObjectId(productId);
+      }
+      if (targetType) {
+        filter.targetType = targetType;
+      }
 
       const ratings = await Rating.find(filter)
-        .populate('raterUserId', 'fullName profileImage')
+        .populate('raterUserId', 'username profileImage')
         .sort({ createdAt: -1 })
-        .limit(20);
+        .limit(Number(limit) || 20);
 
       res.status(200).json({
         success: true,
@@ -186,6 +241,98 @@ export class RatingController {
       res.status(200).json({
         success: true,
         data: { ratedOrders },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get rating statistics and star distribution for a target product or user
+   */
+  static async getRatingStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { targetUserId, productId } = req.query as any;
+      const match: any = { isPublic: true };
+      if (productId && Types.ObjectId.isValid(productId)) {
+        match.productId = new Types.ObjectId(productId);
+      } else if (targetUserId && Types.ObjectId.isValid(targetUserId)) {
+        match.targetUserId = new Types.ObjectId(targetUserId);
+      } else {
+        throw new AppError('Either productId or targetUserId is required', 400);
+      }
+
+      const ratings = await Rating.find(match).select('ratingScore');
+      const totalCount = ratings.length;
+      const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let sum = 0;
+
+      for (const r of ratings) {
+        const score = Math.round(r.ratingScore);
+        if (score >= 1 && score <= 5) {
+          distribution[score] = (distribution[score] || 0) + 1;
+        }
+        sum += r.ratingScore;
+      }
+
+      const averageRating = totalCount > 0 ? Math.round((sum / totalCount) * 10) / 10 : 0;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          averageRating,
+          ratingCount: totalCount,
+          distribution,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Check if a customer has completed an order containing the product to write a review
+   */
+  static async checkProductReviewEligibility(req: Request, res: Response, next: NextFunction) {
+    try {
+      const customerId = req.user!.userId;
+      const { productId } = req.query as any;
+
+      if (!productId || !Types.ObjectId.isValid(productId)) {
+        throw new AppError('Valid productId is required', 400);
+      }
+
+      // Find if customer has any completed or delivered orders with this product
+      const eligibleOrder = await Order.findOne({
+        customerId: new Types.ObjectId(customerId),
+        status: { $in: ['completed', 'delivered'] },
+        'items.productId': new Types.ObjectId(productId),
+      }).sort({ createdAt: -1 });
+
+      if (!eligibleOrder) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            eligible: false,
+            message: 'Only verified buyers who received this produce can write a review.',
+          },
+        });
+      }
+
+      // Check if user already submitted a review for this product
+      const existingRating = await Rating.findOne({
+        raterUserId: new Types.ObjectId(customerId),
+        productId: new Types.ObjectId(productId),
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          eligible: true,
+          orderId: eligibleOrder._id,
+          orderNumber: eligibleOrder.orderNumber,
+          existingRating: existingRating || null,
+        },
       });
     } catch (error) {
       next(error);

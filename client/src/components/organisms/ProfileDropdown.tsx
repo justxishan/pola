@@ -103,15 +103,28 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">
-              {user.fullName || 'User Profile'}
+              {user.username ? `@${user.username}` : user.fullName || 'User Profile'}
             </h4>
             {isVerified && <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
           </div>
-          <p className="text-xs text-slate-400 truncate">{user.email}</p>
+          <p className="text-xs text-slate-400 truncate">{user.fullName || user.email}</p>
 
           <div className="flex items-center gap-2 mt-1.5">
-            <Badge variant={isVerified ? 'emerald' : 'amber'} size="sm">
-              {isVerified ? t.verified : t.pending}
+            <Badge
+              variant={
+                user.kycStatus === 'verified'
+                  ? 'emerald'
+                  : user.kycStatus === 'pending'
+                  ? 'amber'
+                  : 'secondary'
+              }
+              size="sm"
+            >
+              {user.kycStatus === 'verified'
+                ? t.verified
+                : user.kycStatus === 'pending'
+                ? 'Docs Sent — Pending'
+                : 'Unverified'}
             </Badge>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase">
               {roleName}

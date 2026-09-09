@@ -12,6 +12,7 @@ import {
   DEFAULT_PLATFORM_COMMISSION_PERCENT,
   DEFAULT_COLLECTOR_COMMISSION_PERCENT,
 } from '../utils/constants.js';
+import { calculateItemSubtotal } from '@pola/shared';
 
 export class CartController {
   /**
@@ -192,9 +193,10 @@ export class CartController {
 
         if (effectiveQuantity <= 0) continue;
 
-        const subtotal = Math.round(unitPrice * effectiveQuantity * 100) / 100;
+        const subtotal = calculateItemSubtotal(unitPrice, effectiveQuantity, product.unit);
         itemsTotal += subtotal;
-        totalWeightKg += effectiveQuantity; // approximate kg
+        const itemWeightKg = (product.unit === 'g' || product.unit === 'ml') ? effectiveQuantity / 1000 : effectiveQuantity;
+        totalWeightKg += itemWeightKg;
 
         // Commissions
         const platformCommission =
@@ -210,7 +212,7 @@ export class CartController {
         validatedItems.push({
           productId: product._id,
           farmerId: farmer?._id,
-          farmerName: farmer?.fullName || 'Verified Farmer',
+          farmerName: farmer?.username || 'Verified Farmer',
           farmId: product.farmId?._id,
           productName: product.productName,
           category: product.category,

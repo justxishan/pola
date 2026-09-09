@@ -4,8 +4,8 @@ export interface IRating extends Document {
   _id: Types.ObjectId;
   orderId: Types.ObjectId;
   raterUserId: Types.ObjectId; // The user giving the rating (e.g. Customer)
-  targetType: 'produce_farmer' | 'delivery_driver' | 'collector' | 'farmer' | 'driver';
-  targetUserId: Types.ObjectId; // Farmer or Driver or Collector
+  targetType: 'produce_farmer' | 'delivery_driver' | 'collector' | 'farmer' | 'driver' | 'customer';
+  targetUserId: Types.ObjectId; // Farmer or Driver or Collector or Customer
   productId?: Types.ObjectId; // For produce rating
 
   ratingScore: number; // 1 to 5 stars
@@ -24,7 +24,7 @@ const RatingSchema = new Schema<IRating>(
     raterUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     targetType: {
       type: String,
-      enum: ['produce_farmer', 'delivery_driver', 'collector', 'farmer', 'driver'],
+      enum: ['produce_farmer', 'delivery_driver', 'collector', 'farmer', 'driver', 'customer'],
       required: true,
       index: true,
     },
@@ -42,5 +42,6 @@ const RatingSchema = new Schema<IRating>(
 );
 
 RatingSchema.index({ targetUserId: 1, targetType: 1 });
+RatingSchema.index({ orderId: 1, raterUserId: 1, targetType: 1, productId: 1 });
 
 export const Rating = mongoose.model<IRating>('Rating', RatingSchema);

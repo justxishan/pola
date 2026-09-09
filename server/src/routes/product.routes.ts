@@ -38,6 +38,13 @@ router.patch(
   ProductController.updateProduct
 );
 
+router.delete(
+  '/:id',
+  authenticate,
+  requireRole(Role.FARMER, Role.COLLECTOR),
+  ProductController.deleteProduct
+);
+
 router.post(
   '/upload-images',
   authenticate,

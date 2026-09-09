@@ -262,7 +262,7 @@ export class ProductController {
 
       const [products, total] = await Promise.all([
         Product.find(filter)
-          .populate('farmerId', 'fullName profileImage kycStatus')
+          .populate('farmerId', 'username profileImage kycStatus')
           .populate('farmId', 'farmName district province gps')
           .sort(sortConfig)
           .skip(skip)
@@ -297,7 +297,7 @@ export class ProductController {
         { $inc: { viewsCount: 1 } },
         { new: true }
       )
-        .populate('farmerId', 'fullName profileImage phone kycStatus rating')
+        .populate('farmerId', 'username profileImage phone kycStatus rating')
         .populate('farmId', 'farmName addressLine city district province gps isOrganicCertified isActive');
 
       if (!product) throw new AppError('Product not found', 404);
@@ -352,6 +352,11 @@ export class ProductController {
         updates.status = (isFarmVerified && isFarmerVerified) ? 'active' : 'pending_verification';
       }
 
+      // Farmer cannot replace photos added to the crop listing
+      if (product.images && product.images.length > 0) {
+        delete updates.images;
+      }
+
       const oldPrice = product.basePricePerUnit;
       const oldAvailable = product.availableQuantity;
 
@@ -394,6 +399,36 @@ export class ProductController {
         success: true,
         message: 'Product updated successfully',
         data: { product },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete Crop Listing (Only drafts can be deleted; listed crops cannot be deleted)
+   */
+  static async deleteProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      const farmerId = req.user!.userId;
+      const product = await Product.findOne({ _id: req.params.id, farmerId });
+      if (!product) {
+        throw new AppError('Product not found or unauthorized', 404);
+      }
+
+      // Listed crops cannot be deleted
+      if (product.status !== 'draft') {
+        throw new AppError(
+          'Listed crop listings cannot be deleted. You can deactivate the listing instead to pause marketplace sales.',
+          400
+        );
+      }
+
+      await Product.findByIdAndDelete(product._id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Draft crop listing deleted successfully',
       });
     } catch (error) {
       next(error);

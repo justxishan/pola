@@ -48,3 +48,23 @@ export interface PaginationParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+export type RatingTargetType =
+  | 'farmer'
+  | 'customer'
+  | 'driver'
+  | 'produce_farmer'
+  | 'delivery_driver'
+  | 'collector';
+
+export interface RatingStats {
+  averageRating: number;
+  ratingCount: number;
+  distribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+}

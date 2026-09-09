@@ -33,6 +33,10 @@ export const AuthService = {
     return api.patch('/auth/profile', data);
   },
 
+  uploadAvatar: async (formData: FormData) => {
+    return api.post('/auth/profile/avatar', formData);
+  },
+
   deleteAccount: async (reason: string, details?: string) => {
     return api.delete('/auth/account', { data: { reason, details } });
   },

@@ -18,6 +18,7 @@ import {
   PaymentMethod,
   TransactionType,
   Role,
+  calculateItemSubtotal,
 } from '@pola/shared';
 import {
   LEG1_FLAT_FEE_LKR,
@@ -122,6 +123,17 @@ export class OrderController {
           }
         }
 
+        if (!item.quantity || item.quantity <= 0) {
+          throw new AppError('Order quantity must be greater than zero', 400);
+        }
+
+        if (product.availableQuantity !== undefined && product.availableQuantity < item.quantity) {
+          throw new AppError(
+            `Insufficient stock for "${product.title || product.productName}". Available: ${product.availableQuantity} ${product.unit || 'kg'}`,
+            400
+          );
+        }
+
         // Price calculations
         let unitPrice = product.pricePerUnit || product.basePricePerUnit || 250;
         if (product.pricingTiers && product.pricingTiers.length > 0) {
@@ -129,9 +141,11 @@ export class OrderController {
           if (matched) unitPrice = matched.pricePerUnit;
         }
 
-        const subtotal = Math.round(unitPrice * item.quantity * 100) / 100;
+        const subtotal = calculateItemSubtotal(unitPrice, item.quantity, product.unit);
         itemsTotal += subtotal;
-        totalWeightKg += item.quantity;
+
+        const itemWeightKg = (product.unit === 'g' || product.unit === 'ml') ? item.quantity / 1000 : item.quantity;
+        totalWeightKg += itemWeightKg;
 
         const platformFee = Math.round(((subtotal * DEFAULT_PLATFORM_COMMISSION_PERCENT) / 100) * 100) / 100;
         platformFeeTotal += platformFee;
@@ -162,8 +176,8 @@ export class OrderController {
           farmerPayoutLkr: farmerPayout,
         });
 
-        // Reserve stock
-        if (product.availableQuantity) {
+        // Reserve stock (prevent going below zero)
+        if (product.availableQuantity !== undefined) {
           product.availableQuantity = Math.max(0, product.availableQuantity - item.quantity);
           await product.save();
         }

@@ -34,6 +34,12 @@ export const SelectRoleSchema = z.object({
 export const UpdateProfileSchema = z.object({
   body: z.object({
     fullName: z.string().min(2).optional(),
+    username: z
+      .string()
+      .regex(/^[a-z_.]+$/, 'Username can only contain simple letters, underscore (_), and full stop (.)')
+      .min(3, 'Username must be at least 3 characters')
+      .max(30, 'Username cannot exceed 30 characters')
+      .optional(),
     phone: z.string().optional(),
     onboardingCompleted: z.boolean().optional(),
     nicNumber: z.string().optional(),

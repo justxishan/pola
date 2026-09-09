@@ -2,6 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/cn';
 import { Sprout, MapPin, Star, Heart, ShieldCheck, Zap, Image as ImageIcon } from 'lucide-react';
 import { useWishlistStore } from '@/store/wishlistStore';
+import { getPricingUnitLabel } from '@pola/shared';
 
 export interface ProductCardProps {
   id: string;
@@ -122,7 +123,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight block">
               LKR {pricePerUnit?.toLocaleString()}
             </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">per {unit || 'kg'}</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{getPricingUnitLabel(unit)}</span>
           </div>
 
           <button

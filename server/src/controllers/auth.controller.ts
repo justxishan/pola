@@ -417,6 +417,7 @@ export class AuthController {
           user: {
             id: user._id,
             fullName: user.fullName,
+            username: user.username,
             email: user.email,
             phone: user.phone,
             role: user.role,
@@ -444,6 +445,21 @@ export class AuthController {
       const userId = (req as any).user?.userId || (req as any).user?._id;
       const updates = req.body;
 
+      if (updates.username) {
+        const cleanUsername = updates.username.toLowerCase().trim();
+        if (!/^[a-z_.]+$/.test(cleanUsername)) {
+          throw new AppError('Username can only contain simple letters, underscore (_), and full stop (.)', 400);
+        }
+        const existingWithUsername = await User.findOne({
+          _id: { $ne: userId },
+          username: cleanUsername,
+        });
+        if (existingWithUsername) {
+          throw new AppError('Username is already taken. Please choose another username.', 400);
+        }
+        updates.username = cleanUsername;
+      }
+
       if (updates.phone) {
         const phoneValidation = validateSriLankanPhone(updates.phone);
         if (!phoneValidation.isValid) {
@@ -467,6 +483,39 @@ export class AuthController {
         success: true,
         message: 'Profile updated successfully',
         data: { user: updatedUser },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Upload Profile Picture / Avatar
+   */
+  static async uploadAvatar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user?.userId || (req as any).user?._id;
+      const file = req.file;
+      if (!file) {
+        throw new AppError('No image file provided', 400);
+      }
+
+      const uploaded = await CloudinaryService.uploadBuffer(file.buffer, 'pola/avatars');
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { $set: { profileImage: uploaded.secure_url } },
+        { new: true, runValidators: false }
+      );
+
+      if (!user) throw new AppError('User not found', 404);
+
+      res.status(200).json({
+        success: true,
+        message: 'Profile picture updated successfully',
+        data: {
+          avatarUrl: user.profileImage,
+          user,
+        },
       });
     } catch (error) {
       next(error);

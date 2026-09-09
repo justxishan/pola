@@ -4,6 +4,7 @@ import { Role, VerificationStatus } from '@pola/shared';
 export interface IUser extends Document {
   _id: Types.ObjectId;
   fullName: string;
+  username?: string;
   email: string;
   phone?: string;
   password?: string;
@@ -100,6 +101,9 @@ export interface IUser extends Document {
   deactivatedAt?: Date;
   deletedEmail?: string;
   lastLoginAt?: Date;
+  ratingAverage?: number;
+  ratingCount?: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,6 +111,14 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>(
   {
     fullName: { type: String, required: true, trim: true },
+    username: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      sparse: true,
+      index: true,
+      match: [/^[a-z_.]+$/, 'Username can only contain simple letters, underscore, and full stop'],
+    },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     phone: { type: String, trim: true, sparse: true, index: true },
     password: { type: String, select: false },
@@ -214,6 +226,8 @@ const UserSchema = new Schema<IUser>(
     deactivatedAt: { type: Date },
     deletedEmail: { type: String },
     lastLoginAt: { type: Date },
+    ratingAverage: { type: Number, default: 0, min: 0, max: 5 },
+    ratingCount: { type: Number, default: 0, min: 0 },
   },
   {
     timestamps: true,

@@ -27,8 +27,11 @@ import {
   Phone,
   RotateCcw,
   Package,
+  Star,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { RatingService } from '@/services/rating.service';
+import { RateCustomerModal } from '@/components/organisms/RateCustomerModal';
 
 export const FarmerOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +47,8 @@ export const FarmerOrdersPage: React.FC = () => {
   const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatOrder, setChatOrder] = useState<any | null>(null);
+  const [ratingOrder, setRatingOrder] = useState<any | null>(null);
+  const [ratedOrders, setRatedOrders] = useState<Record<string, { isRated: boolean; averageScore: number }>>({});
 
   // Advanced Search & Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,7 +88,23 @@ export const FarmerOrdersPage: React.FC = () => {
 
       const res: any = await OrderService.getFarmerOrders(queryParams);
       if (res.success && res.data) {
-        setOrders(res.data.orders || []);
+        const orderList = res.data.orders || [];
+        setOrders(orderList);
+
+        const completedIds = orderList
+          .filter((o: any) => o.status === 'completed' || o.status === 'delivered')
+          .map((o: any) => o._id);
+
+        if (completedIds.length > 0) {
+          try {
+            const checkRes: any = await RatingService.checkOrderRating(undefined, completedIds);
+            if (checkRes.success && checkRes.data?.ratedOrders) {
+              setRatedOrders(checkRes.data.ratedOrders);
+            }
+          } catch (ratingErr) {
+            console.error('Failed to batch check ratings for farmer completed orders:', ratingErr);
+          }
+        }
       }
     } catch (err: any) {
       console.error('Failed to load farmer orders:', err);
@@ -367,6 +388,25 @@ export const FarmerOrdersPage: React.FC = () => {
                         >
                           Mark Dropped at Hub
                         </Button>
+                      ) : order.status === 'completed' ? (
+                        <div className="flex items-center gap-2">
+                          {ratedOrders[order._id]?.isRated ? (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>Rated Customer ★{ratedOrders[order._id].averageScore}</span>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setRatingOrder(order)}
+                              className="border-amber-400/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                              leftIcon={<Star className="w-3.5 h-3.5 text-amber-400" />}
+                            >
+                              Rate Customer
+                            </Button>
+                          )}
+                        </div>
                       ) : null}
                     </div>
                   </div>
@@ -560,6 +600,13 @@ export const FarmerOrdersPage: React.FC = () => {
             </div>
           </div>
         )}
+        {/* Rate Customer Modal */}
+        <RateCustomerModal
+          isOpen={Boolean(ratingOrder)}
+          onClose={() => setRatingOrder(null)}
+          order={ratingOrder}
+          onSubmitSuccess={() => fetchOrders()}
+        />
       </div>
     </DashboardLayout>
   );

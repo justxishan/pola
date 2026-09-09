@@ -23,6 +23,7 @@ import {
   Store,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { calculateItemSubtotal, getPricingUnitLabel } from '@pola/shared';
 
 interface SellerGroup {
   sellerId: string;
@@ -46,7 +47,7 @@ function groupItemsBySeller(items: any[]): SellerGroup[] {
     }
     const group = map.get(key)!;
     group.items.push(item);
-    group.subtotal += item.pricePerUnit * item.quantity;
+    group.subtotal += calculateItemSubtotal(item.pricePerUnit, item.quantity, item.unit);
   }
   return Array.from(map.values());
 }
@@ -494,11 +495,11 @@ export const CheckoutPage: React.FC = () => {
                             <div className="min-w-0">
                               <span className="font-bold text-slate-900 dark:text-white block truncate">{item.title}</span>
                               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                {item.quantity} {item.unit || 'kg'} × LKR {item.pricePerUnit?.toLocaleString()}
+                                {item.quantity} {item.unit || 'kg'} × LKR {item.pricePerUnit?.toLocaleString()} {getPricingUnitLabel(item.unit)}
                               </span>
                             </div>
                             <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono shrink-0">
-                              LKR {(item.quantity * item.pricePerUnit).toLocaleString()}
+                              LKR {calculateItemSubtotal(item.pricePerUnit, item.quantity, item.unit).toLocaleString()}
                             </span>
                           </div>
                         ))}

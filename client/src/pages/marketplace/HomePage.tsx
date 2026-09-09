@@ -28,8 +28,11 @@ import {
   Heart,
   Package,
   Wallet,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getPricingUnitLabel } from '@pola/shared';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,6 +42,13 @@ export const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [stats, setStats] = useState<{ totalListings: number; totalFarmers: number; totalDistricts: number } | null>(null);
+  const pageParam = parseInt(searchParams.get('page') || '1', 10) || 1;
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: pageParam,
+    limit: 32,
+    totalPages: 1,
+  });
 
   // Flash Deals Countdown State
   const [timeLeft, setTimeLeft] = useState({ hours: 4, minutes: 28, seconds: 15 });
@@ -139,6 +149,7 @@ export const HomePage: React.FC = () => {
       params.set('b2b', 'true');
       setIsFilterModalOpen(true);
     }
+    params.delete('page');
     setSearchParams(params);
   };
 
@@ -149,6 +160,7 @@ export const HomePage: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
+      const currentPage = parseInt(searchParams.get('page') || '1', 10) || 1;
       const res: any = await ProductService.getCatalog({
         farmerId: selectedFarmerId,
         search: search || undefined,
@@ -161,7 +173,8 @@ export const HomePage: React.FC = () => {
         requiresColdChain: requiresColdChain ? true : undefined,
         minRating: minRating || undefined,
         sort: sortBy,
-        limit: 24,
+        page: currentPage,
+        limit: 32, // 4 columns * 8 rows
       });
 
       if (res.success && res.data) {
@@ -170,6 +183,14 @@ export const HomePage: React.FC = () => {
           prods = prods.filter((p: any) => p.pricingTiers && p.pricingTiers.length > 0);
         }
         setProducts(prods);
+        if (res.data.meta) {
+          setPagination({
+            total: res.data.meta.total ?? prods.length,
+            page: res.data.meta.page ?? currentPage,
+            limit: res.data.meta.limit ?? 32,
+            totalPages: res.data.meta.totalPages ?? 1,
+          });
+        }
       }
     } catch (err: any) {
       console.error('Catalog fetch error:', err);
@@ -178,8 +199,36 @@ export const HomePage: React.FC = () => {
     }
   };
 
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams);
+    if (newPage <= 1) {
+      params.delete('page');
+    } else {
+      params.set('page', String(newPage));
+    }
+    setSearchParams(params);
+    const gridEl = document.getElementById('produce-grid');
+    if (gridEl) {
+      gridEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+    if (current >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, '...', current - 1, current, current + 1, '...', total];
+  };
+
   const handleApplyFilters = (newFilters: FilterState) => {
     const params = new URLSearchParams(searchParams);
+    params.delete('page');
     if (newFilters.category) params.set('category', newFilters.category);
     else params.delete('category');
 
@@ -217,6 +266,7 @@ export const HomePage: React.FC = () => {
   const handleRemoveFilter = (key: string) => {
     const params = new URLSearchParams(searchParams);
     params.delete(key);
+    params.delete('page');
     if (key === 'price') {
       params.delete('minPrice');
       params.delete('maxPrice');
@@ -500,27 +550,81 @@ export const HomePage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map((product) => (
-                <ProductCard
-                  key={product._id}
-                  id={product._id}
-                  title={product.title}
-                  titleSi={product.titleSi}
-                  pricePerUnit={product.pricePerUnit}
-                  unit={product.unit || 'kg'}
-                  category={product.category}
-                  images={product.images}
-                  district={product.district || product.farmId?.location?.district || 'Matale'}
-                  isOrganic={product.isOrganic}
-                  qualityGrade={product.qualityGrade || 'Grade A'}
-                  minOrderQuantity={product.minOrderQuantity || 1}
-                  ratingAverage={product.averageRating || product.ratingAverage || 4.9}
-                  farmerName={product.farmerId?.fullName || 'Verified Pola Grower'}
-                  onClick={() => navigate(`/product/${product._id}`)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product._id}
+                    id={product._id}
+                    title={product.title}
+                    titleSi={product.titleSi}
+                    pricePerUnit={product.pricePerUnit}
+                    unit={product.unit || 'kg'}
+                    category={product.category}
+                    images={product.images}
+                    district={product.district || product.farmId?.location?.district || 'Matale'}
+                    isOrganic={product.isOrganic}
+                    qualityGrade={product.qualityGrade || 'Grade A'}
+                    minOrderQuantity={product.minOrderQuantity || 1}
+                    ratingAverage={product.averageRating || product.ratingAverage || 0}
+                    farmerName={product.farmerId?.username ? `@${product.farmerId.username}` : (product.farmerId?.fullName || 'Verified Pola Grower')}
+                    onClick={() => navigate(`/product/${product._id}`)}
+                  />
+                ))}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Showing <span className="font-bold text-slate-900 dark:text-white">{(pagination.page - 1) * pagination.limit + 1}</span>–<span className="font-bold text-slate-900 dark:text-white">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-bold text-slate-900 dark:text-white">{pagination.total}</span> produce allocations
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                    <button
+                      type="button"
+                      disabled={pagination.page <= 1}
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Previous</span>
+                    </button>
+
+                    {getPageNumbers(pagination.page, pagination.totalPages).map((p, idx) =>
+                      typeof p === 'number' ? (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handlePageChange(p)}
+                          className={cn(
+                            'w-9 h-9 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center border',
+                            pagination.page === p
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-500 shadow-md shadow-emerald-500/20'
+                              : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                          )}
+                        >
+                          {p}
+                        </button>
+                      ) : (
+                        <span key={idx} className="w-8 text-center text-slate-400 text-xs font-bold">
+                          {p}
+                        </span>
+                      )
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={pagination.page >= pagination.totalPages}
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -573,7 +677,7 @@ export const HomePage: React.FC = () => {
                   <div className="space-y-1">
                     <h4 className="font-extrabold text-xs line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-300">{deal.title}</h4>
                     <div className="flex items-baseline gap-2">
-                      <span className="font-black text-base text-emerald-600 dark:text-emerald-400 font-mono">LKR {deal.pricePerUnit} / {deal.unit || 'kg'}</span>
+                      <span className="font-black text-base text-emerald-600 dark:text-emerald-400 font-mono">LKR {deal.pricePerUnit} {getPricingUnitLabel(deal.unit)}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">

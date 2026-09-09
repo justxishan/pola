@@ -13,7 +13,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems } from '@/lib/navItems';
-import { PRODUCT_CATEGORIES, STANDARD_UNITS, UNIT_LABELS } from '@pola/shared';
+import { PRODUCT_CATEGORIES, STANDARD_UNITS, UNIT_LABELS, getPricingUnitInputLabel } from '@pola/shared';
 import {
   ArrowLeft,
   Plus,
@@ -117,10 +117,7 @@ export const AddProductPage: React.FC = () => {
     }
   };
 
-  // Autosave debouncer: writes form state to localStorage after 1.5s of inactivity
-  useEffect(() => {
-    if (!isInitialized || pendingDraft) return;
-
+  const saveDraftNow = () => {
     const hasContent = Boolean(
       title.trim() ||
       pricePerUnit !== '' ||
@@ -131,26 +128,33 @@ export const AddProductPage: React.FC = () => {
 
     if (!hasContent) return;
 
+    try {
+      const payload = {
+        title,
+        farmId,
+        category,
+        unit,
+        pricePerUnit,
+        availableQuantity,
+        minOrderQuantity,
+        description,
+        harvestSeason,
+        isOrganic,
+        pricingTiers,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Failed to autosave crop listing to localStorage', err);
+    }
+  };
+
+  // Autosave debouncer: writes form state to localStorage after 1.5s of inactivity
+  useEffect(() => {
+    if (!isInitialized || pendingDraft) return;
+
     const timer = setTimeout(() => {
-      try {
-        const payload = {
-          title,
-          farmId,
-          category,
-          unit,
-          pricePerUnit,
-          availableQuantity,
-          minOrderQuantity,
-          description,
-          harvestSeason,
-          isOrganic,
-          pricingTiers,
-          savedAt: Date.now(),
-        };
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
-      } catch (err) {
-        console.warn('Failed to autosave crop listing to localStorage', err);
-      }
+      saveDraftNow();
     }, 1500);
 
     return () => clearTimeout(timer);
@@ -168,7 +172,30 @@ export const AddProductPage: React.FC = () => {
     harvestSeason,
     isOrganic,
     pricingTiers,
-    DRAFT_STORAGE_KEY,
+  ]);
+
+  // Automatically save draft on exit / navigation / page close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveDraftNow();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveDraftNow();
+    };
+  }, [
+    title,
+    farmId,
+    category,
+    unit,
+    pricePerUnit,
+    availableQuantity,
+    minOrderQuantity,
+    description,
+    harvestSeason,
+    isOrganic,
+    pricingTiers,
   ]);
 
   const handleResumeDraft = () => {
@@ -507,11 +534,16 @@ export const AddProductPage: React.FC = () => {
               {/* Dynamic Price */}
               <div>
                 <Input
-                  label={`Price per ${unitDisplay}`}
+                  label={getPricingUnitInputLabel(unit)}
                   type="number"
+                  min="0"
+                  step="any"
                   placeholder="e.g. 250"
                   value={pricePerUnit}
-                  onChange={(e) => setPricePerUnit(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setPricePerUnit(raw === '' ? '' : Math.max(0, parseFloat(raw)));
+                  }}
                   required
                 />
               </div>
@@ -521,9 +553,14 @@ export const AddProductPage: React.FC = () => {
                 <Input
                   label={`Stock Available (${unitDisplay})`}
                   type="number"
+                  min="0"
+                  step="any"
                   placeholder="e.g. 100"
                   value={availableQuantity}
-                  onChange={(e) => setAvailableQuantity(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setAvailableQuantity(raw === '' ? '' : Math.max(0, parseFloat(raw)));
+                  }}
                   required
                 />
                 <div className="flex items-center gap-1.5 pt-1.5">
@@ -546,9 +583,14 @@ export const AddProductPage: React.FC = () => {
                 <Input
                   label={`Minimum Order (${unitDisplay})`}
                   type="number"
+                  min="0"
+                  step="any"
                   placeholder="e.g. 5"
                   value={minOrderQuantity}
-                  onChange={(e) => setMinOrderQuantity(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setMinOrderQuantity(raw === '' ? '' : Math.max(0, parseFloat(raw)));
+                  }}
                   required
                 />
                 <div className="flex items-center gap-1.5 pt-1.5">
@@ -686,29 +728,23 @@ export const AddProductPage: React.FC = () => {
               type="button"
               variant="outline"
               size="md"
-              onClick={() => navigate('/farmer/products')}
-              disabled={isPublishing || isSavingDraft}
+              onClick={() => {
+                saveDraftNow();
+                toast('Draft saved automatically');
+                navigate('/farmer/products');
+              }}
+              disabled={isPublishing}
             >
               Cancel
             </Button>
 
             <div className="flex items-center gap-3">
               <Button
-                type="button"
-                variant="outline"
-                size="md"
-                onClick={() => handleSave(true)}
-                isLoading={isSavingDraft}
-                disabled={isPublishing || isSavingDraft}
-              >
-                Save as Draft
-              </Button>
-              <Button
                 type="submit"
                 variant="primary"
                 size="md"
                 isLoading={isPublishing}
-                disabled={isPublishing || isSavingDraft}
+                disabled={isPublishing}
               >
                 {isPublishing && images.length > 0 ? 'Uploading photos...' : 'Publish to Marketplace'}
               </Button>

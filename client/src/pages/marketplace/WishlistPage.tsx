@@ -125,8 +125,8 @@ export const WishlistPage: React.FC = () => {
                   isOrganic={product.isOrganic}
                   qualityGrade={product.qualityGrade || product.selfDeclaredGrade || 'Grade A'}
                   minOrderQuantity={product.minOrderQuantity || 1}
-                  ratingAverage={product.averageRating || product.ratingAverage || 4.9}
-                  farmerName={product.farmerId?.fullName || 'Verified Pola Grower'}
+                  ratingAverage={product.averageRating || product.ratingAverage || 0}
+                  farmerName={product.farmerId?.username ? `@${product.farmerId.username}` : (product.farmerId?.fullName || 'Verified Pola Grower')}
                   onClick={() => navigate(`/product/${product._id}`)}
                 />
               ))}

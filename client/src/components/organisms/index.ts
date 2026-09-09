@@ -8,5 +8,6 @@ export * from './FilterPanel';
 export * from './DataTable';
 export * from './Breadcrumbs';
 export * from './RatingModal';
+export * from './RateCustomerModal';
 export * from './KycReviewPanel';
 export * from './ErrorBoundary';

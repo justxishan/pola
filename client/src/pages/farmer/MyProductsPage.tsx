@@ -96,11 +96,15 @@ export const MyProductsPage: React.FC = () => {
 
   const executeDelete = async (id: string) => {
     try {
+      if (productToDelete?.status !== 'draft') {
+        toast.error('Listed crops cannot be deleted. You may deactivate the listing instead.');
+        return;
+      }
       await ProductService.deleteProduct(id);
-      toast.success('Listing deleted');
+      toast.success('Draft listing deleted');
       fetchProducts();
     } catch (err: any) {
-      toast.error('Failed to delete listing');
+      toast.error(err.response?.data?.message || err.message || 'Failed to delete listing');
     } finally {
       setIsConfirmOpen(false);
       setProductToDelete(null);
@@ -406,13 +410,15 @@ export const MyProductsPage: React.FC = () => {
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => handleDeleteClick(product)}
-                      className="p-2 rounded-full bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-all cursor-pointer"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isDraft && (
+                      <button
+                        onClick={() => handleDeleteClick(product)}
+                        className="p-2 rounded-full bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-all cursor-pointer"
+                        title="Delete Draft"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

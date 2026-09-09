@@ -31,6 +31,7 @@ router.get('/profile', authenticate, AuthController.getProfile);
 router.get('/me', authenticate, AuthController.getProfile);
 
 router.patch('/profile', authenticate, validateRequest(UpdateProfileSchema), AuthController.updateProfile);
+router.post('/profile/avatar', authenticate, upload.single('avatar'), AuthController.uploadAvatar);
 router.post('/select-role', authenticate, validateRequest(SelectRoleSchema), AuthController.selectRole);
 router.delete('/account', authenticate, validateRequest(DeleteAccountSchema), AuthController.deleteAccount);
 

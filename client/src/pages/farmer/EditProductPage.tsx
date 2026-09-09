@@ -11,13 +11,14 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems } from '@/lib/navItems';
-import { STANDARD_UNITS, UNIT_LABELS } from '@pola/shared';
+import { STANDARD_UNITS, UNIT_LABELS, getPricingUnitInputLabel } from '@pola/shared';
 import {
   ArrowLeft,
   Plus,
   Trash2,
   FileText,
   Globe,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -286,18 +287,28 @@ export const EditProductPage: React.FC = () => {
                 />
 
                 <Input
-                  label="Base Price (LKR / Unit)"
+                  label={getPricingUnitInputLabel(unit)}
                   type="number"
+                  min="0"
+                  step="any"
                   value={pricePerUnit}
-                  onChange={(e) => setPricePerUnit(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPricePerUnit(val === '' ? '' : Math.max(0, parseFloat(val)).toString());
+                  }}
                   required
                 />
 
                 <Input
                   label="Available Stock"
                   type="number"
+                  min="0"
+                  step="any"
                   value={availableQuantity}
-                  onChange={(e) => setAvailableQuantity(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAvailableQuantity(val === '' ? '' : Math.max(0, parseFloat(val)).toString());
+                  }}
                   required
                 />
               </div>
@@ -306,8 +317,13 @@ export const EditProductPage: React.FC = () => {
                 <Input
                   label="Min Order Qty (MOQ)"
                   type="number"
+                  min="0"
+                  step="any"
                   value={minOrderQuantity}
-                  onChange={(e) => setMinOrderQuantity(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMinOrderQuantity(val === '' ? '' : Math.max(0, parseFloat(val)).toString());
+                  }}
                 />
 
                 <Select
@@ -322,15 +338,20 @@ export const EditProductPage: React.FC = () => {
                 />
               </div>
 
-              {/* Attached Photos (persisted on server/Cloudinary) */}
+              {/* Attached Photos (persisted on server/Cloudinary - strictly immutable) */}
               {existingImages.length > 0 && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Uploaded Produce Photos ({existingImages.length})
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Uploaded Produce Photos ({existingImages.length})
+                      </label>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                        <Lock className="w-3 h-3" /> Locked
+                      </span>
+                    </div>
                     <span className="text-[11px] text-slate-400">
-                      Safely stored in Cloudinary
+                      Photos cannot be replaced once listed
                     </span>
                   </div>
                   <div className="flex items-center gap-3 overflow-x-auto pb-1">

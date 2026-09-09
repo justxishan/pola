@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/molecules/ProductCard';
 import { PricingTierTable, PricingTier } from '@/components/molecules/PricingTierTable';
 import { QuantityStepper } from '@/components/molecules/QuantityStepper';
 import { ReviewCard } from '@/components/molecules/ReviewCard';
+import { RatingModal } from '@/components/organisms/RatingModal';
 import { Spinner } from '@/components/atoms/Spinner';
 import { Avatar } from '@/components/atoms/Avatar';
 import { ProductService } from '@/services/product.service';
@@ -29,8 +30,11 @@ import {
   ArrowRight,
   AlertTriangle,
   Info,
+  CheckCircle,
+  MessageSquarePlus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getPricingUnitLabel, calculateItemSubtotal } from '@pola/shared';
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +47,23 @@ export const ProductDetailPage: React.FC = () => {
   const [farmerProducts, setFarmerProducts] = useState<any[]>([]);
   const [categoryProducts, setCategoryProducts] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [ratingStats, setRatingStats] = useState<{
+    averageRating: number;
+    ratingCount: number;
+    distribution: Record<number, number>;
+  }>({
+    averageRating: 0,
+    ratingCount: 0,
+    distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  });
+  const [reviewEligibility, setReviewEligibility] = useState<{
+    eligible: boolean;
+    orderId?: string;
+    orderNumber?: string;
+    existingRating?: any;
+    message?: string;
+  } | null>(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
 
@@ -55,9 +76,11 @@ export const ProductDetailPage: React.FC = () => {
   const effectiveRating =
     product?.averageRating && product.averageRating > 0
       ? product.averageRating
+      : ratingStats.averageRating > 0
+      ? ratingStats.averageRating
       : reviews.length > 0
       ? reviews.reduce((acc: number, r: any) => acc + (r.ratingScore || 0), 0) / reviews.length
-      : 4.9;
+      : 0;
 
   useEffect(() => {
     if (id) {
@@ -66,6 +89,18 @@ export const ProductDetailPage: React.FC = () => {
       fetchReviews(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id && user) {
+      RatingService.checkProductReviewEligibility(id)
+        .then((res: any) => {
+          if (res.success && res.data) {
+            setReviewEligibility(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [id, user]);
 
   const fetchProductDetails = async (productId: string) => {
     try {
@@ -89,9 +124,15 @@ export const ProductDetailPage: React.FC = () => {
   const fetchReviews = async (productId: string) => {
     try {
       setIsLoadingReviews(true);
-      const res: any = await RatingService.getTargetRatings(undefined, productId);
+      const [res, statsRes]: [any, any] = await Promise.all([
+        RatingService.getTargetRatings(undefined, productId),
+        RatingService.getRatingStats(undefined, productId),
+      ]);
       if (res.success && res.data) {
         setReviews(res.data.ratings || []);
+      }
+      if (statsRes.success && statsRes.data) {
+        setRatingStats(statsRes.data);
       }
     } catch (err) {
       console.error('Failed to load product reviews:', err);
@@ -186,7 +227,7 @@ export const ProductDetailPage: React.FC = () => {
     };
   });
 
-  const totalCalculated = activePrice * quantity;
+  const totalCalculated = calculateItemSubtotal(activePrice, quantity, product.unit);
   const isLowStock = availableStock > 0 && availableStock < minQty * 10;
 
   const handleAddToCart = (itemToCart: any = product, qty: number = quantity) => {
@@ -201,7 +242,7 @@ export const ProductDetailPage: React.FC = () => {
       unit: itemToCart.unit || 'kg',
       quantity: qty,
       image: itemToCart.images?.[0] || images[0],
-      farmerName: itemToCart.farmerId?.fullName || 'Verified Pola Grower',
+      farmerName: itemToCart.farmerId?.username ? `@${itemToCart.farmerId.username}` : (itemToCart.farmerId?.fullName || 'Verified Pola Grower'),
       minOrderQuantity: itemToCart.minOrderQuantity || 1,
       maxOrderQuantity: availableStock,
     });
@@ -245,7 +286,7 @@ export const ProductDetailPage: React.FC = () => {
 
   const farmerIdStr =
     product.farmerId?._id || (typeof product.farmerId === 'string' ? product.farmerId : '');
-  const farmerName = product.farmerId?.fullName || 'Verified Pola Grower';
+  const farmerName = product.farmerId?.username ? `@${product.farmerId.username}` : 'Verified Pola Grower';
   const districtName =
     product.district ||
     product.farmId?.district ||
@@ -460,9 +501,9 @@ export const ProductDetailPage: React.FC = () => {
                     className="flex items-center gap-1.5 font-bold text-amber-500 hover:text-amber-600 transition-colors"
                   >
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span>{effectiveRating.toFixed(1)}</span>
+                    <span>{effectiveRating > 0 ? effectiveRating.toFixed(1) : 'New'}</span>
                     <span className="text-slate-400 font-normal">
-                      ({product.ratingCount || reviews.length} reviews)
+                      ({product.ratingCount || ratingStats.ratingCount || reviews.length} reviews)
                     </span>
                   </a>
                 </div>
@@ -476,7 +517,7 @@ export const ProductDetailPage: React.FC = () => {
                       LKR {activePrice.toLocaleString()}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-bold ml-1.5">
-                      per {product.unit || 'kg'}
+                      {getPricingUnitLabel(product.unit)}
                     </span>
                   </div>
 
@@ -676,16 +717,79 @@ export const ProductDetailPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 bg-amber-500/10 dark:bg-amber-500/15 px-3.5 py-1.5 rounded-2xl border border-amber-500/20">
-              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-              <span className="font-black text-sm text-amber-600 dark:text-amber-400">
-                {effectiveRating.toFixed(1)} / 5.0
-              </span>
-              <span className="text-xs text-slate-400 ml-1">
-                ({product.ratingCount || reviews.length} verified ratings)
-              </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 bg-amber-500/10 dark:bg-amber-500/15 px-3.5 py-1.5 rounded-2xl border border-amber-500/20">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                <span className="font-black text-sm text-amber-600 dark:text-amber-400">
+                  {effectiveRating > 0 ? `${effectiveRating.toFixed(1)} / 5.0` : 'New'}
+                </span>
+                <span className="text-xs text-slate-400 ml-1">
+                  ({product.ratingCount || ratingStats.ratingCount || reviews.length} verified ratings)
+                </span>
+              </div>
+
+              {reviewEligibility?.eligible && (
+                <button
+                  type="button"
+                  onClick={() => setIsRatingModalOpen(true)}
+                  className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  <MessageSquarePlus className="w-3.5 h-3.5" />
+                  <span>{reviewEligibility.existingRating ? 'Edit Your Review' : 'Write a Review'}</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Star Distribution Breakdown if any reviews exist */}
+          {(product.ratingCount > 0 || ratingStats.ratingCount > 0 || reviews.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/60 dark:border-white/5">
+              <div className="md:col-span-4 flex flex-col justify-center items-center text-center border-b md:border-b-0 md:border-r border-slate-200 dark:border-white/10 pb-4 md:pb-0 md:pr-6">
+                <span className="text-4xl font-black text-slate-900 dark:text-white font-mono">
+                  {effectiveRating.toFixed(1)}
+                </span>
+                <div className="flex items-center gap-1 my-1.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-4 h-4 ${
+                        s <= Math.round(effectiveRating)
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'fill-slate-200 text-slate-200 dark:fill-slate-700 dark:text-slate-700'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Based on {ratingStats.ratingCount || product.ratingCount || reviews.length} verified buyer ratings
+                </span>
+              </div>
+
+              <div className="md:col-span-8 flex flex-col justify-center space-y-2">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = ratingStats.distribution?.[star] || 0;
+                  const total = ratingStats.ratingCount || reviews.length || 1;
+                  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                  return (
+                    <div key={star} className="flex items-center gap-2.5 text-xs">
+                      <span className="w-7 font-bold text-slate-700 dark:text-slate-300 flex items-center justify-end gap-1">
+                        {star} <Star className="w-3 h-3 fill-amber-400 text-amber-400 inline" />
+                      </span>
+                      <div className="flex-1 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="w-12 text-right text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                        {count} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {isLoadingReviews ? (
             <div className="py-8 flex justify-center">
@@ -696,11 +800,18 @@ export const ProductDetailPage: React.FC = () => {
               {reviews.map((rev: any) => (
                 <ReviewCard
                   key={rev._id}
-                  userName={rev.raterUserId?.fullName || 'Verified Customer'}
+                  userName={
+                    rev.raterUserId?.username
+                      ? `@${rev.raterUserId.username}`
+                      : rev.raterUserId?.fullName
+                      ? `@${rev.raterUserId.fullName.toLowerCase().replace(/\s+/g, '_')}`
+                      : 'Verified Customer'
+                  }
                   userAvatar={rev.raterUserId?.profileImage}
                   rating={rev.ratingScore || 5}
                   createdAt={rev.createdAt}
                   comment={rev.reviewText}
+                  tags={rev.tags}
                   isVerifiedBuyer={true}
                 />
               ))}
@@ -754,7 +865,7 @@ export const ProductDetailPage: React.FC = () => {
                   isOrganic={p.isOrganic}
                   qualityGrade={p.qualityGrade || p.selfDeclaredGrade || 'Grade A'}
                   minOrderQuantity={p.minOrderQuantity || 1}
-                  ratingAverage={p.averageRating || p.ratingAverage || 4.9}
+                  ratingAverage={p.averageRating || p.ratingAverage || 0}
                   farmerName={farmerName}
                   onClick={() => navigate(`/product/${p._id}`)}
                 />
@@ -798,7 +909,7 @@ export const ProductDetailPage: React.FC = () => {
                   isOrganic={p.isOrganic}
                   qualityGrade={p.qualityGrade || p.selfDeclaredGrade || 'Grade A'}
                   minOrderQuantity={p.minOrderQuantity || 1}
-                  ratingAverage={p.averageRating || p.ratingAverage || 4.9}
+                  ratingAverage={p.averageRating || p.ratingAverage || 0}
                   farmerName={p.farmerId?.fullName || 'Verified Pola Grower'}
                   onClick={() => navigate(`/product/${p._id}`)}
                 />
@@ -843,6 +954,34 @@ export const ProductDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 12. Write / Edit Review Modal for verified buyers */}
+      {reviewEligibility?.eligible && (
+        <RatingModal
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          order={null}
+          orderId={reviewEligibility.orderId}
+          farmerId={farmerIdStr}
+          farmerName={farmerName}
+          productId={product?._id}
+          productName={product?.title || product?.productName}
+          onSubmitSuccess={() => {
+            setIsRatingModalOpen(false);
+            if (id) {
+              fetchReviews(id);
+              fetchProductDetails(id);
+              RatingService.checkProductReviewEligibility(id)
+                .then((res: any) => {
+                  if (res.success && res.data) {
+                    setReviewEligibility(res.data);
+                  }
+                })
+                .catch(() => {});
+            }
+          }}
+        />
+      )}
     </MarketplaceLayout>
   );
 };
