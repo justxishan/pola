@@ -32,6 +32,12 @@ import toast from 'react-hot-toast';
 
 export type OrderFilterTab = 'all' | 'to_pay' | 'to_deliver' | 'completed' | 'cancelled';
 
+const isCancelable = (s: string) =>
+  s === 'placed' || s === 'payment_confirmed' || s === 'awaiting_hub_collection';
+
+const isCancelledStatus = (s: string) =>
+  s === 'cancelled' || s === 'refunded' || s === 'returned';
+
 export const CustomerOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, openCart } = useCartStore();

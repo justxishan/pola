@@ -9,8 +9,8 @@ export interface StatusTransitionRule {
 
 export const ORDER_TRANSITION_MAP: Record<OrderStatus, StatusTransitionRule> = {
   [OrderStatus.PLACED]: {
-    allowedNextStatuses: [OrderStatus.PAYMENT_CONFIRMED, OrderStatus.CANCELLED],
-    allowedRoles: ['customer', 'admin'],
+    allowedNextStatuses: [OrderStatus.PAYMENT_CONFIRMED, OrderStatus.AWAITING_HUB_COLLECTION, OrderStatus.CANCELLED],
+    allowedRoles: ['customer', 'farmer', 'admin'],
   },
   [OrderStatus.PAYMENT_CONFIRMED]: {
     allowedNextStatuses: [OrderStatus.AWAITING_HUB_COLLECTION, OrderStatus.CANCELLED],
