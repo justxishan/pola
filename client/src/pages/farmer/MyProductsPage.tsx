@@ -96,12 +96,9 @@ export const MyProductsPage: React.FC = () => {
 
   const executeDelete = async (id: string) => {
     try {
-      if (productToDelete?.status !== 'draft') {
-        toast.error('Listed crops cannot be deleted. You may deactivate the listing instead.');
-        return;
-      }
-      await ProductService.deleteProduct(id);
-      toast.success('Draft listing deleted');
+      const res: any = await ProductService.deleteProduct(id);
+      const msg = res?.data?.message || res?.message || 'Listing removed successfully';
+      toast.success(msg);
       fetchProducts();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to delete listing');
@@ -410,15 +407,13 @@ export const MyProductsPage: React.FC = () => {
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </button>
-                    {isDraft && (
-                      <button
-                        onClick={() => handleDeleteClick(product)}
-                        className="p-2 rounded-full bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-all cursor-pointer"
-                        title="Delete Draft"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDeleteClick(product)}
+                      className="p-2 rounded-full bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition-all cursor-pointer"
+                      title={isDraft ? 'Delete Draft' : 'Delete Crop Listing'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -431,8 +426,8 @@ export const MyProductsPage: React.FC = () => {
       <ConfirmDialog
         isOpen={isConfirmOpen}
         title="Delete Crop Listing"
-        description={`Are you sure you want to permanently remove "${productToDelete?.productName || productToDelete?.title || 'this listing'}"? This cannot be undone.`}
-        confirmText="Delete"
+        description={`This will remove "${productToDelete?.productName || productToDelete?.title || 'this listing'}". If it has past sales history, it will be safely delisted rather than deleted.`}
+        confirmText="Remove Listing"
         cancelText="Cancel"
         isDestructive={true}
         onConfirm={() => productToDelete && executeDelete(productToDelete._id)}

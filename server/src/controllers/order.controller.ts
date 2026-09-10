@@ -5,6 +5,8 @@ import { Product } from '../models/Product.model.js';
 import { User } from '../models/User.model.js';
 import { Wallet } from '../models/Wallet.model.js';
 import { DistributionCenter } from '../models/DistributionCenter.model.js';
+import { VillageHub } from '../models/VillageHub.model.js';
+import { Farm } from '../models/Farm.model.js';
 import { EscrowService } from '../services/escrow.service.js';
 import { PdfService } from '../services/pdf.service.js';
 import { NotificationService } from '../services/notification.service.js';
@@ -188,6 +190,28 @@ export class OrderController {
       if (!assignedDc) assignedDc = await DistributionCenter.findOne({ isMainHub: true });
       if (!assignedDc) assignedDc = await DistributionCenter.findOne();
 
+      // Determine Village Hub for Leg-1 collection
+      let linkedVillageHub: any = null;
+      const firstFarmerId = orderItems[0]?.farmerId;
+      if (firstFarmerId) {
+        const farmerUser = await User.findById(firstFarmerId);
+        if (farmerUser?.assignedHubId) {
+          linkedVillageHub = await VillageHub.findById(farmerUser.assignedHubId);
+        }
+      }
+      if (!linkedVillageHub) {
+        const firstFarmId = orderItems[0]?.farmId;
+        if (firstFarmId) {
+          const farm = await Farm.findById(firstFarmId);
+          if (farm?.district) {
+            linkedVillageHub = await VillageHub.findOne({ district: farm.district, isActive: true });
+          }
+        }
+      }
+      if (!linkedVillageHub) {
+        linkedVillageHub = await VillageHub.findOne({ isActive: true });
+      }
+
       // Delivery Fees
       const leg1Fee = LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR;
       const leg2Fee = LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR;
@@ -200,15 +224,23 @@ export class OrderController {
       const orderNumber = `POLA-${dateStr}-${randomSuffix}`;
       const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
+      const isCod =
+        paymentMethod === PaymentMethod.CASH_ON_DELIVERY ||
+        paymentMethod === 'cash_on_delivery' ||
+        paymentMethod === 'cod';
+
+      const initialStatus = isCod ? OrderStatus.AWAITING_HUB_COLLECTION : OrderStatus.PLACED;
+
       const order = await Order.create({
         orderNumber,
         customerId,
         customerType: req.user!.role === Role.CUSTOMER_B2B ? 'b2b' : 'b2c',
-        status: OrderStatus.PLACED,
+        status: initialStatus,
         paymentStatus: PaymentStatus.PENDING,
         paymentMethod: (paymentMethod as any) || PaymentMethod.CASH_ON_DELIVERY,
         items: orderItems,
         assignedDcId: assignedDc?._id,
+        linkedVillageHubId: linkedVillageHub?._id,
         deliveryAddress,
         billingAddress,
         recipientName,
@@ -230,6 +262,15 @@ export class OrderController {
             timestamp: new Date(),
             note: 'Order placed by buyer',
           },
+          ...(isCod
+            ? [
+                {
+                  status: OrderStatus.AWAITING_HUB_COLLECTION,
+                  timestamp: new Date(),
+                  note: 'Cash on Delivery confirmed; ready for hub aggregation & collection',
+                },
+              ]
+            : []),
         ],
       });
 

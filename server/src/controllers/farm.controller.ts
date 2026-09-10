@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { Farm } from '../models/Farm.model.js';
 import { Product } from '../models/Product.model.js';
+import { User } from '../models/User.model.js';
+import { VillageHub } from '../models/VillageHub.model.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { uploadSingleFileToCloudinary } from '../utils/uploadFiles.util.js';
 import { AppError } from '../middleware/error.middleware.js';
@@ -43,6 +45,21 @@ export class FarmController {
         verificationDoc,
         notes,
       });
+
+      // Auto-assign nearest VillageHub to farmer if not already assigned
+      try {
+        let nearestHub = await VillageHub.findOne({ district, isActive: true });
+        if (!nearestHub) {
+          nearestHub = await VillageHub.findOne({ isActive: true });
+        }
+        if (nearestHub) {
+          await User.findByIdAndUpdate(req.user!.userId, {
+            $set: { assignedHubId: nearestHub._id },
+          });
+        }
+      } catch (hubErr) {
+        // Non-blocking hub assignment
+      }
 
       res.status(201).json({
         success: true,

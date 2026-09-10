@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { User } from '../models/User.model.js';
 import { Order } from '../models/Order.model.js';
 import { Farm } from '../models/Farm.model.js';
+import { Vehicle } from '../models/Vehicle.model.js';
 import { Product } from '../models/Product.model.js';
 import { LedgerEntry } from '../models/LedgerEntry.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
@@ -25,6 +26,7 @@ export class AdminController {
         pendingWithdrawalsCount,
         activeOrdersCount,
         pendingFarmsCount,
+        pendingVehiclesCount,
         totalGmvResult,
       ] = await Promise.all([
         User.countDocuments({ isActive: true }),
@@ -40,6 +42,7 @@ export class AdminController {
           },
         }),
         Farm.countDocuments({ verificationStatus: VerificationStatus.PENDING, isActive: true }),
+        Vehicle.countDocuments({ status: VerificationStatus.PENDING }),
         Order.aggregate([
           { $match: { status: OrderStatus.COMPLETED } },
           {
@@ -63,6 +66,7 @@ export class AdminController {
           pendingWithdrawalsCount,
           activeOrdersCount,
           pendingFarmsCount,
+          pendingVehiclesCount,
           gmv,
           platformRevenue,
         },

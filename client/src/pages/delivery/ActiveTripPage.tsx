@@ -14,6 +14,7 @@ import { getDeliveryNavItems } from '@/lib/navItems';
 import { DeliveryService } from '@/services/delivery.service';
 import { RatingService } from '@/services/rating.service';
 import { ChatDrawer } from '@/components/organisms/ChatDrawer';
+import { RateCustomerModal } from '@/components/organisms/RateCustomerModal';
 import {
   Truck,
   MapPin,
@@ -53,9 +54,6 @@ export const ActiveTripPage: React.FC = () => {
 
   // Customer rating after completion
   const [showRateCustomerModal, setShowRateCustomerModal] = useState(false);
-  const [customerRatingScore, setCustomerRatingScore] = useState(5);
-  const [customerReviewText, setCustomerReviewText] = useState('');
-  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   // 30s GPS ping interval ref
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -162,29 +160,6 @@ export const ActiveTripPage: React.FC = () => {
     }
   };
 
-  const handleSubmitCustomerRating = async () => {
-    if (!activeTrip?._id) {
-      navigate('/delivery/dashboard');
-      return;
-    }
-    try {
-      setIsSubmittingRating(true);
-      await RatingService.submitRating({
-        orderId: activeTrip._id,
-        targetType: 'customer',
-        ratingScore: customerRatingScore,
-        reviewText: customerReviewText,
-      });
-      toast.success('Customer rating submitted!');
-    } catch (err: any) {
-      console.warn('Rating submission error:', err);
-    } finally {
-      setIsSubmittingRating(false);
-      setShowRateCustomerModal(false);
-      navigate('/delivery/dashboard');
-    }
-  };
-
   const handleReportException = async () => {
     if (!activeTrip) return;
     try {
@@ -261,18 +236,6 @@ export const ActiveTripPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {currentStep === 1 && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    isLoading={isStartingRun}
-                    onClick={handleStartDeliveryRun}
-                    className="bg-emerald-600 hover:bg-emerald-500 font-bold"
-                    leftIcon={<Truck className="w-4 h-4" />}
-                  >
-                    Start Doorstep Run
-                  </Button>
-                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -286,12 +249,12 @@ export const ActiveTripPage: React.FC = () => {
                 >
                   Navigate (Google Maps)
                 </Button>
-                {currentStep === 2 && (
+                {currentStep < 3 && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsExceptionOpen(true)}
-                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    className="text-red-600 border-red-300 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/30"
                     leftIcon={<AlertTriangle className="w-4 h-4" />}
                   >
                     Report Issue
@@ -300,22 +263,44 @@ export const ActiveTripPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Step progress */}
-            <div className="grid grid-cols-3 gap-3 text-center">
-              {(['Pickup at DC / Hub', 'En Route to Buyer', 'OTP Verification'] as const).map((label, i) => (
-                <div
-                  key={label}
-                  className={`p-3.5 rounded-2xl border text-xs font-bold transition-all ${
-                    currentStep === i + 1
-                      ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200'
-                      : currentStep > i + 1
-                      ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-400'
-                  }`}
-                >
-                  {i + 1}. {label}
-                </div>
-              ))}
+            {/* Linear Trip Progress Stepper */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { step: 1, title: 'Pickup at DC / Hub', desc: 'Verify package count & load cargo' },
+                { step: 2, title: 'En Route to Buyer', desc: 'Doorstep navigation & live tracking' },
+                { step: 3, title: 'Customer Handover & OTP', desc: 'Verify OTP or photo to unlock payout' },
+              ].map(({ step, title, desc }) => {
+                const isCurrent = currentStep === step;
+                const isCompleted = currentStep > step;
+                return (
+                  <div
+                    key={step}
+                    className={`p-4 rounded-2xl border text-left transition-all ${
+                      isCurrent
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 shadow-sm ring-1 ring-emerald-500/20'
+                        : isCompleted
+                        ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/20 text-emerald-700 dark:text-emerald-400'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        {step}. {title}
+                      </span>
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : isCurrent ? (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-600 text-white">
+                          In Progress
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">Upcoming</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300">{desc}</p>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Step 1: DC Pickup Confirmation Card */}
@@ -535,68 +520,19 @@ export const ActiveTripPage: React.FC = () => {
           </div>
         )}
 
-        {/* Rate Customer Modal */}
-        {showRateCustomerModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-            <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95">
-              <div>
-                <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-lg flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  Rate Customer Handover
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">Share feedback about {recipientName}</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-center gap-2 py-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setCustomerRatingScore(star)}
-                      className="p-1 cursor-pointer transition-transform hover:scale-110"
-                    >
-                      <CheckCircle2
-                        className={`w-8 h-8 ${
-                          star <= customerRatingScore ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-700'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-
-                <Input
-                  label="Review / Feedback (optional)"
-                  value={customerReviewText}
-                  onChange={(e) => setCustomerReviewText(e.target.value)}
-                  placeholder="e.g. Prompt handover, friendly customer..."
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowRateCustomerModal(false);
-                    navigate('/delivery/dashboard');
-                  }}
-                >
-                  Skip
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  isLoading={isSubmittingRating}
-                  onClick={handleSubmitCustomerRating}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black"
-                >
-                  Submit Rating
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Consolidated Tag-Enabled Customer Rating Modal */}
+        <RateCustomerModal
+          isOpen={showRateCustomerModal}
+          order={activeTrip}
+          onClose={() => {
+            setShowRateCustomerModal(false);
+            navigate('/delivery/dashboard');
+          }}
+          onSubmitSuccess={() => {
+            setShowRateCustomerModal(false);
+            navigate('/delivery/dashboard');
+          }}
+        />
 
         {/* Real-time Customer Coordination Drawer */}
         <ChatDrawer

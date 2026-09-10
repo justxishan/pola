@@ -35,6 +35,7 @@ router.patch(
   '/:id',
   authenticate,
   requireRole(Role.FARMER, Role.COLLECTOR),
+  upload.array('images', 5),
   ProductController.updateProduct
 );
 

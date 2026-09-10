@@ -10,12 +10,29 @@ import { Role } from '@pola/shared';
 const router = Router();
 
 router.use(authenticate);
-router.use(requireRole(Role.DELIVERY_INDIVIDUAL, Role.DELIVERY_COMPANY, Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS));
+router.use(
+  requireRole(
+    Role.DELIVERY_INDIVIDUAL,
+    Role.DELIVERY_COMPANY,
+    Role.ADMIN_SUPER,
+    Role.ADMIN_FINANCE,
+    Role.ADMIN_LOGISTICS,
+    Role.ADMIN_SUPPORT
+  )
+);
 
-router.get('/pending', requireRole(Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS), VehicleController.getPendingVehicles);
+router.get(
+  '/pending',
+  requireRole(Role.ADMIN_SUPER, Role.ADMIN_FINANCE, Role.ADMIN_LOGISTICS, Role.ADMIN_SUPPORT),
+  VehicleController.getPendingVehicles
+);
 router.post('/', validateRequest(RegisterVehicleSchema), VehicleController.registerVehicle);
 router.get('/my-vehicles', VehicleController.getMyVehicles);
-router.patch('/:id/verify', requireRole(Role.ADMIN_SUPER, Role.ADMIN_LOGISTICS), VehicleController.verifyVehicle);
+router.patch(
+  '/:id/verify',
+  requireRole(Role.ADMIN_SUPER, Role.ADMIN_FINANCE, Role.ADMIN_LOGISTICS, Role.ADMIN_SUPPORT),
+  VehicleController.verifyVehicle
+);
 router.post(
   '/:id/documents',
   upload.fields([

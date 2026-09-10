@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/lib/i18n';
 import { getFarmerNavItems } from '@/lib/navItems';
+import { FileDropzone } from '@/components/molecules/FileDropzone';
 import { STANDARD_UNITS, UNIT_LABELS, getPricingUnitInputLabel } from '@pola/shared';
 import {
   ArrowLeft,
@@ -19,6 +20,8 @@ import {
   FileText,
   Globe,
   Lock,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -47,6 +50,7 @@ export const EditProductPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [productStatus, setProductStatus] = useState('active');
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [pricingTiers, setPricingTiers] = useState<
     Array<{ minQuantity: number; maxQuantity?: number; pricePerUnit: number }>
   >([]);
@@ -114,6 +118,8 @@ export const EditProductPage: React.FC = () => {
     const availNum = parseFloat(availableQuantity) || 0;
     const moqNum = parseInt(minOrderQuantity) || 1;
 
+    const totalImages = existingImages.length + newImageFiles.length;
+
     if (publishToMarketplace) {
       if (priceNum <= 0) {
         toast.error('Price must be greater than 0 to publish to marketplace');
@@ -127,6 +133,15 @@ export const EditProductPage: React.FC = () => {
         toast.error('Minimum order quantity cannot exceed available stock');
         return;
       }
+      if (totalImages === 0) {
+        toast.error('Please upload at least 1 photo of your crop');
+        return;
+      }
+    }
+
+    if (totalImages > 5) {
+      toast.error('A maximum of 5 photos are allowed per listing');
+      return;
     }
 
     try {
@@ -140,27 +155,38 @@ export const EditProductPage: React.FC = () => {
         pricePerUnit: Number(t.unitPrice ?? t.pricePerUnit ?? 0),
       }));
 
-      await ProductService.updateProduct(id, {
-        productName: title.trim(),
-        title: title.trim(),
-        category: category as any,
-        farmId: farmId || undefined,
-        unit: unit as any,
-        basePricePerUnit: priceNum,
-        pricePerUnit: priceNum,
-        minOrderQuantity: moqNum,
-        availableQuantity: availNum,
-        isOrganic,
-        seasonTag: season as any,
-        season: season as any,
-        description,
-        b2bPricingTiers: normalizedTiers,
-        pricingTiers: normalizedTiers,
-        isDraft: !publishToMarketplace,
-        saveAsDraft: !publishToMarketplace,
-        publish: publishToMarketplace,
-        status: publishToMarketplace ? 'active' : 'draft',
+      const formData = new FormData();
+      formData.append('productName', title.trim());
+      formData.append('title', title.trim());
+      formData.append('category', category);
+      if (farmId) formData.append('farmId', farmId);
+      formData.append('unit', unit);
+      formData.append('basePricePerUnit', String(priceNum));
+      formData.append('pricePerUnit', String(priceNum));
+      formData.append('minOrderQuantity', String(moqNum));
+      formData.append('availableQuantity', String(availNum));
+      formData.append('isOrganic', String(isOrganic));
+      formData.append('seasonTag', season);
+      formData.append('season', season);
+      formData.append('description', description);
+      formData.append('b2bPricingTiers', JSON.stringify(normalizedTiers));
+      formData.append('pricingTiers', JSON.stringify(normalizedTiers));
+      formData.append('isDraft', String(!publishToMarketplace));
+      formData.append('saveAsDraft', String(!publishToMarketplace));
+      formData.append('publish', String(publishToMarketplace));
+      formData.append('status', publishToMarketplace ? 'active' : 'draft');
+
+      // Append retained existing image URLs
+      existingImages.forEach((imgUrl) => {
+        formData.append('images', imgUrl);
       });
+
+      // Append new image files
+      newImageFiles.forEach((file) => {
+        formData.append('images', file);
+      });
+
+      await ProductService.updateProduct(id, formData);
 
       toast.success(
         publishToMarketplace
@@ -338,38 +364,91 @@ export const EditProductPage: React.FC = () => {
                 />
               </div>
 
-              {/* Attached Photos (persisted on server/Cloudinary - strictly immutable) */}
-              {existingImages.length > 0 && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        Uploaded Produce Photos ({existingImages.length})
-                      </label>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                        <Lock className="w-3 h-3" /> Locked
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-400">
-                      Photos cannot be replaced once listed
-                    </span>
+              {/* Produce Photos (Existing retained + New uploads, 1 to 5 total) */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-emerald-500" />
+                      Produce Photos ({existingImages.length + newImageFiles.length}/5)
+                    </label>
                   </div>
-                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                  <span className="text-[11px] text-slate-400">
+                    Add or remove photos (1 to 5 photos)
+                  </span>
+                </div>
+
+                {/* Thumbnail strip of existing and new photos */}
+                {(existingImages.length > 0 || newImageFiles.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
                     {existingImages.map((imgUrl, idx) => (
                       <div
-                        key={idx}
-                        className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-900"
+                        key={`existing-${idx}`}
+                        className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-900 group"
                       >
                         <img
                           src={imgUrl}
-                          alt={`Uploaded crop ${idx + 1}`}
+                          alt={`Existing photo ${idx + 1}`}
                           className="w-full h-full object-cover"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setExistingImages(existingImages.filter((_, i) => i !== idx))}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-red-600/90 hover:bg-red-600 text-white shadow-md transition-all cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white">
+                          Saved
+                        </span>
                       </div>
                     ))}
+
+                    {newImageFiles.map((file, idx) => {
+                      const objectUrl = URL.createObjectURL(file);
+                      return (
+                        <div
+                          key={`new-${idx}`}
+                          className="relative w-20 h-20 rounded-xl overflow-hidden border border-emerald-400/50 shrink-0 bg-slate-100 dark:bg-slate-900 group"
+                        >
+                          <img
+                            src={objectUrl}
+                            alt={`New file ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setNewImageFiles(newImageFiles.filter((_, i) => i !== idx))}
+                            className="absolute top-1 right-1 p-1 rounded-full bg-red-600/90 hover:bg-red-600 text-white shadow-md transition-all cursor-pointer"
+                            title="Remove photo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-emerald-600 text-[9px] font-bold text-white">
+                            New
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                )}
+
+                {existingImages.length + newImageFiles.length < 5 && (
+                  <FileDropzone
+                    label="Add More Photos"
+                    helperText={`Upload JPG or PNG (${5 - (existingImages.length + newImageFiles.length)} slots remaining)`}
+                    accept="image/*"
+                    multiple={true}
+                    maxFiles={5 - (existingImages.length + newImageFiles.length)}
+                    files={newImageFiles}
+                    onFilesChange={(files) => {
+                      const allowedCount = 5 - existingImages.length;
+                      setNewImageFiles(files.slice(0, allowedCount));
+                    }}
+                  />
+                )}
+              </div>
 
               {/* B2B Wholesale Pricing Tiers */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 space-y-3">

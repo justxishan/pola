@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { Product } from '../models/Product.model.js';
+import { Order } from '../models/Order.model.js';
 import { Farm } from '../models/Farm.model.js';
 import { User } from '../models/User.model.js';
 import { Role, VerificationStatus } from '@pola/shared';
@@ -352,9 +353,48 @@ export class ProductController {
         updates.status = (isFarmVerified && isFarmerVerified) ? 'active' : 'pending_verification';
       }
 
-      // Farmer cannot replace photos added to the crop listing
-      if (product.images && product.images.length > 0) {
-        delete updates.images;
+      // Handle uploaded image files if present
+      let uploadedUrls: string[] = [];
+      const files = req.files as Express.Multer.File[];
+      if (files && files.length > 0) {
+        uploadedUrls = await Promise.all(
+          files.map(async (file) => {
+            const upload = await CloudinaryService.uploadBuffer(file.buffer, 'pola/products');
+            return upload.secure_url;
+          })
+        );
+      }
+
+      // Handle image updates / replacements
+      if (uploadedUrls.length > 0 || updates.images !== undefined) {
+        let keptImages: string[] = [];
+        if (typeof updates.images === 'string') {
+          try {
+            const parsed = JSON.parse(updates.images);
+            if (Array.isArray(parsed)) {
+              keptImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+            } else if (updates.images.trim().startsWith('http')) {
+              keptImages = [updates.images.trim()];
+            }
+          } catch {
+            if (updates.images.trim().startsWith('http')) {
+              keptImages = [updates.images.trim()];
+            }
+          }
+        } else if (Array.isArray(updates.images)) {
+          keptImages = updates.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+        } else if (updates.images === undefined && product.images) {
+          keptImages = product.images;
+        }
+
+        const mergedImages = [...keptImages, ...uploadedUrls];
+        if (mergedImages.length === 0) {
+          throw new AppError('Crop listing must have at least 1 photo', 400);
+        }
+        if (mergedImages.length > 5) {
+          throw new AppError('Crop listing cannot have more than 5 photos', 400);
+        }
+        updates.images = mergedImages;
       }
 
       const oldPrice = product.basePricePerUnit;
@@ -406,7 +446,7 @@ export class ProductController {
   }
 
   /**
-   * Delete Crop Listing (Only drafts can be deleted; listed crops cannot be deleted)
+   * Delete Crop Listing (Permanently deletes if no order history; delists if sales history exists)
    */
   static async deleteProduct(req: Request, res: Response, next: NextFunction) {
     try {
@@ -416,20 +456,28 @@ export class ProductController {
         throw new AppError('Product not found or unauthorized', 404);
       }
 
-      // Listed crops cannot be deleted
-      if (product.status !== 'draft') {
-        throw new AppError(
-          'Listed crop listings cannot be deleted. You can deactivate the listing instead to pause marketplace sales.',
-          400
-        );
+      // Check if product is referenced in past/active orders
+      const hasOrders = await Order.exists({ 'items.productId': product._id });
+
+      if (!hasOrders) {
+        await Product.findByIdAndDelete(product._id);
+        return res.status(200).json({
+          success: true,
+          action: 'deleted',
+          message: 'Listing permanently deleted.',
+        });
+      } else {
+        // Order history exists: delist to protect buyer history, tracking, and reviews
+        product.status = 'delisted';
+        product.availableQuantity = 0;
+        await product.save();
+        return res.status(200).json({
+          success: true,
+          action: 'delisted',
+          message: 'Listing has past sales history and has been delisted instead of permanently deleted.',
+          data: { product },
+        });
       }
-
-      await Product.findByIdAndDelete(product._id);
-
-      res.status(200).json({
-        success: true,
-        message: 'Draft crop listing deleted successfully',
-      });
     } catch (error) {
       next(error);
     }

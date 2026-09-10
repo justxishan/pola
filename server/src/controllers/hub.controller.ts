@@ -271,6 +271,18 @@ export class HubController {
         .populate('linkedDcId', 'name code district');
 
       if (!hubs || hubs.length === 0) {
+        // Fallback: If driver is not yet explicitly assigned, find active hubs in their district or nearest active hubs
+        const driverUser = await User.findById(driverId);
+        const district = driverUser?.addresses?.[0]?.district;
+        const query: any = { isActive: true };
+        if (district) query.district = district;
+        hubs = await VillageHub.find(query).populate('linkedDcId', 'name code district');
+        if (!hubs || hubs.length === 0) {
+          hubs = await VillageHub.find({ isActive: true }).populate('linkedDcId', 'name code district');
+        }
+      }
+
+      if (!hubs || hubs.length === 0) {
         return res.status(200).json({
           success: true,
           data: {
@@ -341,7 +353,9 @@ export class HubController {
       if (!hub) throw new AppError('Hub not found', 404);
 
       if (!hub.assignedLeg1Drivers.some((id: any) => id.toString() === driverId)) {
-        throw new AppError('You are not assigned to this hub', 403);
+        // Auto-assign driver to hub so they can complete the run
+        hub.assignedLeg1Drivers.push(new Types.ObjectId(driverId));
+        await hub.save();
       }
 
       if (vehicleId) {

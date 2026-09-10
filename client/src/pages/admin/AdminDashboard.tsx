@@ -38,6 +38,7 @@ export const AdminDashboard: React.FC = () => {
     pendingKycCount: 0,
     pendingPayoutsCount: 0,
     pendingFarmsCount: 0,
+    pendingVehiclesCount: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
@@ -46,6 +47,7 @@ export const AdminDashboard: React.FC = () => {
     pendingKycCount: kpis.pendingKycCount,
     pendingPayoutsCount: kpis.pendingPayoutsCount,
     pendingFarmsCount: kpis.pendingFarmsCount,
+    pendingVehiclesCount: kpis.pendingVehiclesCount,
   });
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export const AdminDashboard: React.FC = () => {
           pendingKycCount: d.pendingKycCount,
           pendingPayoutsCount: d.pendingWithdrawalsCount,
           pendingFarmsCount: d.pendingFarmsCount,
+          pendingVehiclesCount: d.pendingVehiclesCount || 0,
         });
       }
     } catch (err: any) {

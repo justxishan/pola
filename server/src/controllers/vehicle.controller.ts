@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
 import { Vehicle } from '../models/Vehicle.model.js';
+import { AuditLog } from '../models/AuditLog.model.js';
+import { NotificationService } from '../services/notification.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { AppError } from '../middleware/error.middleware.js';
 import { validateSriLankanPlate, VerificationStatus } from '@pola/shared';
@@ -145,6 +148,35 @@ export class VehicleController {
         vehicle.rejectionReason = rejectionReason;
       }
       await vehicle.save();
+
+      // Audit Trail Parity
+      await AuditLog.create({
+        adminId: new Types.ObjectId(req.user!.userId),
+        adminEmail: req.user!.email,
+        adminRole: req.user!.role,
+        action: approved ? 'VEHICLE_VERIFIED' : 'VEHICLE_REJECTED',
+        targetEntity: 'Vehicle',
+        targetId: vehicle._id.toString(),
+        details: {
+          licensePlate: vehicle.registrationPlate,
+          vehicleType: vehicle.vehicleType,
+          ownerId: vehicle.ownerId?.toString(),
+          approved,
+          rejectionReason: rejectionReason || undefined,
+        },
+      });
+
+      // Notification Parity
+      await NotificationService.sendNotification({
+        userId: vehicle.ownerId,
+        title: approved ? 'Vehicle Approved' : 'Vehicle Verification Rejected',
+        message: approved
+          ? `Your vehicle "${vehicle.registrationPlate || vehicle.makeModel || 'registered vehicle'}" has been verified and approved for logistics trips.`
+          : `Your vehicle "${vehicle.registrationPlate || vehicle.makeModel || 'registered vehicle'}" was rejected: ${rejectionReason || 'Documents could not be verified'}`,
+        type: 'kyc',
+        portal: 'delivery',
+        linkUrl: '/delivery/vehicles',
+      });
 
       res.status(200).json({
         success: true,
