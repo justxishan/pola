@@ -468,12 +468,39 @@ export class AuthController {
         updates.phone = phoneValidation.formattedNumber;
       }
 
-      // Use findByIdAndUpdate instead of Object.assign + save() to avoid
-      // Mongoose re-running subdocument required-field validation on the
-      // entire addresses array (which throws 500 on valid data).
+      // Strict whitelist of safe profile fields (blocks mass-assignment / privilege escalation)
+      const allowedFields = [
+        'fullName',
+        'username',
+        'phone',
+        'dateOfBirth',
+        'gender',
+        'preferredLanguage',
+        'themePreference',
+        'addresses',
+        'bankDetails',
+        'assignedHubId',
+        'businessName',
+        'businessRegNumber',
+        'businessType',
+        'deliveryRadiusKm',
+        'isOnline',
+        'drivingLicenseNumber',
+        'preferredShift',
+        'profileImage',
+      ];
+
+      const sanitizedUpdates: Record<string, any> = {};
+      for (const key of allowedFields) {
+        if (updates[key] !== undefined) {
+          sanitizedUpdates[key] = updates[key];
+        }
+      }
+
+      // Use findByIdAndUpdate with sanitized updates to prevent privilege escalation
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { $set: updates },
+        { $set: sanitizedUpdates },
         { new: true, runValidators: false }
       );
 

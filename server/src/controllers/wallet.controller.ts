@@ -114,28 +114,56 @@ export class WalletController {
   }
 
   /**
-   * Confirm and capture Wallet Top-up
+   * Confirm and capture Wallet Top-up (with replay prevention & verified amount calculation)
    */
   static async confirmTopUp(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.userId;
       const { paypalOrderId, amountLkr } = req.body;
 
-      await capturePayPalOrder(paypalOrderId);
+      if (!paypalOrderId) {
+        throw new AppError('PayPal Order ID is required', 400);
+      }
+
+      // Replay prevention: check if this PayPal order was already credited
+      const existing = await LedgerEntry.findOne({ externalReferenceId: paypalOrderId });
+      if (existing) {
+        throw new AppError('This PayPal payment has already been processed and credited to your wallet', 400);
+      }
+
+      const captureResult = await capturePayPalOrder(paypalOrderId);
+
+      // Verify captured USD amount against LKR credit
+      const capturedUsd = parseFloat(
+        captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || '0'
+      );
+      let verifiedLkr = Number(amountLkr);
+      if (capturedUsd > 0) {
+        const calculatedLkr = Math.round((capturedUsd / LKR_TO_USD_RATE) * 100) / 100;
+        // Enforce server-calculated amount if client amount is missing or deviates by >5%
+        if (!verifiedLkr || Math.abs(calculatedLkr - verifiedLkr) > (calculatedLkr * 0.05)) {
+          verifiedLkr = calculatedLkr;
+        }
+      }
+
+      if (!verifiedLkr || verifiedLkr <= 0) {
+        throw new AppError('Invalid payment amount captured', 400);
+      }
 
       const wallet = await EscrowService.getOrCreateWallet(userId, req.user!.role);
       const prevBal = wallet.availableBalanceLkr;
-      wallet.availableBalanceLkr += amountLkr;
+      wallet.availableBalanceLkr += verifiedLkr;
       await wallet.save();
 
       const ledgerEntry = await LedgerEntry.create({
         walletId: wallet._id,
         userId,
         transactionType: TransactionType.TOP_UP,
-        amountLkr,
+        amountLkr: verifiedLkr,
         previousBalanceLkr: prevBal,
         newBalanceLkr: wallet.availableBalanceLkr,
-        description: `Top-up of LKR ${amountLkr.toFixed(2)} via PayPal`,
+        externalReferenceId: paypalOrderId,
+        description: `Top-up of LKR ${verifiedLkr.toFixed(2)} via PayPal (${paypalOrderId})`,
       });
 
       res.status(200).json({

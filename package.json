@@ -17,6 +17,7 @@
     "db:reset-users": "npm run db:reset-users --workspace=server",
     "db:fresh": "npm run db:fresh --workspace=server",
     "db:seed": "npm run seed --workspace=server",
+    "test": "npm run test --workspace=server",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
   },
   "keywords": [

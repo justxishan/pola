@@ -11,6 +11,7 @@ export interface ILedgerEntry extends Document {
   newBalanceLkr: number;
   referenceOrderId?: Types.ObjectId;
   referenceOrderItemId?: Types.ObjectId;
+  externalReferenceId?: string; // Unique external payment reference (e.g. PayPal Order ID, Bank txn)
   description: string;
 
   // Withdrawal processing fields
@@ -41,6 +42,7 @@ const LedgerEntrySchema = new Schema<ILedgerEntry>(
     previousBalanceLkr: { type: Number, required: true },
     newBalanceLkr: { type: Number, required: true },
     referenceOrderId: { type: Schema.Types.ObjectId, ref: 'Order' },
+    externalReferenceId: { type: String, sparse: true, index: true },
     description: { type: String, required: true },
 
     withdrawalStatus: {

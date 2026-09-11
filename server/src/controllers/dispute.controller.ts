@@ -6,6 +6,7 @@ import { QualityInspection } from '../models/QualityInspection.model.js';
 import { EscrowService } from '../services/escrow.service.js';
 import { CloudinaryService } from '../services/cloudinary.service.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { assertOrderStakeholder } from '../utils/orderAuth.util.js';
 import { OrderStatus } from '@pola/shared';
 
 export class DisputeController {
@@ -19,6 +20,13 @@ export class DisputeController {
 
       const order = await Order.findById(orderId);
       if (!order) throw new AppError('Order not found', 404);
+
+      assertOrderStakeholder(
+        order,
+        userId,
+        req.user!.role,
+        'Unauthorized: Only parties involved in this order or admins can open a dispute'
+      );
 
       // Find any hub inspection evidence for side-by-side comparison
       const inspections = await QualityInspection.find({ orderId: order._id });
@@ -97,6 +105,15 @@ export class DisputeController {
         .populate('raisedByUserId', 'fullName email phone');
 
       if (!dispute) throw new AppError('Dispute not found', 404);
+
+      if (dispute.orderId) {
+        assertOrderStakeholder(
+          dispute.orderId,
+          req.user!.userId,
+          req.user!.role,
+          'Unauthorized: You do not have permission to view this dispute'
+        );
+      }
 
       res.status(200).json({
         success: true,

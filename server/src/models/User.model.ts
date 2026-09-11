@@ -232,7 +232,9 @@ const UserSchema = new Schema<IUser>(
   {
     timestamps: true,
     toJSON: {
+      virtuals: true,
       transform(_doc, ret: any) {
+        delete ret.password;
         delete ret.passwordHash;
         delete ret.otpCode;
         delete ret.otpExpiresAt;
@@ -253,7 +255,13 @@ const UserSchema = new Schema<IUser>(
         return ret;
       },
     },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual alias for frontend compatibility
+UserSchema.virtual('avatarUrl').get(function () {
+  return this.profileImage;
+});
 
 export const User = mongoose.model<IUser>('User', UserSchema);

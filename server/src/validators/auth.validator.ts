@@ -54,7 +54,6 @@ export const UpdateProfileSchema = z.object({
     drivingLicenseNumber: z.string().optional(),
     preferredShift: z.enum(['morning', 'afternoon', 'both']).optional(),
     addresses: z.array(z.any()).optional(),
-    kycStatus: z.string().optional(),
     themePreference: z.enum(['light', 'dark', 'system']).optional(),
     assignedHubId: z.string().optional(),
     profileImage: z.string().optional(),

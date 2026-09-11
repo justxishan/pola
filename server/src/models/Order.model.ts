@@ -235,5 +235,9 @@ const OrderSchema = new Schema<IOrder>(
 );
 
 OrderSchema.index({ createdAt: -1, status: 1 });
+OrderSchema.index({ 'items.farmerId': 1, status: 1, createdAt: -1 });
+OrderSchema.index({ 'items.productId': 1 });
+OrderSchema.index({ leg1DriverId: 1, status: 1 });
+OrderSchema.index({ linkedVillageHubId: 1, status: 1 });
 
 export const Order = mongoose.model<IOrder>('Order', OrderSchema);

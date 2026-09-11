@@ -215,9 +215,11 @@ export class EscrowService {
     }
 
     order.paymentStatus = PaymentStatus.REFUNDED;
-    order.status = OrderStatus.REFUNDED;
+    if (order.status !== OrderStatus.CANCELLED) {
+      order.status = OrderStatus.REFUNDED;
+    }
     order.timeline.push({
-      status: OrderStatus.REFUNDED,
+      status: order.status,
       timestamp: new Date(),
       note: `Refunded LKR ${amountToRefund.toFixed(2)} to customer wallet: ${reason}`,
     });

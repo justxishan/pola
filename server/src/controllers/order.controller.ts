@@ -4,6 +4,7 @@ import { Order } from '../models/Order.model.js';
 import { Product } from '../models/Product.model.js';
 import { User } from '../models/User.model.js';
 import { Wallet } from '../models/Wallet.model.js';
+import { LedgerEntry } from '../models/LedgerEntry.model.js';
 import { DistributionCenter } from '../models/DistributionCenter.model.js';
 import { VillageHub } from '../models/VillageHub.model.js';
 import { Farm } from '../models/Farm.model.js';
@@ -100,6 +101,7 @@ export class OrderController {
       let platformFeeTotal = 0;
       let collectorCommissionTotal = 0;
       const orderItems = [];
+      const productsToUpdate: { product: any; quantity: number }[] = [];
 
       // Validate & snapshot items
       for (const item of items) {
@@ -108,21 +110,11 @@ export class OrderController {
           product = await Product.findById(item.productId).populate('farmerId');
         }
 
-        // Fallback for sample/demo items or unseeded test ids
         if (!product || product.status !== 'active') {
-          product = await Product.findOne({ status: 'active' }).populate('farmerId');
-          if (!product) {
-            const firstFarmer = await User.findOne({ role: Role.FARMER });
-            product = await Product.create({
-              farmerId: firstFarmer?._id || customerId,
-              title: item.title || 'Fresh Harvest Produce Crate',
-              category: 'vegetables',
-              pricePerUnit: item.pricePerUnit || 250,
-              availableQuantity: 500,
-              unit: item.unit || 'kg',
-              status: 'active',
-            });
-          }
+          throw new AppError(
+            `Product "${item.title || item.productId}" is not available for purchase`,
+            400
+          );
         }
 
         if (!item.quantity || item.quantity <= 0) {
@@ -178,12 +170,49 @@ export class OrderController {
           farmerPayoutLkr: farmerPayout,
         });
 
-        // Reserve stock (prevent going below zero)
+        productsToUpdate.push({ product, quantity: item.quantity });
+      }
+
+      // Delivery Fees
+      const leg1Fee = LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR;
+      const leg2Fee = LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR;
+      const totalDeliveryFee = itemsTotal === 0 ? 0 : leg1Fee + leg2Fee;
+      const grandTotal = itemsTotal + totalDeliveryFee;
+
+      // Pre-validate wallet balance before deducting stock or creating order
+      let customerWallet: any = null;
+      const isWalletPayment =
+        paymentMethod === PaymentMethod.POLA_WALLET || paymentMethod === 'pola_wallet';
+      if (isWalletPayment) {
+        customerWallet = await Wallet.findOne({ userId: customerId });
+        if (!customerWallet || customerWallet.availableBalanceLkr < grandTotal) {
+          throw new AppError(
+            `Insufficient Pola Wallet balance (Available: LKR ${customerWallet?.availableBalanceLkr?.toFixed(2) || '0.00'}, Required: LKR ${grandTotal.toFixed(2)})`,
+            400
+          );
+        }
+      }
+
+      // Reserve stock safely after all validations pass
+      for (const { product, quantity } of productsToUpdate) {
         if (product.availableQuantity !== undefined) {
-          product.availableQuantity = Math.max(0, product.availableQuantity - item.quantity);
+          product.availableQuantity = Math.max(0, product.availableQuantity - quantity);
           await product.save();
         }
       }
+
+      // Unique Order Number
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const orderNumber = `POLA-${dateStr}-${randomSuffix}`;
+      const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const isCod =
+        paymentMethod === PaymentMethod.CASH_ON_DELIVERY ||
+        paymentMethod === 'cash_on_delivery' ||
+        paymentMethod === 'cod';
+
+      const initialStatus = isCod ? OrderStatus.AWAITING_HUB_COLLECTION : OrderStatus.PLACED;
 
       // Determine Distribution Center
       let assignedDc = await DistributionCenter.findOne({ district: deliveryAddress.district });
@@ -211,25 +240,6 @@ export class OrderController {
       if (!linkedVillageHub) {
         linkedVillageHub = await VillageHub.findOne({ isActive: true });
       }
-
-      // Delivery Fees
-      const leg1Fee = LEG1_FLAT_FEE_LKR + totalWeightKg * LEG1_PER_KG_LKR;
-      const leg2Fee = LEG2_BASE_FEE_LKR + totalWeightKg * LEG2_PER_KG_LKR;
-      const totalDeliveryFee = itemsTotal === 0 ? 0 : leg1Fee + leg2Fee;
-      const grandTotal = itemsTotal + totalDeliveryFee;
-
-      // Unique Order Number
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      const orderNumber = `POLA-${dateStr}-${randomSuffix}`;
-      const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
-
-      const isCod =
-        paymentMethod === PaymentMethod.CASH_ON_DELIVERY ||
-        paymentMethod === 'cash_on_delivery' ||
-        paymentMethod === 'cod';
-
-      const initialStatus = isCod ? OrderStatus.AWAITING_HUB_COLLECTION : OrderStatus.PLACED;
 
       const order = await Order.create({
         orderNumber,
@@ -295,19 +305,33 @@ export class OrderController {
 
       // 2. POLA WALLET Option
       if (paymentMethod === PaymentMethod.POLA_WALLET || paymentMethod === 'pola_wallet') {
-        const wallet = await Wallet.findOne({ userId: customerId });
+        const wallet = customerWallet || (await Wallet.findOne({ userId: customerId }));
         if (!wallet || wallet.availableBalanceLkr < grandTotal) {
           throw new AppError('Insufficient wallet balance for payment', 400);
         }
 
+        const prevBal = wallet.availableBalanceLkr;
         wallet.availableBalanceLkr -= grandTotal;
         await wallet.save();
+
+        await LedgerEntry.create({
+          walletId: wallet._id,
+          userId: customerId,
+          transactionType: TransactionType.ORDER_PAYMENT,
+          amountLkr: -grandTotal,
+          previousBalanceLkr: prevBal,
+          newBalanceLkr: wallet.availableBalanceLkr,
+          referenceOrderId: order._id,
+          description: `Payment for Order #${order.orderNumber} via Pola Wallet`,
+        });
+
         await EscrowService.holdOrderInEscrow(order._id);
+        const updatedOrder = await Order.findById(order._id);
 
         return res.status(201).json({
           success: true,
           message: 'Order placed and paid with Pola Wallet balance',
-          data: { order },
+          data: { order: updatedOrder || order },
         });
       }
 
@@ -660,16 +684,21 @@ export class OrderController {
         }
       }
 
-      // If paid via Pola Wallet, refund balance
-      if ((order.paymentMethod as any) === PaymentMethod.POLA_WALLET || (order.paymentMethod as any) === 'pola_wallet') {
-        const wallet = await Wallet.findOne({ userId: order.customerId });
-        if (wallet) {
-          wallet.availableBalanceLkr += order.grandTotal;
-          await wallet.save();
-        }
-      }
-
       await order.save();
+
+      // If paid via Pola Wallet or payment was held in escrow, refund balance through EscrowService
+      if (
+        (order.paymentMethod as any) === PaymentMethod.POLA_WALLET ||
+        (order.paymentMethod as any) === 'pola_wallet' ||
+        order.paymentStatus === PaymentStatus.HELD_IN_ESCROW ||
+        order.paymentStatus === PaymentStatus.RELEASED
+      ) {
+        await EscrowService.refundOrderToCustomerWallet(
+          order._id,
+          order.grandTotal,
+          req.body?.reason || 'Order cancelled by customer'
+        );
+      }
 
       // Notifications with portal tags
       await NotificationService.sendNotification({
